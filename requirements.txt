@@ -1,5 +1,5 @@
 # Core
-python-neo4j==5.18.0
+neo4j==5.18.0
 networkx==3.3
 pandas==2.2.2
 numpy==1.26.4
