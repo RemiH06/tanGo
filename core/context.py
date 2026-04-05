@@ -64,5 +64,20 @@ class TrafficContext:
         -------
         TrafficContext inmutable con todos los campos calculados.
         """
-        # TODO: implementar lógica de is_weekend, is_rush_hour, is_late_night
-        raise NotImplementedError
+        hour       = timestamp.hour
+        weekday    = timestamp.weekday()   # 0=lunes … 6=domingo
+
+        is_weekend   = weekday >= 5
+        is_rush_hour = (7 <= hour <= 9) or (17 <= hour <= 20)
+        is_late_night = 0 <= hour <= 5
+
+        return cls(
+            timestamp      = timestamp,
+            temperature_c  = temperature_c,
+            is_raining     = is_raining,
+            wind_speed_kmh = wind_speed_kmh,
+            visibility_m   = visibility_m,
+            is_weekend     = is_weekend,
+            is_rush_hour   = is_rush_hour,
+            is_late_night  = is_late_night,
+        )
