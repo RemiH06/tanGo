@@ -1,0 +1,9 @@
+# Airflow se instala separado — requiere Docker o Linux.
+# En Windows usar WSL2 o directamente el contenedor Docker.
+#
+# Versión compatible con Python 3.13:
+apache-airflow==2.11.2
+#
+# Instalación manual (dentro del contenedor o WSL):
+#   pip install apache-airflow==2.11.2 \
+#       --constraint "https://raw.githubusercontent.com/apache/airflow/constraints-2.11.2/constraints-3.11.txt"
