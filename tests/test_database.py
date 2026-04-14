@@ -11,7 +11,8 @@ Ejecutar:
 """
 
 import pytest
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
+UTC = timezone.utc
 
 from core.database import DatabaseClient, IntersectionRecord, EntityRecord
 from core.context import TrafficContext
@@ -98,7 +99,8 @@ class TestSaveSnapshot:
                                        ctx_kwargs):
         db.save_snapshot(snapshot, pressure_map,
                          intersection_names, ctx_kwargs)
-        history = db.get_pressure_history("A1", last_n_minutes=60)
+        since = snapshot.timestamp - timedelta(minutes=1)
+        history = db.get_pressure_history("A1", since=since)
         assert len(history) == 1
         assert history[0].pressure == pressure_map["A1"]
 
@@ -107,7 +109,8 @@ class TestSaveSnapshot:
                                   ctx_kwargs):
         db.save_snapshot(snapshot, pressure_map,
                          intersection_names, ctx_kwargs)
-        history = db.get_pressure_history("A1", last_n_minutes=60)
+        since = snapshot.timestamp - timedelta(minutes=1)
+        history = db.get_pressure_history("A1", since=since)
         record = history[0]
         assert record.is_rush_hour  == ctx_kwargs["is_rush_hour"]
         assert record.is_weekend    == ctx_kwargs["is_weekend"]
@@ -144,12 +147,13 @@ class TestSavePhaseUpdate:
                          intersection_names, ctx_kwargs)
         db.save_phase_update("A1", "green", snapshot.timestamp)
 
-        history = db.get_pressure_history("A1", last_n_minutes=60)
+        since = snapshot.timestamp - timedelta(minutes=1)
+        history = db.get_pressure_history("A1", since=since)
         assert history[0].phase == "green"
 
     def test_update_nonexistent_does_not_crash(self, db):
         """Si no hay registro para ese timestamp, no debe explotar."""
-        db.save_phase_update("FAKE", "green", datetime.utcnow())
+        db.save_phase_update("FAKE", "green", datetime.now(UTC))
 
 
 # ── Tests: save_incident ──────────────────────────────────────────────────────
@@ -199,7 +203,8 @@ class TestPhaseDistribution:
         db.save_snapshot(snapshot, pressure_map, intersection_names)
         db.save_phase_update("A1", "green", snapshot.timestamp)
 
-        dist = db.get_phase_distribution("A1", last_n_minutes=60)
+        since = snapshot.timestamp - timedelta(minutes=1)
+        dist = db.get_phase_distribution("A1", since=since)
         assert "green" in dist
         assert dist["green"] == 1
 
