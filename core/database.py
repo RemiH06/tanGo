@@ -34,7 +34,8 @@ Uso:
 
 from __future__ import annotations
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
+UTC = timezone.utc
 from typing import List, Optional, Dict
 import os
 import logging
@@ -352,7 +353,8 @@ class DatabaseClient:
     # ── Consultas ─────────────────────────────────────────────────────────────
 
     def get_pressure_history(self, node_id: str,
-                             last_n_minutes: int = 60) -> List[IntersectionRecord]:
+                             last_n_minutes: int = 60,
+                             since: Optional[datetime] = None) -> List[IntersectionRecord]:
         """
         Historial de presión de una intersección en los últimos N minutos.
         Usado por el dashboard para graficar la evolución de la presión.
@@ -360,19 +362,20 @@ class DatabaseClient:
         Parameters
         ----------
         node_id         : ID de la intersección.
-        last_n_minutes  : Ventana de tiempo a consultar.
+        last_n_minutes  : Ventana de tiempo a consultar (ignorado si se pasa since).
+        since           : Timestamp mínimo explícito (útil en tests).
 
         Returns
         -------
         Lista de IntersectionRecord ordenados por timestamp ascendente.
         """
-        since = datetime.utcnow() - timedelta(minutes=last_n_minutes)
+        cutoff = since or (datetime.now(UTC) - timedelta(minutes=last_n_minutes))
         with Session(self._engine) as session:
             return (
                 session.query(IntersectionRecord)
                 .filter(
                     IntersectionRecord.node_id  == node_id,
-                    IntersectionRecord.timestamp >= since,
+                    IntersectionRecord.timestamp >= cutoff,
                 )
                 .order_by(IntersectionRecord.timestamp.asc())
                 .all()
@@ -410,16 +413,23 @@ class DatabaseClient:
             return {r.node_id: r.pressure for r in records}
 
     def get_phase_distribution(self, node_id: str,
-                               last_n_minutes: int = 60) -> Dict[str, int]:
+                               last_n_minutes: int = 60,
+                               since: Optional[datetime] = None) -> Dict[str, int]:
         """
         Distribución de fases de una intersección en los últimos N minutos.
         Útil para el reporte: cuánto tiempo estuvo en verde vs rojo.
+
+        Parameters
+        ----------
+        node_id        : ID de la intersección.
+        last_n_minutes : Ventana de tiempo (ignorado si se pasa since).
+        since          : Timestamp mínimo explícito (útil en tests).
 
         Returns
         -------
         Dict phase → conteo de registros en esa fase.
         """
-        since = datetime.utcnow() - timedelta(minutes=last_n_minutes)
+        cutoff = since or (datetime.now(UTC) - timedelta(minutes=last_n_minutes))
         with Session(self._engine) as session:
             from sqlalchemy import func
             rows = (
@@ -429,7 +439,7 @@ class DatabaseClient:
                 )
                 .filter(
                     IntersectionRecord.node_id  == node_id,
-                    IntersectionRecord.timestamp >= since,
+                    IntersectionRecord.timestamp >= cutoff,
                 )
                 .group_by(IntersectionRecord.phase)
                 .all()
