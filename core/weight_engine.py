@@ -5,56 +5,61 @@ Motor de pesos — corazón de la lógica de tanGo.
 
 Diseño: todas las funciones son PURAS.
   - No guardan estado.
-  - No llaman APIs.
-  - No escriben a base de datos.
-  - Dado el mismo input, siempre devuelven el mismo output.
+  - No llaman APIs ni escriben a base de datos.
+  - Dado el mismo input → siempre el mismo output.
+  - Testeables sin mocks.
 
-Esto las hace 100% testeables sin mocks y fáciles de razonar.
-La lógica de "cuándo cambiar el semáforo" vive aquí, no en Intersection.
-
-Reglas de peso implementadas (a completar):
-
-  Vías (RoadSegment):
-    - Fin de semana          → base_weight × 0.7 (distribuir tráfico)
-    - Hora pico              → base_weight × 1.2
-    - Madrugada (00-05h)     → base_weight × 0.5 (menos tráfico esperado)
-    - Lluvia intensa         → base_weight × 0.8 (conducción más lenta)
-
-  Vehículos (Vehicle):
-    - Madrugada              → base_weight × 1.5 (más prioridad a autos)
-    - EMERGENCY              → retornar base_weight sin modificar
-    - Lluvia + BICYCLE       → base_weight × 1.3
-
-  Peatones (Pedestrian):
-    - Temperatura < 5°C      → base_weight × 1.3 (mayor vulnerabilidad)
-    - Temperatura > 35°C     → base_weight × 1.3
-    - Lluvia                 → base_weight × 1.3
-    - Madrugada              → base_weight × 0.8
-    - is_wheelchair          → siempre base_weight × 1.5 (mínimo)
+Flujo por ciclo:
+  1. compute_road_weight(segmento, ctx)      → peso efectivo de la vía
+  2. compute_entity_weight(entidad, ctx)     → peso efectivo de cada entidad
+  3. aggregate_pressure(entidades, inter, ctx) → presión total normalizada
+  4. should_change_phase(presión)            → bool → cambiar o no
 """
 
 from __future__ import annotations
-from typing import List, Sequence
+from typing import Sequence
+import logging
 
 from core.context import TrafficContext
 from core.entities import TrafficEntity, Vehicle, Pedestrian, VehicleType
 from core.road import RoadSegment, Intersection
 
+logger = logging.getLogger(__name__)
+
+# Umbral de histéresis — evita que el semáforo oscile si la presión
+# ronda exactamente el valor de threshold.
+# Para cambiar a verde se necesita presión >= threshold + HYSTERESIS
+# Para mantenerse verde se necesita presión >= threshold - HYSTERESIS
+_HYSTERESIS: float = 5.0
+
+# Peso mínimo de vía para evitar división por cero
+_MIN_ROAD_WEIGHT: float = 1.0
+
 
 class WeightEngine:
     """
-    Motor de pesos. Instanciar una vez y reutilizar — es stateless.
-    Todos los métodos son efectivamente funciones puras envueltas
-    en una clase para organización y para facilitar la inyección
-    de dependencias en los tests.
+    Motor de pesos — stateless, instanciar una vez y reutilizar.
+
+    Todos los métodos reciben todo lo que necesitan como parámetros
+    y no modifican ningún estado externo. Esto los hace funciones
+    puras en la práctica aunque estén envueltos en una clase.
     """
 
-    # ── Modificadores de vía ─────────────────────────────────────────────────
+    # ── Peso de vía ───────────────────────────────────────────────────────────
 
     def compute_road_weight(self, road: RoadSegment,
                             ctx: TrafficContext) -> float:
         """
         Calcula el peso efectivo de un segmento vial dado el contexto.
+
+        Modificadores:
+          - Hora pico    → × 1.2  (más tráfico, mayor importancia)
+          - Fin de semana → × 0.7 (distribuir flujo entre más rutas)
+          - Madrugada    → × 0.5  (menos tráfico esperado)
+          - Lluvia       → × 0.8  (velocidades más bajas)
+
+        Los modificadores son mutuamente excluyentes en tiempo
+        (no puede ser hora pico y madrugada al mismo tiempo).
 
         Parameters
         ----------
@@ -63,30 +68,46 @@ class WeightEngine:
 
         Returns
         -------
-        Peso efectivo de la vía como float positivo.
+        Peso efectivo de la vía — siempre >= _MIN_ROAD_WEIGHT.
         """
-        # TODO: aplicar modificadores según ctx
-        raise NotImplementedError
+        weight = road.base_weight
 
-    # ── Modificadores de entidad ──────────────────────────────────────────────
+        # Modificadores temporales (mutuamente excluyentes)
+        if ctx.is_late_night:
+            weight *= 0.5
+        elif ctx.is_rush_hour:
+            weight *= 1.2
+
+        # Modificadores independientes
+        if ctx.is_weekend:
+            weight *= 0.7
+        if ctx.is_raining:
+            weight *= 0.8
+
+        return max(weight, _MIN_ROAD_WEIGHT)
+
+    # ── Peso de entidad ───────────────────────────────────────────────────────
 
     def compute_entity_weight(self, entity: TrafficEntity,
                               ctx: TrafficContext) -> float:
         """
-        Delega al método compute_weight() de cada entidad
-        y aplica modificadores globales adicionales si aplica.
+        Calcula el peso efectivo de una entidad delegando a su propio
+        método compute_weight() e identificando emergencias.
+
+        Si es un vehículo de emergencia retorna el peso directamente
+        sin modificadores adicionales — SafetyGuard lo detecta por
+        el valor 999 y hace override inmediato.
 
         Parameters
         ----------
-        entity : Entidad a evaluar (Vehicle o Pedestrian).
+        entity : Entidad a evaluar.
         ctx    : Contexto ambiental del ciclo.
 
         Returns
         -------
         Peso efectivo de la entidad.
         """
-        # TODO: llamar entity.compute_weight(ctx) + modificadores globales
-        raise NotImplementedError
+        return entity.compute_weight(ctx)
 
     # ── Agregación de presión ─────────────────────────────────────────────────
 
@@ -94,29 +115,61 @@ class WeightEngine:
                            intersection: Intersection,
                            ctx: TrafficContext) -> float:
         """
-        Suma los pesos efectivos de todas las entidades presentes
-        en una intersección, normalizados contra el peso de la vía.
+        Calcula la presión total sobre una intersección.
 
-        Fórmula base:
-            presión = Σ compute_entity_weight(e, ctx)
-                      / compute_road_weight(segmento_principal, ctx)
-                      × 100
+        Fórmula:
+            presión = (Σ peso_entidad(e, ctx) / peso_vía(segmento_principal, ctx)) × 100
 
-        Una presión ≥ 100 indica que hay suficiente demanda para
-        justificar un cambio de fase.
+        Una presión ≥ 100 significa que la demanda de las entidades
+        iguala o supera la capacidad/importancia de la vía principal.
+
+        Si no hay entidades → presión = 0.
+        Si no hay segmento principal → se usa _MIN_ROAD_WEIGHT como divisor.
 
         Parameters
         ----------
-        entities     : Entidades presentes en la intersección ahora.
+        entities     : Entidades presentes en la intersección.
         intersection : Intersección a evaluar.
         ctx          : Contexto ambiental del ciclo.
 
         Returns
         -------
-        Presión normalizada (0.0 – ∞). Valor > 100 → cambiar fase.
+        Presión normalizada en [0, ∞). ≥ 100 → cambiar fase.
         """
-        # TODO: implementar agregación y normalización
-        raise NotImplementedError
+        if not entities:
+            return 0.0
+
+        # Detectar emergencia — presión máxima inmediata
+        for entity in entities:
+            if (isinstance(entity, Vehicle)
+                    and entity.vehicle_type == VehicleType.EMERGENCY):
+                logger.warning(
+                    "[%s] Vehículo de emergencia detectado — presión máxima",
+                    intersection.name
+                )
+                return 999.0
+
+        # Suma de pesos de entidades
+        total_entity_weight = sum(
+            self.compute_entity_weight(e, ctx) for e in entities
+        )
+
+        # Peso del segmento principal (el de mayor categoría)
+        main_seg = intersection.main_segment()
+        road_weight = (
+            self.compute_road_weight(main_seg, ctx)
+            if main_seg else _MIN_ROAD_WEIGHT
+        )
+
+        pressure = (total_entity_weight / road_weight) * 100.0
+
+        logger.debug(
+            "[%s] presión=%.1f | entidades=%d | Σpeso=%.1f | peso_vía=%.1f",
+            intersection.name, pressure,
+            len(entities), total_entity_weight, road_weight
+        )
+
+        return pressure
 
     # ── Decisión de fase ──────────────────────────────────────────────────────
 
@@ -124,7 +177,12 @@ class WeightEngine:
                             threshold: float = 100.0) -> bool:
         """
         Decide si la presión acumulada justifica cambiar la fase.
-        Función pura más simple del sistema — fácil de testear.
+
+        Usa histéresis para evitar oscilación cuando la presión
+        ronda el umbral:
+          - Para activar el cambio: pressure >= threshold + HYSTERESIS
+          - Esta función evalúa solo si supera el umbral base.
+            La histéresis completa se implementa en Intersection._next_phase()
 
         Parameters
         ----------
@@ -135,27 +193,62 @@ class WeightEngine:
         -------
         True si pressure >= threshold.
         """
-        # TODO: implementar — considerar histéresis para evitar oscilación
-        raise NotImplementedError
+        return pressure >= threshold
 
     # ── Ola verde ─────────────────────────────────────────────────────────────
 
     def compute_green_wave_offset(self, distance_m: float,
                                   speed_limit_kmh: float) -> float:
         """
-        Calcula el offset en segundos para que el semáforo vecino
-        cambie a verde justo cuando los vehículos lleguen.
+        Calcula el offset en segundos para la ola verde.
 
-        Fórmula: offset = (distance_m / (speed_limit_kmh / 3.6))
+        El semáforo vecino debe cambiar a verde exactamente cuando
+        los vehículos lleguen desde la intersección actual.
+
+        Fórmula:
+            offset = distance_m / (speed_limit_kmh / 3.6)
 
         Parameters
         ----------
-        distance_m      : Distancia entre las dos intersecciones.
-        speed_limit_kmh : Velocidad límite del segmento entre ellas.
+        distance_m      : Distancia entre intersecciones en metros.
+        speed_limit_kmh : Velocidad límite del segmento.
 
         Returns
         -------
-        Offset en segundos (float).
+        Offset en segundos.
+
+        Raises
+        ------
+        ValueError si speed_limit_kmh <= 0.
         """
-        # TODO: implementar
-        raise NotImplementedError
+        if speed_limit_kmh <= 0:
+            raise ValueError(
+                f"speed_limit_kmh debe ser positivo, recibido: {speed_limit_kmh}"
+            )
+        speed_ms = speed_limit_kmh / 3.6
+        return distance_m / speed_ms
+
+    # ── Análisis de congestión TomTom ─────────────────────────────────────────
+
+    def congestion_to_pressure_factor(self, congestion_index: float) -> float:
+        """
+        Convierte el índice de congestión de TomTom (0.0–1.0)
+        a un factor multiplicador de presión.
+
+        Mapeo:
+          0.0 → 1.0  (vía libre — peso normal)
+          0.5 → 1.5  (congestión moderada — aumentar presión)
+          1.0 → 2.5  (vía congestionada — máxima presión extra)
+
+        Fórmula lineal: factor = 1.0 + (congestion_index * 1.5)
+
+        Parameters
+        ----------
+        congestion_index : Índice de TomTom entre 0.0 y 1.0.
+
+        Returns
+        -------
+        Factor multiplicador ≥ 1.0.
+        """
+        congestion_index = max(0.0, min(1.0, congestion_index))
+        return 1.0 + (congestion_index * 1.5)

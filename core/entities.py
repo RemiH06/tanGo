@@ -14,20 +14,19 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from enum import Enum, auto
 from dataclasses import dataclass, field
-from typing import Optional
 
 from core.context import TrafficContext
 
 
-# ── Enums ────────────────────────────────────────────────────────────────────
+# ── Enums ─────────────────────────────────────────────────────────────────────
 
 class VehicleType(Enum):
-    CAR = auto()
-    BUS = auto()
-    TRUCK = auto()
+    CAR        = auto()
+    BUS        = auto()
+    TRUCK      = auto()
     MOTORCYCLE = auto()
-    BICYCLE = auto()
-    EMERGENCY = auto()       # ambulancia, bomberos — override especial
+    BICYCLE    = auto()
+    EMERGENCY  = auto()
 
 
 class Direction(Enum):
@@ -37,33 +36,36 @@ class Direction(Enum):
     WEST  = "W"
 
 
+# ── Constantes de velocidad peatonal ─────────────────────────────────────────
+
+_PEDESTRIAN_SPEED_MS:  float = 1.2   # m/s velocidad normal
+_WHEELCHAIR_SPEED_MS:  float = 0.8   # m/s velocidad en silla de ruedas
+_CROSSING_BUFFER_S:    int   = 3     # segundos de buffer de seguridad
+
+
 # ── Clase base ────────────────────────────────────────────────────────────────
 
 class TrafficEntity(ABC):
     """
     Clase base abstracta para cualquier participante del tráfico.
-    Define la interfaz común: cada entidad sabe calcular su propio
-    peso dado un contexto ambiental.
 
     Attributes
     ----------
-    entity_id   : Identificador único (UUID recomendado).
-    base_weight : Peso estático antes de aplicar modificadores.
-    is_vulnerable: True si la entidad requiere protección adicional
-                   (peatones, sillas de ruedas, ciclistas).
+    entity_id    : Identificador único (UUID).
+    base_weight  : Peso estático antes de aplicar modificadores.
+    is_vulnerable: True si requiere protección adicional.
     """
 
     def __init__(self, entity_id: str, base_weight: float,
                  is_vulnerable: bool = False) -> None:
-        self.entity_id   = entity_id
-        self.base_weight = base_weight
+        self.entity_id    = entity_id
+        self.base_weight  = base_weight
         self.is_vulnerable = is_vulnerable
 
     @abstractmethod
     def compute_weight(self, ctx: TrafficContext) -> float:
         """
-        Retorna el peso efectivo de esta entidad dado el contexto.
-        Las subclases aplican sus propios modificadores.
+        Retorna el peso efectivo dado el contexto ambiental.
 
         Parameters
         ----------
@@ -76,28 +78,41 @@ class TrafficEntity(ABC):
         raise NotImplementedError
 
     def __repr__(self) -> str:
-        return f"{self.__class__.__name__}(id={self.entity_id}, base_weight={self.base_weight})"
+        return (
+            f"{self.__class__.__name__}"
+            f"(id={self.entity_id[:8]}…, base_weight={self.base_weight})"
+        )
 
 
-# ── Vehicle ──────────────────────────────────────────────────────────────────
+# ── Vehicle ───────────────────────────────────────────────────────────────────
+
+# Pesos base por tipo de vehículo
+_VEHICLE_BASE_WEIGHTS: dict = {
+    VehicleType.CAR:        5.0,
+    VehicleType.BUS:        8.0,
+    VehicleType.TRUCK:      6.0,
+    VehicleType.MOTORCYCLE: 3.0,
+    VehicleType.BICYCLE:    2.0,
+    VehicleType.EMERGENCY: 999.0,
+}
+
 
 @dataclass
 class Vehicle(TrafficEntity):
     """
-    Vehículo motorizado o de propulsión humana (bicicleta).
+    Vehículo motorizado o de propulsión humana.
 
-    Peso base por tipo:
-        CAR        → 5.0
-        BUS        → 8.0   (transporta más personas)
-        TRUCK      → 6.0
-        MOTORCYCLE → 3.0
-        BICYCLE    → 2.0
-        EMERGENCY  → 999.0 (override inmediato, manejado por SafetyGuard)
+    Modificadores de peso:
+      - EMERGENCY    → base_weight sin modificar (SafetyGuard maneja override)
+      - Madrugada    → × 1.5  (más prioridad a autos de noche)
+      - Lluvia + BICYCLE → × 1.3 (ciclista más vulnerable con lluvia)
+      - Hora pico    → × 1.1  (refuerza la prioridad vehicular)
 
     Attributes
     ----------
-    vehicle_type : Tipo de vehículo (VehicleType).
-    direction    : Dirección de circulación actual.
+    entity_id    : UUID único.
+    vehicle_type : Tipo de vehículo.
+    direction    : Dirección de circulación.
     """
 
     entity_id:    str
@@ -106,38 +121,44 @@ class Vehicle(TrafficEntity):
     base_weight:  float = field(init=False)
     is_vulnerable: bool = field(init=False, default=False)
 
-    # Pesos base por tipo — ajustables vía WeightEngine según contexto
-    _BASE_WEIGHTS: dict = field(default_factory=lambda: {
-        VehicleType.CAR:        5.0,
-        VehicleType.BUS:        8.0,
-        VehicleType.TRUCK:      6.0,
-        VehicleType.MOTORCYCLE: 3.0,
-        VehicleType.BICYCLE:    2.0,
-        VehicleType.EMERGENCY: 999.0,
-    }, init=False, repr=False)
-
     def __post_init__(self) -> None:
-        self.base_weight  = self._BASE_WEIGHTS[self.vehicle_type]
+        self.base_weight   = _VEHICLE_BASE_WEIGHTS[self.vehicle_type]
         self.is_vulnerable = self.vehicle_type == VehicleType.BICYCLE
 
     def compute_weight(self, ctx: TrafficContext) -> float:
         """
-        Calcula el peso del vehículo según contexto.
-        Ejemplos de reglas a implementar:
-          - Si is_late_night: peso × 1.5 (más prioridad de madrugada)
-          - Si is_raining y BICYCLE: peso × 1.3 (más vulnerable)
-          - Si EMERGENCY: retorna base_weight sin modificar (SafetyGuard lo maneja)
+        Calcula el peso efectivo del vehículo según el contexto.
+
+        Los vehículos de emergencia retornan su peso base sin modificar
+        — SafetyGuard los detecta por el peso 999 y hace override inmediato.
 
         Parameters
         ----------
-        ctx : Contexto ambiental del ciclo actual.
+        ctx : Contexto ambiental del ciclo.
 
         Returns
         -------
         Peso efectivo del vehículo.
         """
-        # TODO: implementar modificadores según ctx
-        raise NotImplementedError
+        # Emergencia: no se modifica, SafetyGuard lo toma directo
+        if self.vehicle_type == VehicleType.EMERGENCY:
+            return self.base_weight
+
+        weight = self.base_weight
+
+        # Madrugada → más prioridad a vehículos (menos peatones, más autos)
+        if ctx.is_late_night:
+            weight *= 1.5
+
+        # Hora pico → refuerzo vehicular
+        elif ctx.is_rush_hour:
+            weight *= 1.1
+
+        # Lluvia + bicicleta → más vulnerabilidad
+        if ctx.is_raining and self.vehicle_type == VehicleType.BICYCLE:
+            weight *= 1.3
+
+        return weight
 
 
 # ── Pedestrian ────────────────────────────────────────────────────────────────
@@ -147,60 +168,83 @@ class Pedestrian(TrafficEntity):
     """
     Peatón en una intersección.
 
-    Peso base: 10.0 (mayor que un auto individual — son más vulnerables).
+    Peso base: 10.0 — mayor que un auto porque son más vulnerables.
 
-    Casos esquina:
-      - is_wheelchair=True → tiempo mínimo de verde extendido
-        (calculado por SafetyGuard según ancho de cruce / velocidad estándar)
-      - Temperatura extrema (< 5°C o > 35°C) → peso × 1.3
-      - Lluvia → peso × 1.3
-      - Madrugada (00-05h) → peso × 0.8 (menos peatones, menos prioridad)
+    Modificadores de peso:
+      - Silla de ruedas          → × 1.5  (siempre, mínimo garantizado)
+      - Lluvia                   → × 1.3
+      - Temperatura < 5°C        → × 1.3  (frío extremo)
+      - Temperatura > 35°C       → × 1.3  (calor extremo)
+      - Madrugada (00-05h)       → × 0.8  (menos peatones, menos prioridad)
+
+    Los modificadores se aplican en orden y se acumulan.
+    Ejemplo: silla de ruedas + lluvia → × 1.5 × 1.3 = × 1.95
 
     Attributes
     ----------
-    entity_id    : Identificador único.
-    is_wheelchair: True si usa silla de ruedas u otro dispositivo de movilidad.
-    crossing_width_m: Ancho del cruce en metros (para calcular tiempo verde).
+    entity_id        : UUID único.
+    is_wheelchair    : True si usa silla de ruedas u otro dispositivo.
+    crossing_width_m : Ancho del cruce en metros (para calcular tiempo verde).
     """
 
     entity_id:        str
     is_wheelchair:    bool  = False
-    crossing_width_m: float = 10.0   # ancho estándar de cruce; ajustar por intersección
+    crossing_width_m: float = 10.0
     base_weight:      float = field(init=False, default=10.0)
     is_vulnerable:    bool  = field(init=False, default=True)
 
     def __post_init__(self) -> None:
-        self.base_weight  = 10.0
+        self.base_weight   = 10.0
         self.is_vulnerable = True
 
     def compute_weight(self, ctx: TrafficContext) -> float:
         """
-        Calcula el peso del peatón según contexto.
+        Calcula el peso efectivo del peatón según el contexto.
+        Los modificadores se acumulan multiplicativamente.
 
         Parameters
         ----------
-        ctx : Contexto ambiental del ciclo actual.
+        ctx : Contexto ambiental del ciclo.
 
         Returns
         -------
         Peso efectivo del peatón.
         """
-        # TODO: implementar modificadores según ctx
-        raise NotImplementedError
+        weight = self.base_weight
+
+        # Silla de ruedas — modificador base siempre activo
+        if self.is_wheelchair:
+            weight *= 1.5
+
+        # Lluvia — más peligroso cruzar
+        if ctx.is_raining:
+            weight *= 1.3
+
+        # Temperatura extrema
+        if ctx.temperature_c < 5.0 or ctx.temperature_c > 35.0:
+            weight *= 1.3
+
+        # Madrugada — menos peatones, menor prioridad relativa
+        if ctx.is_late_night:
+            weight *= 0.8
+
+        return weight
 
     def required_green_seconds(self) -> float:
         """
-        Tiempo mínimo de verde requerido para cruzar con seguridad.
-        Fórmula: ancho_cruce / velocidad_peatón + buffer de seguridad.
+        Tiempo mínimo de verde para cruzar con seguridad.
 
-        Velocidades estándar (m/s):
+        Fórmula:
+            t = crossing_width_m / velocidad + buffer
+
+        Velocidades:
             Peatón normal   → 1.2 m/s
             Silla de ruedas → 0.8 m/s
-            Buffer          → 3 s adicionales
+            Buffer          → 3 s
 
         Returns
         -------
-        Segundos mínimos de verde como float.
+        Segundos mínimos de verde.
         """
-        # TODO: implementar cálculo
-        raise NotImplementedError
+        speed = _WHEELCHAIR_SPEED_MS if self.is_wheelchair else _PEDESTRIAN_SPEED_MS
+        return (self.crossing_width_m / speed) + _CROSSING_BUFFER_S
