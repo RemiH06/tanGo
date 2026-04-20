@@ -54,6 +54,29 @@ class RoadCategory(Enum):
     ALLEY            = 5
 
 
+class IntersectionType(Enum):
+    """
+    Tipo de intersección — determina si tiene semáforo y cuánto peso tiene.
+
+    MASTER : Intersección maestra — cruce de avenidas importantes.
+             Siempre tiene semáforo. Mayor peso base (multiplicador × 1.5).
+             Ejemplo: Av. Vallarta y Av. López Mateos.
+
+    NORMAL : Intersección normal — calle con avenida o entre calles
+             importantes. Tiene semáforo. Peso base estándar.
+             Ejemplo: Calle Morelos y Av. México.
+
+    BLIND  : Intersección ciega — cruce entre calles secundarias dentro
+             de una colonia. NO tiene semáforo físico.
+             El tráfico fluye por probabilidad hacia la salida más cercana
+             a una avenida. Solo se mapea para el grafo de rutas.
+             Peso base mínimo (multiplicador × 0.3).
+    """
+    MASTER = "master"   # cruce de avenidas — semáforo siempre presente
+    NORMAL = "normal"   # cruce mixto — semáforo presente
+    BLIND  = "blind"    # cruce ciego — sin semáforo, solo mapeo
+
+
 # ── RoadSegment ───────────────────────────────────────────────────────────────
 
 @dataclass
@@ -206,37 +229,55 @@ _GREEN_NORMAL_S:     int = 30
 _GREEN_LATE_NIGHT_S: int = 20
 _GREEN_MIN_S:        int = 7    # nunca menos de esto por seguridad
 
+# ── Timeout de semáforo ───────────────────────────────────────────────────────
+# Si la presión no alcanza el umbral en este tiempo, el semáforo cambia de
+# todas formas para garantizar que nadie espere indefinidamente.
+#
+# El timeout es INVERSAMENTE proporcional al umbral de la intersección:
+#   umbral alto (MASTER=120) → timeout más corto (la gente espera menos en
+#     intersecciones importantes porque hay más tráfico rotando)
+#   umbral bajo (NORMAL=100) → timeout estándar
+#
+# Fórmula: timeout_ticks = BASE_TIMEOUT / (threshold / 100)
+# Con BASE_TIMEOUT=8: MASTER→6.6 ticks, NORMAL→8 ticks
+# En ticks de simulación (cada tick ≈ 1 ciclo de semáforo real ~30-60s)
+_RED_TIMEOUT_BASE_TICKS: int = 8    # ticks máximos en rojo sin cambiar
+
 
 @dataclass
 class Intersection:
     """
-    Nodo del grafo vial. Representa una intersección física con semáforo.
+    Nodo del grafo vial.
+
+    Tres tipos (IntersectionType):
+      MASTER → cruce de avenidas, siempre tiene semáforo, umbral de presión
+               más alto porque absorbe más tráfico.
+      NORMAL → cruce mixto, tiene semáforo, umbral estándar.
+      BLIND  → cruce ciego sin semáforo — el tráfico fluye por probabilidad
+               hacia la salida más cercana a una avenida.
+               adjust_phase() es no-op en intersecciones BLIND.
 
     En Neo4j es un nodo (:Intersection) con propiedades equivalentes.
-
-    Ciclo de vida en cada tick del pipeline:
-      1. CitySimulator.tick()         → entidades presentes en esta intersección
-      2. WeightEngine.aggregate_pressure() → presión total
-      3. SafetyGuard.validate()       → aprueba o modifica el cambio de fase
-      4. adjust_phase()               → actualiza current_phase
 
     Attributes
     ----------
     node_id           : ID único (coincide con el nodo en Neo4j).
-    name              : Nombre descriptivo ("Av. Patria y Periférico").
+    name              : Nombre descriptivo.
     latitude          : Latitud geográfica.
     longitude         : Longitud geográfica.
+    intersection_type : Tipo de intersección (MASTER/NORMAL/BLIND).
     incoming_segments : Segmentos que llegan a esta intersección.
-    current_phase     : Fase actual del semáforo.
+    current_phase     : Fase actual del semáforo (N/A para BLIND).
     pressure          : Presión calculada en el último ciclo.
-    min_green_seconds : Tiempo mínimo de verde — SafetyGuard puede aumentarlo.
-    _phase_started_at : Timestamp en que comenzó la fase actual (interno).
+    min_green_seconds : Tiempo mínimo de verde.
+    _phase_started_at : Timestamp de inicio de fase actual (interno).
     """
 
     node_id:           str
     name:              str
     latitude:          float
     longitude:         float
+    intersection_type: IntersectionType  = IntersectionType.NORMAL
     incoming_segments: List[RoadSegment] = field(default_factory=list)
     current_phase:     Phase             = Phase.RED
     pressure:          float             = 0.0
@@ -244,6 +285,54 @@ class Intersection:
     _phase_started_at: datetime          = field(
         default_factory=datetime.now, init=False, repr=False
     )
+    _ticks_in_phase:   int               = field(default=0, init=False, repr=False)
+    _timeout_triggered: bool             = field(default=False, init=False, repr=False)
+
+    @property
+    def has_traffic_light(self) -> bool:
+        """True si esta intersección tiene semáforo físico."""
+        return self.intersection_type != IntersectionType.BLIND
+
+    @property
+    def pressure_threshold(self) -> float:
+        """
+        Umbral de presión para cambiar de fase.
+        Las intersecciones maestras necesitan más demanda para cambiar
+        porque absorben más tráfico naturalmente.
+        """
+        return {
+            IntersectionType.MASTER: 120.0,
+            IntersectionType.NORMAL: 100.0,
+            IntersectionType.BLIND:  999.0,  # nunca cambia sola
+        }[self.intersection_type]
+
+    @property
+    def weight_multiplier(self) -> float:
+        """
+        Multiplicador de peso base según el tipo de intersección.
+        Usado por WeightEngine para normalizar la presión.
+        """
+        return {
+            IntersectionType.MASTER: 1.5,
+            IntersectionType.NORMAL: 1.0,
+            IntersectionType.BLIND:  0.3,
+        }[self.intersection_type]
+
+    @property
+    def red_timeout_ticks(self) -> int:
+        """
+        Número máximo de ticks que puede estar en ROJO sin cambiar.
+        Inversamente proporcional al umbral — intersecciones más importantes
+        tienen timeout más corto para garantizar rotación del tráfico.
+
+        Fórmula: BASE / (threshold / 100)
+          MASTER (120) → 8 / 1.2 ≈ 6 ticks
+          NORMAL (100) → 8 / 1.0 = 8 ticks
+
+        Esto garantiza que ningún conductor ni peatón espere
+        indefinidamente aunque la presión no alcance el umbral.
+        """
+        return max(3, int(_RED_TIMEOUT_BASE_TICKS / (self.pressure_threshold / 100)))
 
     def __post_init__(self) -> None:
         if not (-90.0 <= self.latitude <= 90.0):
@@ -258,11 +347,13 @@ class Intersection:
         """
         Recalcula la fase del semáforo para este ciclo.
 
-        Flujo:
+        Las intersecciones BLIND no tienen semáforo — este método
+        es no-op para ellas (siempre retornan RED sin cambiar).
+
+        Flujo para MASTER y NORMAL:
           1. Calcular presión con WeightEngine
-          2. Decidir si cambiar de fase
-          3. Aplicar transición correcta (RED→GREEN, GREEN→YELLOW, YELLOW→RED)
-          4. Actualizar pressure y _phase_started_at si hubo cambio
+          2. Comparar contra pressure_threshold (varía por tipo)
+          3. Aplicar transición: RED→GREEN, GREEN→YELLOW, YELLOW→RED
 
         Parameters
         ----------
@@ -272,28 +363,63 @@ class Intersection:
 
         Returns
         -------
-        La nueva fase (o la misma si no hubo cambio).
+        La fase actual (sin cambios si es BLIND).
         """
+        # Las intersecciones ciegas no tienen semáforo
+        if self.intersection_type == IntersectionType.BLIND:
+            self.pressure = engine.aggregate_pressure(entities, self, ctx)
+            return self.current_phase
+
         # Calcular presión actual
         self.pressure = engine.aggregate_pressure(entities, self, ctx)
 
-        should_change = engine.should_change_phase(self.pressure)
+        # Incrementar contador de ticks en la fase actual
+        self._ticks_in_phase += 1
+
+        # ── Timeout de rojo ───────────────────────────────────────────────
+        # Si llevamos demasiados ticks en rojo sin que la presión alcance
+        # el umbral, forzamos verde para que nadie espere indefinidamente.
+        # El timeout es inversamente proporcional al umbral de la intersección.
+        timeout_forced = (
+            self.current_phase == Phase.RED
+            and self._ticks_in_phase >= self.red_timeout_ticks
+            and not self._timeout_triggered
+        )
+        if timeout_forced:
+            self._timeout_triggered = True
+            logger.info(
+                "[%s][%s] TIMEOUT en rojo tras %d ticks (presión=%.1f < umbral=%.0f) "
+                "— forzando verde por equidad",
+                self.name, self.intersection_type.value,
+                self._ticks_in_phase, self.pressure, self.pressure_threshold,
+            )
+
+        # Usar el umbral propio del tipo de intersección
+        should_change = (
+            timeout_forced
+            or engine.should_change_phase(self.pressure,
+                                          threshold=self.pressure_threshold)
+        )
         seconds_in_phase = (datetime.now() - self._phase_started_at).total_seconds()
 
         new_phase = self._next_phase(
-            should_change     = should_change,
-            seconds_in_phase  = seconds_in_phase,
-            ctx               = ctx,
+            should_change    = should_change,
+            seconds_in_phase = seconds_in_phase,
+            ctx              = ctx,
         )
 
         if new_phase != self.current_phase:
+            reason = "timeout" if timeout_forced else f"presión={self.pressure:.1f}"
             logger.info(
-                "[%s] Fase: %s → %s | presión=%.1f | tiempo_en_fase=%.0fs",
-                self.name, self.current_phase.value,
-                new_phase.value, self.pressure, seconds_in_phase
+                "[%s][%s] Fase: %s → %s | %s | umbral=%.0f",
+                self.name, self.intersection_type.value,
+                self.current_phase.value, new_phase.value,
+                reason, self.pressure_threshold,
             )
-            self.current_phase    = new_phase
-            self._phase_started_at = datetime.now()
+            self.current_phase      = new_phase
+            self._phase_started_at  = datetime.now()
+            self._ticks_in_phase    = 0
+            self._timeout_triggered = False   # reset para el próximo ciclo rojo
 
         return self.current_phase
 
@@ -321,7 +447,8 @@ class Intersection:
         green_duration = self.get_cycle_duration(ctx)
 
         if self.current_phase == Phase.RED:
-            if should_change and seconds_in_phase >= self.min_green_seconds:
+            # Cambiar a verde si hay suficiente presión O si se forzó por timeout
+            if should_change:
                 return Phase.GREEN
 
         elif self.current_phase == Phase.GREEN:

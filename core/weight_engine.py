@@ -161,6 +161,11 @@ class WeightEngine:
             if main_seg else _MIN_ROAD_WEIGHT
         )
 
+        # El weight_multiplier del tipo de intersección escala el denominador:
+        # MASTER × 1.5 → necesita más entidades para llegar al umbral
+        # BLIND  × 0.3 → acumula presión rápido pero nunca cambia fase (umbral 999)
+        road_weight *= intersection.weight_multiplier
+
         pressure = (total_entity_weight / road_weight) * 100.0
 
         logger.debug(
