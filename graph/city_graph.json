@@ -1,0 +1,2288 @@
+{
+  "metadata": {
+    "ciudad": "Guadalajara ZMG",
+    "fuente": "OpenStreetMap via Overpass API",
+    "fecha": "2026-04-19T22:59:43.937458",
+    "bbox": {},
+    "n_nodes": 150,
+    "n_edges": 84
+  },
+  "nodes": [
+    {
+      "node_id": "osm_1894163457",
+      "name": "Calle Mariano Azuela y Avenida Ignacio L. Vallarta",
+      "latitude": 20.6744703,
+      "longitude": -103.38466,
+      "intersection_type": "NORMAL",
+      "osm_id": 1894163457,
+      "street_count": 4
+    },
+    {
+      "node_id": "osm_1940884483",
+      "name": "Avenida San Ignacio y Calzada Lázaro Cárdenas",
+      "latitude": 20.6705705,
+      "longitude": -103.4049287,
+      "intersection_type": "NORMAL",
+      "osm_id": 1940884483,
+      "street_count": 4
+    },
+    {
+      "node_id": "osm_377751045",
+      "name": "Calzada Federalismo y Calle Independencia",
+      "latitude": 20.6780841,
+      "longitude": -103.3543096,
+      "intersection_type": "MASTER",
+      "osm_id": 377751045,
+      "street_count": 4
+    },
+    {
+      "node_id": "osm_1343822341",
+      "name": "Calle Sabino y Calle Durazno",
+      "latitude": 20.6606798,
+      "longitude": -103.3707058,
+      "intersection_type": "NORMAL",
+      "osm_id": 1343822341,
+      "street_count": 4
+    },
+    {
+      "node_id": "osm_1343822342",
+      "name": "Calle Roble y Calle Paraíso",
+      "latitude": 20.6605331,
+      "longitude": -103.3675515,
+      "intersection_type": "NORMAL",
+      "osm_id": 1343822342,
+      "street_count": 4
+    },
+    {
+      "node_id": "osm_1368328200",
+      "name": "Avenida México",
+      "latitude": 20.6796008,
+      "longitude": -103.3843907,
+      "intersection_type": "NORMAL",
+      "osm_id": 1368328200,
+      "street_count": 4
+    },
+    {
+      "node_id": "osm_1268343818",
+      "name": "Calle Ingeniero Joaquín Arrieta y Circunvalación Agustín Yáñez",
+      "latitude": 20.6733467,
+      "longitude": -103.3866079,
+      "intersection_type": "NORMAL",
+      "osm_id": 1268343818,
+      "street_count": 5
+    },
+    {
+      "node_id": "osm_8314914826",
+      "name": "Avenida de los Arcos y Avenida Inglaterra",
+      "latitude": 20.6689872,
+      "longitude": -103.3848038,
+      "intersection_type": "NORMAL",
+      "osm_id": 8314914826,
+      "street_count": 4
+    },
+    {
+      "node_id": "osm_1363124746",
+      "name": "Avenida Mariano Otero y Avenida de las Rosas",
+      "latitude": 20.6550054,
+      "longitude": -103.3915553,
+      "intersection_type": "MASTER",
+      "osm_id": 1363124746,
+      "street_count": 4
+    },
+    {
+      "node_id": "osm_294101534",
+      "name": "Calzada Federalismo y Avenida Juárez",
+      "latitude": 20.6749032,
+      "longitude": -103.354649,
+      "intersection_type": "MASTER",
+      "osm_id": 294101534,
+      "street_count": 4
+    },
+    {
+      "node_id": "osm_1940884514",
+      "name": "Avenida Niño Obrero y Calzada Lázaro Cárdenas",
+      "latitude": 20.6731509,
+      "longitude": -103.4096727,
+      "intersection_type": "NORMAL",
+      "osm_id": 1940884514,
+      "street_count": 4
+    },
+    {
+      "node_id": "osm_1940884517",
+      "name": "Avenida Niño Obrero y Calzada Lázaro Cárdenas",
+      "latitude": 20.6732076,
+      "longitude": -103.4097774,
+      "intersection_type": "NORMAL",
+      "osm_id": 1940884517,
+      "street_count": 4
+    },
+    {
+      "node_id": "osm_1470468651",
+      "name": "Calle Aurelio Aceves y Avenida Adolfo López Mateos Sur",
+      "latitude": 20.673263,
+      "longitude": -103.3880024,
+      "intersection_type": "NORMAL",
+      "osm_id": 1470468651,
+      "street_count": 4
+    },
+    {
+      "node_id": "osm_1365117484",
+      "name": "Calle Prisciliano Sánchez y Calzada Federalismo",
+      "latitude": 20.6727219,
+      "longitude": -103.3548515,
+      "intersection_type": "MASTER",
+      "osm_id": 1365117484,
+      "street_count": 4
+    },
+    {
+      "node_id": "osm_1832752171",
+      "name": "Calle Rinconada del Nardo y Avenida Manuel Acuña",
+      "latitude": 20.6842896,
+      "longitude": -103.3992309,
+      "intersection_type": "NORMAL",
+      "osm_id": 1832752171,
+      "street_count": 4
+    },
+    {
+      "node_id": "osm_1832752174",
+      "name": "Avenida Manuel Acuña y Calle Rinconada del Nardo",
+      "latitude": 20.6844153,
+      "longitude": -103.3992766,
+      "intersection_type": "NORMAL",
+      "osm_id": 1832752174,
+      "street_count": 4
+    },
+    {
+      "node_id": "osm_1363124782",
+      "name": "Avenida Mariano Otero y Avenida de las Rosas",
+      "latitude": 20.6549097,
+      "longitude": -103.3914939,
+      "intersection_type": "NORMAL",
+      "osm_id": 1363124782,
+      "street_count": 4
+    },
+    {
+      "node_id": "osm_291178033",
+      "name": "Calle Aurelio Aceves y Avenida Ignacio L. Vallarta",
+      "latitude": 20.6742706,
+      "longitude": -103.3887758,
+      "intersection_type": "NORMAL",
+      "osm_id": 291178033,
+      "street_count": 4
+    },
+    {
+      "node_id": "osm_1345430068",
+      "name": "Calle Planeta y Avenida Niños Héroes",
+      "latitude": 20.6666858,
+      "longitude": -103.3826046,
+      "intersection_type": "MASTER",
+      "osm_id": 1345430068,
+      "street_count": 4
+    },
+    {
+      "node_id": "osm_1363124792",
+      "name": "Avenida Mariano Otero y Avenida de las Rosas",
+      "latitude": 20.6551584,
+      "longitude": -103.3915212,
+      "intersection_type": "NORMAL",
+      "osm_id": 1363124792,
+      "street_count": 4
+    },
+    {
+      "node_id": "osm_1343692858",
+      "name": "Calle Juan Ruiz de Alarcón y Avenida Ignacio L. Vallarta",
+      "latitude": 20.674421,
+      "longitude": -103.3761702,
+      "intersection_type": "NORMAL",
+      "osm_id": 1343692858,
+      "street_count": 4
+    },
+    {
+      "node_id": "osm_1345430075",
+      "name": "Calle La Cauda y Avenida Niños Héroes",
+      "latitude": 20.6665627,
+      "longitude": -103.382602,
+      "intersection_type": "MASTER",
+      "osm_id": 1345430075,
+      "street_count": 4
+    },
+    {
+      "node_id": "osm_1343692860",
+      "name": "Calle Efraín González Luna y Avenida Unión",
+      "latitude": 20.6697116,
+      "longitude": -103.3734654,
+      "intersection_type": "NORMAL",
+      "osm_id": 1343692860,
+      "street_count": 4
+    },
+    {
+      "node_id": "osm_1639982141",
+      "name": "Calle Duque de Rivas y Avenida Ignacio L. Vallarta",
+      "latitude": 20.6744287,
+      "longitude": -103.3826666,
+      "intersection_type": "NORMAL",
+      "osm_id": 1639982141,
+      "street_count": 4
+    },
+    {
+      "node_id": "osm_313854539",
+      "name": "Calle Héroes de Nacozari y Calle Ganso",
+      "latitude": 20.651701,
+      "longitude": -103.3505143,
+      "intersection_type": "NORMAL",
+      "osm_id": 313854539,
+      "street_count": 4
+    },
+    {
+      "node_id": "osm_4308305490",
+      "name": "Avenida Hidalgo y Calle Jesús González Ortega",
+      "latitude": 20.6772421,
+      "longitude": -103.3504742,
+      "intersection_type": "NORMAL",
+      "osm_id": 4308305490,
+      "street_count": 4
+    },
+    {
+      "node_id": "osm_2261094482",
+      "name": "Calle Argentina y Avenida Ignacio L. Vallarta",
+      "latitude": 20.6747429,
+      "longitude": -103.3613801,
+      "intersection_type": "NORMAL",
+      "osm_id": 2261094482,
+      "street_count": 4
+    },
+    {
+      "node_id": "osm_290952787",
+      "name": "Avenida Guadalupe y Avenida Niño Obrero",
+      "latitude": 20.6651288,
+      "longitude": -103.4087436,
+      "intersection_type": "MASTER",
+      "osm_id": 290952787,
+      "street_count": 4
+    },
+    {
+      "node_id": "osm_1619760724",
+      "name": "Calle José María Vigil y Calle General Coronado",
+      "latitude": 20.6897788,
+      "longitude": -103.3644685,
+      "intersection_type": "NORMAL",
+      "osm_id": 1619760724,
+      "street_count": 4
+    },
+    {
+      "node_id": "osm_290952789",
+      "name": "Avenida Niño Obrero y Avenida Guadalupe",
+      "latitude": 20.6651505,
+      "longitude": -103.4086358,
+      "intersection_type": "MASTER",
+      "osm_id": 290952789,
+      "street_count": 4
+    },
+    {
+      "node_id": "osm_1220015204",
+      "name": "Avenida Niños Héroes y Calle Colonias",
+      "latitude": 20.666822,
+      "longitude": -103.366001,
+      "intersection_type": "MASTER",
+      "osm_id": 1220015204,
+      "street_count": 5
+    },
+    {
+      "node_id": "osm_1345402477",
+      "name": "Avenida Paseo de la Arboleda y Avenida Niños Héroes",
+      "latitude": 20.6666293,
+      "longitude": -103.38548,
+      "intersection_type": "MASTER",
+      "osm_id": 1345402477,
+      "street_count": 5
+    },
+    {
+      "node_id": "osm_803078771",
+      "name": "Calzada Federalismo y Avenida Manuel Ávila Camacho",
+      "latitude": 20.6995048,
+      "longitude": -103.355014,
+      "intersection_type": "MASTER",
+      "osm_id": 803078771,
+      "street_count": 4
+    },
+    {
+      "node_id": "osm_1369644155",
+      "name": "Avenida Adolfo López Mateos Norte",
+      "latitude": 20.6869208,
+      "longitude": -103.3789936,
+      "intersection_type": "NORMAL",
+      "osm_id": 1369644155,
+      "street_count": 4
+    },
+    {
+      "node_id": "osm_1404144253",
+      "name": "Calle Crepúsculo y Avenida Tonántzin",
+      "latitude": 20.658666,
+      "longitude": -103.3911481,
+      "intersection_type": "NORMAL",
+      "osm_id": 1404144253,
+      "street_count": 4
+    },
+    {
+      "node_id": "osm_1363124861",
+      "name": "Avenida Mariano Otero y Avenida de las Rosas",
+      "latitude": 20.6550989,
+      "longitude": -103.391618,
+      "intersection_type": "NORMAL",
+      "osm_id": 1363124861,
+      "street_count": 4
+    },
+    {
+      "node_id": "osm_1363124864",
+      "name": "Avenida de las Rosas y Avenida Mariano Otero",
+      "latitude": 20.6549704,
+      "longitude": -103.3913919,
+      "intersection_type": "NORMAL",
+      "osm_id": 1363124864,
+      "street_count": 4
+    },
+    {
+      "node_id": "osm_1361091202",
+      "name": "Calle Parque de las Estrellas y Avenida Tonántzin",
+      "latitude": 20.6601819,
+      "longitude": -103.3887811,
+      "intersection_type": "NORMAL",
+      "osm_id": 1361091202,
+      "street_count": 4
+    },
+    {
+      "node_id": "osm_1369644162",
+      "name": "Avenida Adolfo López Mateos Norte y Avenida Manuel Acuña",
+      "latitude": 20.6845081,
+      "longitude": -103.3805863,
+      "intersection_type": "NORMAL",
+      "osm_id": 1369644162,
+      "street_count": 4
+    },
+    {
+      "node_id": "osm_1345402500",
+      "name": "Calzada Lázaro Cárdenas y Avenida Paseo de la Arboleda",
+      "latitude": 20.6609245,
+      "longitude": -103.3859196,
+      "intersection_type": "NORMAL",
+      "osm_id": 1345402500,
+      "street_count": 4
+    },
+    {
+      "node_id": "osm_1376387211",
+      "name": "Circuito Madrigal y Calle Paseo Loma Ancha",
+      "latitude": 20.6969742,
+      "longitude": -103.3995102,
+      "intersection_type": "NORMAL",
+      "osm_id": 1376387211,
+      "street_count": 4
+    },
+    {
+      "node_id": "osm_1341816975",
+      "name": "Calzada del Águila y Avenida España",
+      "latitude": 20.6594591,
+      "longitude": -103.35342,
+      "intersection_type": "NORMAL",
+      "osm_id": 1341816975,
+      "street_count": 4
+    },
+    {
+      "node_id": "osm_1363124887",
+      "name": "Avenida de las Rosas y Calle Rincón de las Praderas",
+      "latitude": 20.6527332,
+      "longitude": -103.3892134,
+      "intersection_type": "NORMAL",
+      "osm_id": 1363124887,
+      "street_count": 4
+    },
+    {
+      "node_id": "osm_1525949591",
+      "name": "Avenida Adolfo López Mateos Norte y Calle José María Vigil",
+      "latitude": 20.6900746,
+      "longitude": -103.377201,
+      "intersection_type": "NORMAL",
+      "osm_id": 1525949591,
+      "street_count": 4
+    },
+    {
+      "node_id": "osm_377651367",
+      "name": "Calzada Federalismo y Calle Garibaldi",
+      "latitude": 20.6810667,
+      "longitude": -103.3540093,
+      "intersection_type": "MASTER",
+      "osm_id": 377651367,
+      "street_count": 4
+    },
+    {
+      "node_id": "osm_1344091821",
+      "name": "Calle Mezquite y Calle Eucalipto",
+      "latitude": 20.6548124,
+      "longitude": -103.369102,
+      "intersection_type": "NORMAL",
+      "osm_id": 1344091821,
+      "street_count": 5
+    },
+    {
+      "node_id": "osm_1345402541",
+      "name": "Avenida Paseo de la Arboleda y Calzada Lázaro Cárdenas",
+      "latitude": 20.6601204,
+      "longitude": -103.3856286,
+      "intersection_type": "NORMAL",
+      "osm_id": 1345402541,
+      "street_count": 4
+    },
+    {
+      "node_id": "osm_1676386477",
+      "name": "Calzada Gobernador Luis C. Curiel y Calle Fresno",
+      "latitude": 20.6510938,
+      "longitude": -103.3535032,
+      "intersection_type": "MASTER",
+      "osm_id": 1676386477,
+      "street_count": 4
+    },
+    {
+      "node_id": "osm_1354204851",
+      "name": "Avenida Washington y Calzada Independencia Sur",
+      "latitude": 20.6572493,
+      "longitude": -103.3510978,
+      "intersection_type": "MASTER",
+      "osm_id": 1354204851,
+      "street_count": 4
+    },
+    {
+      "node_id": "osm_1347454135",
+      "name": "Calle El Sol y Avenida Paseo de la Arboleda",
+      "latitude": 20.6630235,
+      "longitude": -103.3855751,
+      "intersection_type": "NORMAL",
+      "osm_id": 1347454135,
+      "street_count": 4
+    },
+    {
+      "node_id": "osm_1347454136",
+      "name": "Avenida Paseo de la Arboleda y Calle El Sol",
+      "latitude": 20.6630608,
+      "longitude": -103.3858505,
+      "intersection_type": "NORMAL",
+      "osm_id": 1347454136,
+      "street_count": 4
+    },
+    {
+      "node_id": "osm_1354204865",
+      "name": "Avenida Washington y Calzada Independencia Sur",
+      "latitude": 20.6573692,
+      "longitude": -103.3510681,
+      "intersection_type": "MASTER",
+      "osm_id": 1354204865,
+      "street_count": 4
+    },
+    {
+      "node_id": "osm_1339138243",
+      "name": "Calzada Federalismo y Avenida Alemania",
+      "latitude": 20.6631122,
+      "longitude": -103.3564996,
+      "intersection_type": "MASTER",
+      "osm_id": 1339138243,
+      "street_count": 4
+    },
+    {
+      "node_id": "osm_8310954180",
+      "name": "Avenida Ignacio L. Vallarta y Calle Fernando de Celada",
+      "latitude": 20.6744708,
+      "longitude": -103.3887903,
+      "intersection_type": "MASTER",
+      "osm_id": 8310954180,
+      "street_count": 4
+    },
+    {
+      "node_id": "osm_8310954184",
+      "name": "Calle Emilio Castelar y Avenida Ignacio L. Vallarta",
+      "latitude": 20.674404,
+      "longitude": -103.3840352,
+      "intersection_type": "NORMAL",
+      "osm_id": 8310954184,
+      "street_count": 4
+    },
+    {
+      "node_id": "osm_1376387273",
+      "name": "Circuito Madrigal y Avenida Montevideo",
+      "latitude": 20.6918213,
+      "longitude": -103.3993164,
+      "intersection_type": "NORMAL",
+      "osm_id": 1376387273,
+      "street_count": 4
+    },
+    {
+      "node_id": "osm_1407621841",
+      "name": "Avenida Aztecas y Calle Diagonal Golfo de Cortés",
+      "latitude": 20.6819906,
+      "longitude": -103.396383,
+      "intersection_type": "NORMAL",
+      "osm_id": 1407621841,
+      "street_count": 4
+    },
+    {
+      "node_id": "osm_1441562834",
+      "name": "Calle Paseo de la Cañada y Paseo Lomas Altas",
+      "latitude": 20.6910376,
+      "longitude": -103.3984424,
+      "intersection_type": "NORMAL",
+      "osm_id": 1441562834,
+      "street_count": 4
+    },
+    {
+      "node_id": "osm_631801046",
+      "name": "Calle José Clemente Orozco y Calle Juan Manuel",
+      "latitude": 20.6787427,
+      "longitude": -103.3662456,
+      "intersection_type": "NORMAL",
+      "osm_id": 631801046,
+      "street_count": 4
+    },
+    {
+      "node_id": "osm_1467619542",
+      "name": "Avenida México y Avenida Inglaterra",
+      "latitude": 20.6776726,
+      "longitude": -103.4076275,
+      "intersection_type": "NORMAL",
+      "osm_id": 1467619542,
+      "street_count": 4
+    },
+    {
+      "node_id": "osm_377749724",
+      "name": "Calzada Federalismo y Calle San Felipe",
+      "latitude": 20.6794001,
+      "longitude": -103.3541159,
+      "intersection_type": "MASTER",
+      "osm_id": 377749724,
+      "street_count": 4
+    },
+    {
+      "node_id": "osm_1940884189",
+      "name": "Avenida Cuauhtémoc y Calle Tonatiuh",
+      "latitude": 20.6590241,
+      "longitude": -103.4085572,
+      "intersection_type": "NORMAL",
+      "osm_id": 1940884189,
+      "street_count": 4
+    },
+    {
+      "node_id": "osm_631801059",
+      "name": "Calle Ignacio Ramírez y Calle Justo Sierra",
+      "latitude": 20.6777898,
+      "longitude": -103.3639728,
+      "intersection_type": "NORMAL",
+      "osm_id": 631801059,
+      "street_count": 4
+    },
+    {
+      "node_id": "osm_1373262565",
+      "name": "Avenida Tepeyac y Calle 12 de Diciembre",
+      "latitude": 20.6629322,
+      "longitude": -103.4031687,
+      "intersection_type": "NORMAL",
+      "osm_id": 1373262565,
+      "street_count": 5
+    },
+    {
+      "node_id": "osm_1339231980",
+      "name": "Calle Mexicaltzingo y Calzada Federalismo",
+      "latitude": 20.6673958,
+      "longitude": -103.3551434,
+      "intersection_type": "MASTER",
+      "osm_id": 1339231980,
+      "street_count": 4
+    },
+    {
+      "node_id": "osm_1666815216",
+      "name": "Calle Herrera y Cairo y Avenida Terranova",
+      "latitude": 20.6839891,
+      "longitude": -103.3871276,
+      "intersection_type": "NORMAL",
+      "osm_id": 1666815216,
+      "street_count": 4
+    },
+    {
+      "node_id": "osm_1344864497",
+      "name": "Calle Fresno y Avenida Cristóbal Colón",
+      "latitude": 20.6546934,
+      "longitude": -103.3631889,
+      "intersection_type": "MASTER",
+      "osm_id": 1344864497,
+      "street_count": 4
+    },
+    {
+      "node_id": "osm_1339033337",
+      "name": "Calle Venezuela y Calle Fermín G. Riestra",
+      "latitude": 20.6668179,
+      "longitude": -103.3634,
+      "intersection_type": "MASTER",
+      "osm_id": 1339033337,
+      "street_count": 4
+    },
+    {
+      "node_id": "osm_1940884230",
+      "name": "Avenida Cuauhtémoc y Avenida Tepeyac",
+      "latitude": 20.6607265,
+      "longitude": -103.4087802,
+      "intersection_type": "NORMAL",
+      "osm_id": 1940884230,
+      "street_count": 4
+    },
+    {
+      "node_id": "osm_1940884233",
+      "name": "Avenida Cuauhtémoc y Avenida Tepeyac",
+      "latitude": 20.6607682,
+      "longitude": -103.4086701,
+      "intersection_type": "NORMAL",
+      "osm_id": 1940884233,
+      "street_count": 4
+    },
+    {
+      "node_id": "osm_1339033355",
+      "name": "Calle Simón Bolívar y Avenida Niños Héroes",
+      "latitude": 20.6667111,
+      "longitude": -103.3724651,
+      "intersection_type": "MASTER",
+      "osm_id": 1339033355,
+      "street_count": 4
+    },
+    {
+      "node_id": "osm_1940884236",
+      "name": "Avenida Cuauhtémoc y Avenida Tepeyac",
+      "latitude": 20.6608271,
+      "longitude": -103.408807,
+      "intersection_type": "NORMAL",
+      "osm_id": 1940884236,
+      "street_count": 4
+    },
+    {
+      "node_id": "osm_1459071755",
+      "name": "Avenida Niños Héroes y Calle Pavo",
+      "latitude": 20.6654103,
+      "longitude": -103.3547639,
+      "intersection_type": "MASTER",
+      "osm_id": 1459071755,
+      "street_count": 4
+    },
+    {
+      "node_id": "osm_1373262607",
+      "name": "Calle 12 de Diciembre y Avenida Tepeyac",
+      "latitude": 20.6628407,
+      "longitude": -103.4031092,
+      "intersection_type": "NORMAL",
+      "osm_id": 1373262607,
+      "street_count": 5
+    },
+    {
+      "node_id": "osm_3730575634",
+      "name": "Avenida Unión y Avenida de las Américas",
+      "latitude": 20.6744209,
+      "longitude": -103.3736814,
+      "intersection_type": "NORMAL",
+      "osm_id": 3730575634,
+      "street_count": 4
+    },
+    {
+      "node_id": "osm_1940884245",
+      "name": "Avenida Niño Obrero y Avenida Tepeyac",
+      "latitude": 20.6614516,
+      "longitude": -103.4071393,
+      "intersection_type": "NORMAL",
+      "osm_id": 1940884245,
+      "street_count": 4
+    },
+    {
+      "node_id": "osm_1376387352",
+      "name": "Circuito Madrigal y Avenida Montevideo",
+      "latitude": 20.691931,
+      "longitude": -103.3992281,
+      "intersection_type": "NORMAL",
+      "osm_id": 1376387352,
+      "street_count": 4
+    },
+    {
+      "node_id": "osm_1940884250",
+      "name": "Avenida Niño Obrero y Avenida Tepeyac",
+      "latitude": 20.6614894,
+      "longitude": -103.4070381,
+      "intersection_type": "NORMAL",
+      "osm_id": 1940884250,
+      "street_count": 4
+    },
+    {
+      "node_id": "osm_1349779227",
+      "name": "Calle Colón y Avenida Francia",
+      "latitude": 20.6613511,
+      "longitude": -103.355161,
+      "intersection_type": "NORMAL",
+      "osm_id": 1349779227,
+      "street_count": 5
+    },
+    {
+      "node_id": "osm_1389102875",
+      "name": "Calle Andrés Terán y Calle San Felipe",
+      "latitude": 20.6793204,
+      "longitude": -103.368293,
+      "intersection_type": "NORMAL",
+      "osm_id": 1389102875,
+      "street_count": 4
+    },
+    {
+      "node_id": "osm_1416200477",
+      "name": "Calle Garibaldi y Avenida Enrique Díaz de León Norte",
+      "latitude": 20.6810959,
+      "longitude": -103.3592513,
+      "intersection_type": "NORMAL",
+      "osm_id": 1416200477,
+      "street_count": 4
+    },
+    {
+      "node_id": "osm_1416200483",
+      "name": "Avenida Enrique Díaz de León Norte y Calle Jesús García",
+      "latitude": 20.6885441,
+      "longitude": -103.3590176,
+      "intersection_type": "NORMAL",
+      "osm_id": 1416200483,
+      "street_count": 4
+    },
+    {
+      "node_id": "osm_1416200500",
+      "name": "Calle Miguel Blanco y Avenida Enrique Díaz de León Sur",
+      "latitude": 20.6722598,
+      "longitude": -103.3593828,
+      "intersection_type": "NORMAL",
+      "osm_id": 1416200500,
+      "street_count": 4
+    },
+    {
+      "node_id": "osm_8311184183",
+      "name": "Avenida de las Américas y Avenida Unión",
+      "latitude": 20.6744209,
+      "longitude": -103.3737672,
+      "intersection_type": "NORMAL",
+      "osm_id": 8311184183,
+      "street_count": 4
+    },
+    {
+      "node_id": "osm_631801148",
+      "name": "Avenida de las Américas y Avenida México",
+      "latitude": 20.6791358,
+      "longitude": -103.3736961,
+      "intersection_type": "NORMAL",
+      "osm_id": 631801148,
+      "street_count": 4
+    },
+    {
+      "node_id": "osm_1361091389",
+      "name": "Calle 12 de Diciembre y Calle Capuchinas",
+      "latitude": 20.6563302,
+      "longitude": -103.394168,
+      "intersection_type": "NORMAL",
+      "osm_id": 1361091389,
+      "street_count": 4
+    },
+    {
+      "node_id": "osm_1416200512",
+      "name": "Avenida de los Maestros y Avenida Enrique Díaz de León Norte",
+      "latitude": 20.6932995,
+      "longitude": -103.3584654,
+      "intersection_type": "NORMAL",
+      "osm_id": 1416200512,
+      "street_count": 4
+    },
+    {
+      "node_id": "osm_1361091393",
+      "name": "Avenida de las Rosas y Calle Capuchinas",
+      "latitude": 20.6578141,
+      "longitude": -103.3935347,
+      "intersection_type": "NORMAL",
+      "osm_id": 1361091393,
+      "street_count": 4
+    },
+    {
+      "node_id": "osm_1361091403",
+      "name": "Lateral de López Mateos Sur y Avenida de las Rosas",
+      "latitude": 20.6593735,
+      "longitude": -103.3972206,
+      "intersection_type": "NORMAL",
+      "osm_id": 1361091403,
+      "street_count": 4
+    },
+    {
+      "node_id": "osm_1371803980",
+      "name": "Avenida Terranova y Avenida México",
+      "latitude": 20.6797244,
+      "longitude": -103.3870635,
+      "intersection_type": "NORMAL",
+      "osm_id": 1371803980,
+      "street_count": 4
+    },
+    {
+      "node_id": "osm_1408010574",
+      "name": "Calle Miguel Blanco y Calzada Federalismo",
+      "latitude": 20.6721841,
+      "longitude": -103.3546946,
+      "intersection_type": "MASTER",
+      "osm_id": 1408010574,
+      "street_count": 4
+    },
+    {
+      "node_id": "osm_1416200527",
+      "name": "Calle Morelos y Avenida Enrique Díaz de León Norte",
+      "latitude": 20.6762267,
+      "longitude": -103.3594048,
+      "intersection_type": "NORMAL",
+      "osm_id": 1416200527,
+      "street_count": 4
+    },
+    {
+      "node_id": "osm_1287228751",
+      "name": "Calle Mezquitán y Avenida Hidalgo",
+      "latitude": 20.6772191,
+      "longitude": -103.353422,
+      "intersection_type": "NORMAL",
+      "osm_id": 1287228751,
+      "street_count": 4
+    },
+    {
+      "node_id": "osm_1226052949",
+      "name": "Calle Justo Sierra y Avenida Chapultepec",
+      "latitude": 20.6777433,
+      "longitude": -103.3688317,
+      "intersection_type": "NORMAL",
+      "osm_id": 1226052949,
+      "street_count": 4
+    },
+    {
+      "node_id": "osm_1668223831",
+      "name": "Calle Paseo de la Cima y Circuito Madrigal",
+      "latitude": 20.6941764,
+      "longitude": -103.3975642,
+      "intersection_type": "NORMAL",
+      "osm_id": 1668223831,
+      "street_count": 4
+    },
+    {
+      "node_id": "osm_1376781666",
+      "name": "Avenida Pablo Casals y Avenida Montevideo",
+      "latitude": 20.6949083,
+      "longitude": -103.3926677,
+      "intersection_type": "NORMAL",
+      "osm_id": 1376781666,
+      "street_count": 4
+    },
+    {
+      "node_id": "osm_1371804002",
+      "name": "Avenida Ignacio L. Vallarta y Calle Juan Palomar y Arias",
+      "latitude": 20.6744467,
+      "longitude": -103.3935438,
+      "intersection_type": "MASTER",
+      "osm_id": 1371804002,
+      "street_count": 4
+    },
+    {
+      "node_id": "osm_1416200550",
+      "name": "Calle Reforma y Avenida Enrique Díaz de León Norte",
+      "latitude": 20.6800335,
+      "longitude": -103.3592862,
+      "intersection_type": "NORMAL",
+      "osm_id": 1416200550,
+      "street_count": 4
+    },
+    {
+      "node_id": "osm_1416200560",
+      "name": "Avenida Enrique Díaz de León Sur y Avenida de la Paz",
+      "latitude": 20.6703418,
+      "longitude": -103.3593573,
+      "intersection_type": "NORMAL",
+      "osm_id": 1416200560,
+      "street_count": 4
+    },
+    {
+      "node_id": "osm_1722451313",
+      "name": "Avenida Unión y Avenida de la Paz",
+      "latitude": 20.6722285,
+      "longitude": -103.3736482,
+      "intersection_type": "NORMAL",
+      "osm_id": 1722451313,
+      "street_count": 4
+    },
+    {
+      "node_id": "osm_1224744820",
+      "name": "Calle Pedro Moreno y Calzada Federalismo",
+      "latitude": 20.6756981,
+      "longitude": -103.354828,
+      "intersection_type": "MASTER",
+      "osm_id": 1224744820,
+      "street_count": 4
+    },
+    {
+      "node_id": "osm_1659375478",
+      "name": "Avenida Plaza del Sol y Avenida Mariano Otero",
+      "latitude": 20.6507797,
+      "longitude": -103.3991158,
+      "intersection_type": "NORMAL",
+      "osm_id": 1659375478,
+      "street_count": 4
+    },
+    {
+      "node_id": "osm_1458872184",
+      "name": "Avenida Ignacio L. Vallarta y Calle Nelson",
+      "latitude": 20.6745629,
+      "longitude": -103.3903107,
+      "intersection_type": "NORMAL",
+      "osm_id": 1458872184,
+      "street_count": 4
+    },
+    {
+      "node_id": "osm_1339101049",
+      "name": "Calle José Guadalupe Zuno Hernández y Avenida Chapultepec",
+      "latitude": 20.6705156,
+      "longitude": -103.3686436,
+      "intersection_type": "NORMAL",
+      "osm_id": 1339101049,
+      "street_count": 4
+    },
+    {
+      "node_id": "osm_1458872186",
+      "name": "Calle Aníbal y Privada Aníbal",
+      "latitude": 20.6768193,
+      "longitude": -103.3925901,
+      "intersection_type": "NORMAL",
+      "osm_id": 1458872186,
+      "street_count": 4
+    },
+    {
+      "node_id": "osm_1659375484",
+      "name": "Avenida Mariano Otero y Calle Perla",
+      "latitude": 20.6505578,
+      "longitude": -103.3992471,
+      "intersection_type": "MASTER",
+      "osm_id": 1659375484,
+      "street_count": 4
+    },
+    {
+      "node_id": "osm_1339101055",
+      "name": "Avenida Chapultepec y Calle José Guadalupe Zuno Hernández",
+      "latitude": 20.670516,
+      "longitude": -103.368437,
+      "intersection_type": "NORMAL",
+      "osm_id": 1339101055,
+      "street_count": 4
+    },
+    {
+      "node_id": "osm_1416200578",
+      "name": "Avenida Enrique Díaz de León Sur y Circunvalación Agustín Yáñez",
+      "latitude": 20.6611771,
+      "longitude": -103.3610536,
+      "intersection_type": "MASTER",
+      "osm_id": 1416200578,
+      "street_count": 4
+    },
+    {
+      "node_id": "osm_1659375495",
+      "name": "Avenida Mariano Otero y Avenida Plaza del Sol",
+      "latitude": 20.6508215,
+      "longitude": -103.3990433,
+      "intersection_type": "NORMAL",
+      "osm_id": 1659375495,
+      "street_count": 4
+    },
+    {
+      "node_id": "osm_1369638281",
+      "name": "Calle Joaquín Angulo y Avenida de las Américas",
+      "latitude": 20.6823457,
+      "longitude": -103.3736275,
+      "intersection_type": "NORMAL",
+      "osm_id": 1369638281,
+      "street_count": 4
+    },
+    {
+      "node_id": "osm_1416200587",
+      "name": "Calle Herrera y Cairo y Avenida Enrique Díaz de León Norte",
+      "latitude": 20.6829013,
+      "longitude": -103.3591977,
+      "intersection_type": "NORMAL",
+      "osm_id": 1416200587,
+      "street_count": 4
+    },
+    {
+      "node_id": "osm_1659375499",
+      "name": "Avenida Mariano Otero y Avenida Plaza del Sol",
+      "latitude": 20.6506725,
+      "longitude": -103.3990482,
+      "intersection_type": "MASTER",
+      "osm_id": 1659375499,
+      "street_count": 4
+    },
+    {
+      "node_id": "osm_1371804043",
+      "name": "Calle Juan Palomar y Arias y Avenida Ignacio L. Vallarta",
+      "latitude": 20.6745761,
+      "longitude": -103.3934713,
+      "intersection_type": "NORMAL",
+      "osm_id": 1371804043,
+      "street_count": 4
+    },
+    {
+      "node_id": "osm_803079064",
+      "name": "Calzada Federalismo y Avenida de los Maestros",
+      "latitude": 20.6931966,
+      "longitude": -103.3540925,
+      "intersection_type": "MASTER",
+      "osm_id": 803079064,
+      "street_count": 4
+    },
+    {
+      "node_id": "osm_1659375523",
+      "name": "Avenida Mariano Otero y Calle Coral",
+      "latitude": 20.65041,
+      "longitude": -103.3992655,
+      "intersection_type": "NORMAL",
+      "osm_id": 1659375523,
+      "street_count": 4
+    },
+    {
+      "node_id": "osm_2881061797",
+      "name": "Avenida Tizoc y Avenida Adolfo López Mateos Sur",
+      "latitude": 20.6535596,
+      "longitude": -103.4011774,
+      "intersection_type": "MASTER",
+      "osm_id": 2881061797,
+      "street_count": 4
+    },
+    {
+      "node_id": "osm_2881061798",
+      "name": "Avenida Tizoc y Avenida Adolfo López Mateos Sur",
+      "latitude": 20.6535969,
+      "longitude": -103.4012412,
+      "intersection_type": "MASTER",
+      "osm_id": 2881061798,
+      "street_count": 4
+    },
+    {
+      "node_id": "osm_2881061799",
+      "name": "Avenida Tizoc y Avenida Adolfo López Mateos Sur",
+      "latitude": 20.6536367,
+      "longitude": -103.4011268,
+      "intersection_type": "MASTER",
+      "osm_id": 2881061799,
+      "street_count": 4
+    },
+    {
+      "node_id": "osm_2881061800",
+      "name": "Avenida Tizoc y Avenida Adolfo López Mateos Sur",
+      "latitude": 20.6536711,
+      "longitude": -103.401192,
+      "intersection_type": "MASTER",
+      "osm_id": 2881061800,
+      "street_count": 4
+    },
+    {
+      "node_id": "osm_1659375527",
+      "name": "Calle Coral y Avenida Mariano Otero",
+      "latitude": 20.6505097,
+      "longitude": -103.3993303,
+      "intersection_type": "MASTER",
+      "osm_id": 1659375527,
+      "street_count": 4
+    },
+    {
+      "node_id": "osm_1416200618",
+      "name": "Calle Manuel Acuña y Avenida Enrique Díaz de León Norte",
+      "latitude": 20.6839857,
+      "longitude": -103.3591689,
+      "intersection_type": "NORMAL",
+      "osm_id": 1416200618,
+      "street_count": 4
+    },
+    {
+      "node_id": "osm_1659375529",
+      "name": "Calle Perla y Avenida Mariano Otero",
+      "latitude": 20.650459,
+      "longitude": -103.3991807,
+      "intersection_type": "NORMAL",
+      "osm_id": 1659375529,
+      "street_count": 4
+    },
+    {
+      "node_id": "osm_1370726825",
+      "name": "Calle Nueva Escocia y Avenida Montevideo",
+      "latitude": 20.6960011,
+      "longitude": -103.3897191,
+      "intersection_type": "NORMAL",
+      "osm_id": 1370726825,
+      "street_count": 4
+    },
+    {
+      "node_id": "osm_1659375534",
+      "name": "Avenida Plaza del Sol y Avenida Mariano Otero",
+      "latitude": 20.6507138,
+      "longitude": -103.3989773,
+      "intersection_type": "MASTER",
+      "osm_id": 1659375534,
+      "street_count": 4
+    },
+    {
+      "node_id": "osm_1367909296",
+      "name": "Avenida Plan de San Luis y Circunvalación Jorge Álvarez del Castillo",
+      "latitude": 20.6974366,
+      "longitude": -103.3709927,
+      "intersection_type": "NORMAL",
+      "osm_id": 1367909296,
+      "street_count": 4
+    },
+    {
+      "node_id": "osm_1408010676",
+      "name": "Calle Plan de Ayutla y Calle Jesús García",
+      "latitude": 20.6885804,
+      "longitude": -103.359537,
+      "intersection_type": "NORMAL",
+      "osm_id": 1408010676,
+      "street_count": 4
+    },
+    {
+      "node_id": "osm_1041108927",
+      "name": "Avenida Ignacio L. Vallarta y Calle Barra de Navidad",
+      "latitude": 20.674297,
+      "longitude": -103.3934835,
+      "intersection_type": "NORMAL",
+      "osm_id": 1041108927,
+      "street_count": 4
+    },
+    {
+      "node_id": "osm_1416200641",
+      "name": "Avenida de la Paz y Avenida Enrique Díaz de León Sur",
+      "latitude": 20.6702309,
+      "longitude": -103.359362,
+      "intersection_type": "NORMAL",
+      "osm_id": 1416200641,
+      "street_count": 4
+    },
+    {
+      "node_id": "osm_8323341250",
+      "name": "Calle Lluvia y Avenida Mariano Otero",
+      "latitude": 20.6629898,
+      "longitude": -103.3773392,
+      "intersection_type": "MASTER",
+      "osm_id": 8323341250,
+      "street_count": 4
+    },
+    {
+      "node_id": "osm_1370726851",
+      "name": "Calle Pablo Neruda y Avenida Montevideo",
+      "latitude": 20.6973335,
+      "longitude": -103.3888075,
+      "intersection_type": "NORMAL",
+      "osm_id": 1370726851,
+      "street_count": 4
+    },
+    {
+      "node_id": "osm_1370726852",
+      "name": "Calle Pablo Neruda y Avenida Montevideo",
+      "latitude": 20.6976102,
+      "longitude": -103.3886349,
+      "intersection_type": "NORMAL",
+      "osm_id": 1370726852,
+      "street_count": 4
+    },
+    {
+      "node_id": "osm_1369649608",
+      "name": "Avenida Adolfo López Mateos Norte y Calle José María Vigil",
+      "latitude": 20.6899397,
+      "longitude": -103.3770079,
+      "intersection_type": "NORMAL",
+      "osm_id": 1369649608,
+      "street_count": 4
+    },
+    {
+      "node_id": "osm_1416200651",
+      "name": "Calle Hospital y Avenida Enrique Díaz de León Norte",
+      "latitude": 20.6853795,
+      "longitude": -103.3591193,
+      "intersection_type": "NORMAL",
+      "osm_id": 1416200651,
+      "street_count": 4
+    },
+    {
+      "node_id": "osm_377719756",
+      "name": "Calle Cruz Verde y Calle Herrera y Cairo",
+      "latitude": 20.6828348,
+      "longitude": -103.3572465,
+      "intersection_type": "NORMAL",
+      "osm_id": 377719756,
+      "street_count": 4
+    },
+    {
+      "node_id": "osm_1375401934",
+      "name": "Avenida de las Américas y Calle Regidores",
+      "latitude": 20.6935651,
+      "longitude": -103.3731928,
+      "intersection_type": "NORMAL",
+      "osm_id": 1375401934,
+      "street_count": 5
+    },
+    {
+      "node_id": "osm_1416200654",
+      "name": "Calle Juan Álvarez y Avenida Enrique Díaz de León Norte",
+      "latitude": 20.684661,
+      "longitude": -103.3591441,
+      "intersection_type": "NORMAL",
+      "osm_id": 1416200654,
+      "street_count": 4
+    },
+    {
+      "node_id": "osm_1416200665",
+      "name": "Calle Francisco Zarco y Avenida Enrique Díaz de León Norte",
+      "latitude": 20.6862145,
+      "longitude": -103.3590834,
+      "intersection_type": "NORMAL",
+      "osm_id": 1416200665,
+      "street_count": 4
+    },
+    {
+      "node_id": "osm_1416200668",
+      "name": "Calle José María Vigil y Avenida Enrique Díaz de León Norte",
+      "latitude": 20.6897656,
+      "longitude": -103.3588848,
+      "intersection_type": "NORMAL",
+      "osm_id": 1416200668,
+      "street_count": 4
+    },
+    {
+      "node_id": "osm_1341826525",
+      "name": "Calzada del Campesino y Avenida 16 de Septiembre",
+      "latitude": 20.6604393,
+      "longitude": -103.3506346,
+      "intersection_type": "MASTER",
+      "osm_id": 1341826525,
+      "street_count": 5
+    },
+    {
+      "node_id": "osm_321258975",
+      "name": "Calzada Federalismo y Avenida Manuel Ávila Camacho",
+      "latitude": 20.6993861,
+      "longitude": -103.35483,
+      "intersection_type": "MASTER",
+      "osm_id": 321258975,
+      "street_count": 4
+    },
+    {
+      "node_id": "osm_1367464930",
+      "name": "Calle Mar Báltico y Avenida de las Américas",
+      "latitude": 20.696349,
+      "longitude": -103.3730832,
+      "intersection_type": "NORMAL",
+      "osm_id": 1367464930,
+      "street_count": 5
+    },
+    {
+      "node_id": "osm_4085651442",
+      "name": "Avenida 16 de Septiembre y Calzada del Campesino",
+      "latitude": 20.6605084,
+      "longitude": -103.3506073,
+      "intersection_type": "MASTER",
+      "osm_id": 4085651442,
+      "street_count": 4
+    },
+    {
+      "node_id": "osm_4085651443",
+      "name": "Avenida 16 de Septiembre y Avenida Washington",
+      "latitude": 20.6576614,
+      "longitude": -103.3518033,
+      "intersection_type": "MASTER",
+      "osm_id": 4085651443,
+      "street_count": 4
+    },
+    {
+      "node_id": "osm_4085651444",
+      "name": "Avenida Washington y Calzada Independencia Sur",
+      "latitude": 20.6573165,
+      "longitude": -103.3512786,
+      "intersection_type": "MASTER",
+      "osm_id": 4085651444,
+      "street_count": 4
+    },
+    {
+      "node_id": "osm_1894163442",
+      "name": "Calle Ingeniero Gabriel Castaños y Calle Aurelio Aceves",
+      "latitude": 20.6738174,
+      "longitude": -103.3858698,
+      "intersection_type": "NORMAL",
+      "osm_id": 1894163442,
+      "street_count": 4
+    },
+    {
+      "node_id": "osm_1367909364",
+      "name": "Circunvalación Jorge Álvarez del Castillo y Avenida Plan de San Luis",
+      "latitude": 20.6974354,
+      "longitude": -103.3712886,
+      "intersection_type": "MASTER",
+      "osm_id": 1367909364,
+      "street_count": 4
+    },
+    {
+      "node_id": "osm_1940884471",
+      "name": "Avenida San Ignacio y Calzada Lázaro Cárdenas",
+      "latitude": 20.6705174,
+      "longitude": -103.4048298,
+      "intersection_type": "NORMAL",
+      "osm_id": 1940884471,
+      "street_count": 4
+    },
+    {
+      "node_id": "osm_313660410",
+      "name": "Avenida Libertad y Calzada Federalismo",
+      "latitude": 20.6715075,
+      "longitude": -103.3548582,
+      "intersection_type": "MASTER",
+      "osm_id": 313660410,
+      "street_count": 4
+    },
+    {
+      "node_id": "osm_1374007291",
+      "name": "Calle Pocito y Avenida Niño Obrero",
+      "latitude": 20.6613553,
+      "longitude": -103.4070899,
+      "intersection_type": "NORMAL",
+      "osm_id": 1374007291,
+      "street_count": 5
+    },
+    {
+      "node_id": "osm_1363124732",
+      "name": "Avenida de las Rosas y Avenida Mariano Otero",
+      "latitude": 20.655065,
+      "longitude": -103.391457,
+      "intersection_type": "MASTER",
+      "osm_id": 1363124732,
+      "street_count": 4
+    }
+  ],
+  "edges": [
+    {
+      "segment_id": "osm_290952789_1940884514",
+      "from_node_id": "osm_290952789",
+      "to_node_id": "osm_1940884514",
+      "category": "SECONDARY_AVENUE",
+      "length_m": 896.1,
+      "speed_limit_kmh": 50.0,
+      "name": "Avenida Niño Obrero",
+      "oneway": true,
+      "lanes": 2
+    },
+    {
+      "segment_id": "osm_1619760724_1416200668",
+      "from_node_id": "osm_1619760724",
+      "to_node_id": "osm_1416200668",
+      "category": "STREET",
+      "length_m": 580.8,
+      "speed_limit_kmh": 30.0,
+      "name": "Calle José María Vigil",
+      "oneway": true,
+      "lanes": 2
+    },
+    {
+      "segment_id": "osm_1345402477_1347454136",
+      "from_node_id": "osm_1345402477",
+      "to_node_id": "osm_1347454136",
+      "category": "STREET",
+      "length_m": 398.7,
+      "speed_limit_kmh": 30.0,
+      "name": "Avenida Paseo de la Arboleda",
+      "oneway": true,
+      "lanes": 3
+    },
+    {
+      "segment_id": "osm_1371804002_1041108927",
+      "from_node_id": "osm_1371804002",
+      "to_node_id": "osm_1041108927",
+      "category": "STREET",
+      "length_m": 17.8,
+      "speed_limit_kmh": 30.0,
+      "name": "",
+      "oneway": true,
+      "lanes": 1
+    },
+    {
+      "segment_id": "osm_1940884189_1940884233",
+      "from_node_id": "osm_1940884189",
+      "to_node_id": "osm_1940884233",
+      "category": "STREET",
+      "length_m": 194.3,
+      "speed_limit_kmh": 30.0,
+      "name": "Avenida Cuauhtémoc",
+      "oneway": true,
+      "lanes": 2
+    },
+    {
+      "segment_id": "osm_2881061798_2881061797",
+      "from_node_id": "osm_2881061798",
+      "to_node_id": "osm_2881061797",
+      "category": "SECONDARY_AVENUE",
+      "length_m": 7.8,
+      "speed_limit_kmh": 50.0,
+      "name": "Avenida Tizoc",
+      "oneway": true,
+      "lanes": 2
+    },
+    {
+      "segment_id": "osm_2881061799_2881061800",
+      "from_node_id": "osm_2881061799",
+      "to_node_id": "osm_2881061800",
+      "category": "SECONDARY_AVENUE",
+      "length_m": 7.8,
+      "speed_limit_kmh": 50.0,
+      "name": "Avenida Tizoc",
+      "oneway": true,
+      "lanes": 2
+    },
+    {
+      "segment_id": "osm_1363124861_1659375495",
+      "from_node_id": "osm_1363124861",
+      "to_node_id": "osm_1659375495",
+      "category": "SECONDARY_AVENUE",
+      "length_m": 907.3,
+      "speed_limit_kmh": 50.0,
+      "name": "Avenida Mariano Otero",
+      "oneway": true,
+      "lanes": 3
+    },
+    {
+      "segment_id": "osm_291178033_1470468651",
+      "from_node_id": "osm_291178033",
+      "to_node_id": "osm_1470468651",
+      "category": "STREET",
+      "length_m": 137.9,
+      "speed_limit_kmh": 30.0,
+      "name": "Calle Aurelio Aceves",
+      "oneway": true,
+      "lanes": 3
+    },
+    {
+      "segment_id": "osm_1354204865_4085651443",
+      "from_node_id": "osm_1354204865",
+      "to_node_id": "osm_4085651443",
+      "category": "MAIN_AVENUE",
+      "length_m": 83.1,
+      "speed_limit_kmh": 60.0,
+      "name": "Avenida Washington",
+      "oneway": true,
+      "lanes": 3
+    },
+    {
+      "segment_id": "osm_1354204851_1354204865",
+      "from_node_id": "osm_1354204851",
+      "to_node_id": "osm_1354204865",
+      "category": "MAIN_AVENUE",
+      "length_m": 13.7,
+      "speed_limit_kmh": 60.0,
+      "name": "Calzada Independencia Sur",
+      "oneway": true,
+      "lanes": 3
+    },
+    {
+      "segment_id": "osm_377749724_377651367",
+      "from_node_id": "osm_377749724",
+      "to_node_id": "osm_377651367",
+      "category": "MAIN_AVENUE",
+      "length_m": 185.6,
+      "speed_limit_kmh": 60.0,
+      "name": "Calzada Federalismo",
+      "oneway": true,
+      "lanes": 3
+    },
+    {
+      "segment_id": "osm_377751045_377749724",
+      "from_node_id": "osm_377751045",
+      "to_node_id": "osm_377749724",
+      "category": "MAIN_AVENUE",
+      "length_m": 147.7,
+      "speed_limit_kmh": 60.0,
+      "name": "Calzada Federalismo",
+      "oneway": true,
+      "lanes": 3
+    },
+    {
+      "segment_id": "osm_1220015204_1339033337",
+      "from_node_id": "osm_1220015204",
+      "to_node_id": "osm_1339033337",
+      "category": "MAIN_AVENUE",
+      "length_m": 270.6,
+      "speed_limit_kmh": 60.0,
+      "name": "Avenida Niños Héroes",
+      "oneway": true,
+      "lanes": 3
+    },
+    {
+      "segment_id": "osm_1940884250_290952789",
+      "from_node_id": "osm_1940884250",
+      "to_node_id": "osm_290952789",
+      "category": "SECONDARY_AVENUE",
+      "length_m": 439.7,
+      "speed_limit_kmh": 50.0,
+      "name": "Avenida Niño Obrero",
+      "oneway": true,
+      "lanes": 2
+    },
+    {
+      "segment_id": "osm_1376387352_1668223831",
+      "from_node_id": "osm_1376387352",
+      "to_node_id": "osm_1668223831",
+      "category": "STREET",
+      "length_m": 303.8,
+      "speed_limit_kmh": 30.0,
+      "name": "Circuito Madrigal",
+      "oneway": true,
+      "lanes": 2
+    },
+    {
+      "segment_id": "osm_1367909364_1367464930",
+      "from_node_id": "osm_1367909364",
+      "to_node_id": "osm_1367464930",
+      "category": "SECONDARY_AVENUE",
+      "length_m": 222.4,
+      "speed_limit_kmh": 50.0,
+      "name": "Circunvalación Jorge Álvarez del Castillo",
+      "oneway": true,
+      "lanes": 3
+    },
+    {
+      "segment_id": "osm_377719756_1416200587",
+      "from_node_id": "osm_377719756",
+      "to_node_id": "osm_1416200587",
+      "category": "STREET",
+      "length_m": 203.1,
+      "speed_limit_kmh": 30.0,
+      "name": "Calle Herrera y Cairo",
+      "oneway": true,
+      "lanes": 1
+    },
+    {
+      "segment_id": "osm_1940884517_1940884514",
+      "from_node_id": "osm_1940884517",
+      "to_node_id": "osm_1940884514",
+      "category": "STREET",
+      "length_m": 12.6,
+      "speed_limit_kmh": 30.0,
+      "name": "Calzada Lázaro Cárdenas",
+      "oneway": true,
+      "lanes": 3
+    },
+    {
+      "segment_id": "osm_1940884483_1940884471",
+      "from_node_id": "osm_1940884483",
+      "to_node_id": "osm_1940884471",
+      "category": "STREET",
+      "length_m": 11.9,
+      "speed_limit_kmh": 30.0,
+      "name": "Calzada Lázaro Cárdenas",
+      "oneway": true,
+      "lanes": 2
+    },
+    {
+      "segment_id": "osm_4085651442_1341826525",
+      "from_node_id": "osm_4085651442",
+      "to_node_id": "osm_1341826525",
+      "category": "MAIN_AVENUE",
+      "length_m": 8.2,
+      "speed_limit_kmh": 60.0,
+      "name": "Avenida 16 de Septiembre",
+      "oneway": true,
+      "lanes": 4
+    },
+    {
+      "segment_id": "osm_1376387273_1376387352",
+      "from_node_id": "osm_1376387273",
+      "to_node_id": "osm_1376387352",
+      "category": "STREET",
+      "length_m": 15.3,
+      "speed_limit_kmh": 30.0,
+      "name": "Circuito Madrigal",
+      "oneway": false,
+      "lanes": 3
+    },
+    {
+      "segment_id": "osm_1376387352_1376387273",
+      "from_node_id": "osm_1376387352",
+      "to_node_id": "osm_1376387273",
+      "category": "STREET",
+      "length_m": 15.3,
+      "speed_limit_kmh": 30.0,
+      "name": "Circuito Madrigal",
+      "oneway": false,
+      "lanes": 3
+    },
+    {
+      "segment_id": "osm_1363124864_1363124732",
+      "from_node_id": "osm_1363124864",
+      "to_node_id": "osm_1363124732",
+      "category": "STREET",
+      "length_m": 12.5,
+      "speed_limit_kmh": 30.0,
+      "name": "Avenida de las Rosas",
+      "oneway": true,
+      "lanes": 3
+    },
+    {
+      "segment_id": "osm_1368328200_1371803980",
+      "from_node_id": "osm_1368328200",
+      "to_node_id": "osm_1371803980",
+      "category": "SECONDARY_AVENUE",
+      "length_m": 278.4,
+      "speed_limit_kmh": 50.0,
+      "name": "Avenida México",
+      "oneway": true,
+      "lanes": 3
+    },
+    {
+      "segment_id": "osm_290952787_290952789",
+      "from_node_id": "osm_290952787",
+      "to_node_id": "osm_290952789",
+      "category": "MAIN_AVENUE",
+      "length_m": 11.5,
+      "speed_limit_kmh": 60.0,
+      "name": "Avenida Guadalupe",
+      "oneway": true,
+      "lanes": 4
+    },
+    {
+      "segment_id": "osm_1940884245_1374007291",
+      "from_node_id": "osm_1940884245",
+      "to_node_id": "osm_1374007291",
+      "category": "SECONDARY_AVENUE",
+      "length_m": 11.9,
+      "speed_limit_kmh": 50.0,
+      "name": "Avenida Niño Obrero",
+      "oneway": true,
+      "lanes": 3
+    },
+    {
+      "segment_id": "osm_1363124782_1363124864",
+      "from_node_id": "osm_1363124782",
+      "to_node_id": "osm_1363124864",
+      "category": "SECONDARY_AVENUE",
+      "length_m": 12.6,
+      "speed_limit_kmh": 50.0,
+      "name": "Avenida Mariano Otero",
+      "oneway": true,
+      "lanes": 2
+    },
+    {
+      "segment_id": "osm_1363124861_1363124746",
+      "from_node_id": "osm_1363124861",
+      "to_node_id": "osm_1363124746",
+      "category": "STREET",
+      "length_m": 12.3,
+      "speed_limit_kmh": 30.0,
+      "name": "Avenida de las Rosas",
+      "oneway": true,
+      "lanes": 2
+    },
+    {
+      "segment_id": "osm_1363124792_1363124861",
+      "from_node_id": "osm_1363124792",
+      "to_node_id": "osm_1363124861",
+      "category": "SECONDARY_AVENUE",
+      "length_m": 12.1,
+      "speed_limit_kmh": 50.0,
+      "name": "Avenida Mariano Otero",
+      "oneway": true,
+      "lanes": 3
+    },
+    {
+      "segment_id": "osm_1363124732_1363124746",
+      "from_node_id": "osm_1363124732",
+      "to_node_id": "osm_1363124746",
+      "category": "MAIN_AVENUE",
+      "length_m": 12.2,
+      "speed_limit_kmh": 50.0,
+      "name": "Avenida Mariano Otero",
+      "oneway": false,
+      "lanes": 4
+    },
+    {
+      "segment_id": "osm_1363124746_1363124732",
+      "from_node_id": "osm_1363124746",
+      "to_node_id": "osm_1363124732",
+      "category": "MAIN_AVENUE",
+      "length_m": 12.2,
+      "speed_limit_kmh": 50.0,
+      "name": "Avenida Mariano Otero",
+      "oneway": false,
+      "lanes": 4
+    },
+    {
+      "segment_id": "osm_1363124746_1363124782",
+      "from_node_id": "osm_1363124746",
+      "to_node_id": "osm_1363124782",
+      "category": "STREET",
+      "length_m": 12.4,
+      "speed_limit_kmh": 30.0,
+      "name": "Avenida de las Rosas",
+      "oneway": true,
+      "lanes": 2
+    },
+    {
+      "segment_id": "osm_1363124732_1363124792",
+      "from_node_id": "osm_1363124732",
+      "to_node_id": "osm_1363124792",
+      "category": "STREET",
+      "length_m": 12.3,
+      "speed_limit_kmh": 30.0,
+      "name": "Avenida de las Rosas",
+      "oneway": true,
+      "lanes": 3
+    },
+    {
+      "segment_id": "osm_1416200587_1416200618",
+      "from_node_id": "osm_1416200587",
+      "to_node_id": "osm_1416200618",
+      "category": "SECONDARY_AVENUE",
+      "length_m": 120.6,
+      "speed_limit_kmh": 50.0,
+      "name": "Avenida Enrique Díaz de León Norte",
+      "oneway": false,
+      "lanes": 5
+    },
+    {
+      "segment_id": "osm_1416200618_1416200587",
+      "from_node_id": "osm_1416200618",
+      "to_node_id": "osm_1416200587",
+      "category": "SECONDARY_AVENUE",
+      "length_m": 120.6,
+      "speed_limit_kmh": 50.0,
+      "name": "Avenida Enrique Díaz de León Norte",
+      "oneway": false,
+      "lanes": 5
+    },
+    {
+      "segment_id": "osm_1416200512_803079064",
+      "from_node_id": "osm_1416200512",
+      "to_node_id": "osm_803079064",
+      "category": "STREET",
+      "length_m": 455.0,
+      "speed_limit_kmh": 30.0,
+      "name": "Avenida de los Maestros",
+      "oneway": false,
+      "lanes": 1
+    },
+    {
+      "segment_id": "osm_803079064_1416200512",
+      "from_node_id": "osm_803079064",
+      "to_node_id": "osm_1416200512",
+      "category": "STREET",
+      "length_m": 455.0,
+      "speed_limit_kmh": 30.0,
+      "name": "Avenida de los Maestros",
+      "oneway": false,
+      "lanes": 1
+    },
+    {
+      "segment_id": "osm_1416200483_1408010676",
+      "from_node_id": "osm_1416200483",
+      "to_node_id": "osm_1408010676",
+      "category": "STREET",
+      "length_m": 54.2,
+      "speed_limit_kmh": 30.0,
+      "name": "Calle Jesús García",
+      "oneway": true,
+      "lanes": 2
+    },
+    {
+      "segment_id": "osm_1416200651_1416200665",
+      "from_node_id": "osm_1416200651",
+      "to_node_id": "osm_1416200665",
+      "category": "SECONDARY_AVENUE",
+      "length_m": 92.9,
+      "speed_limit_kmh": 50.0,
+      "name": "Avenida Enrique Díaz de León Norte",
+      "oneway": false,
+      "lanes": 5
+    },
+    {
+      "segment_id": "osm_1416200665_1416200651",
+      "from_node_id": "osm_1416200665",
+      "to_node_id": "osm_1416200651",
+      "category": "SECONDARY_AVENUE",
+      "length_m": 92.9,
+      "speed_limit_kmh": 50.0,
+      "name": "Avenida Enrique Díaz de León Norte",
+      "oneway": false,
+      "lanes": 5
+    },
+    {
+      "segment_id": "osm_1416200654_1416200651",
+      "from_node_id": "osm_1416200654",
+      "to_node_id": "osm_1416200651",
+      "category": "SECONDARY_AVENUE",
+      "length_m": 79.9,
+      "speed_limit_kmh": 50.0,
+      "name": "Avenida Enrique Díaz de León Norte",
+      "oneway": false,
+      "lanes": 5
+    },
+    {
+      "segment_id": "osm_1416200651_1416200654",
+      "from_node_id": "osm_1416200651",
+      "to_node_id": "osm_1416200654",
+      "category": "SECONDARY_AVENUE",
+      "length_m": 79.9,
+      "speed_limit_kmh": 50.0,
+      "name": "Avenida Enrique Díaz de León Norte",
+      "oneway": false,
+      "lanes": 5
+    },
+    {
+      "segment_id": "osm_1416200618_1416200654",
+      "from_node_id": "osm_1416200618",
+      "to_node_id": "osm_1416200654",
+      "category": "SECONDARY_AVENUE",
+      "length_m": 75.1,
+      "speed_limit_kmh": 50.0,
+      "name": "Avenida Enrique Díaz de León Norte",
+      "oneway": false,
+      "lanes": 5
+    },
+    {
+      "segment_id": "osm_1416200654_1416200618",
+      "from_node_id": "osm_1416200654",
+      "to_node_id": "osm_1416200618",
+      "category": "SECONDARY_AVENUE",
+      "length_m": 75.1,
+      "speed_limit_kmh": 50.0,
+      "name": "Avenida Enrique Díaz de León Norte",
+      "oneway": false,
+      "lanes": 5
+    },
+    {
+      "segment_id": "osm_1370726825_1370726851",
+      "from_node_id": "osm_1370726825",
+      "to_node_id": "osm_1370726851",
+      "category": "STREET",
+      "length_m": 175.9,
+      "speed_limit_kmh": 30.0,
+      "name": "Avenida Montevideo",
+      "oneway": true,
+      "lanes": 2
+    },
+    {
+      "segment_id": "osm_1940884236_1940884230",
+      "from_node_id": "osm_1940884236",
+      "to_node_id": "osm_1940884230",
+      "category": "STREET",
+      "length_m": 11.5,
+      "speed_limit_kmh": 30.0,
+      "name": "Avenida Cuauhtémoc",
+      "oneway": true,
+      "lanes": 2
+    },
+    {
+      "segment_id": "osm_1940884230_1940884233",
+      "from_node_id": "osm_1940884230",
+      "to_node_id": "osm_1940884233",
+      "category": "STREET",
+      "length_m": 12.4,
+      "speed_limit_kmh": 30.0,
+      "name": "Avenida Tepeyac",
+      "oneway": true,
+      "lanes": 2
+    },
+    {
+      "segment_id": "osm_1370726851_1370726852",
+      "from_node_id": "osm_1370726851",
+      "to_node_id": "osm_1370726852",
+      "category": "STREET",
+      "length_m": 35.6,
+      "speed_limit_kmh": 30.0,
+      "name": "Avenida Montevideo",
+      "oneway": true,
+      "lanes": 2
+    },
+    {
+      "segment_id": "osm_1373262607_1373262565",
+      "from_node_id": "osm_1373262607",
+      "to_node_id": "osm_1373262565",
+      "category": "STREET",
+      "length_m": 11.9,
+      "speed_limit_kmh": 30.0,
+      "name": "Calle 12 de Diciembre",
+      "oneway": true,
+      "lanes": 1
+    },
+    {
+      "segment_id": "osm_1367909296_1367909364",
+      "from_node_id": "osm_1367909296",
+      "to_node_id": "osm_1367909364",
+      "category": "SECONDARY_AVENUE",
+      "length_m": 30.8,
+      "speed_limit_kmh": 50.0,
+      "name": "Avenida Plan de San Luis",
+      "oneway": true,
+      "lanes": 2
+    },
+    {
+      "segment_id": "osm_2881061797_2881061799",
+      "from_node_id": "osm_2881061797",
+      "to_node_id": "osm_2881061799",
+      "category": "MAIN_AVENUE",
+      "length_m": 10.1,
+      "speed_limit_kmh": 60.0,
+      "name": "Avenida Adolfo López Mateos Sur",
+      "oneway": true,
+      "lanes": 2
+    },
+    {
+      "segment_id": "osm_1416200560_1416200641",
+      "from_node_id": "osm_1416200560",
+      "to_node_id": "osm_1416200641",
+      "category": "SECONDARY_AVENUE",
+      "length_m": 12.3,
+      "speed_limit_kmh": 50.0,
+      "name": "Avenida Enrique Díaz de León Sur",
+      "oneway": false,
+      "lanes": 4
+    },
+    {
+      "segment_id": "osm_1416200641_1416200560",
+      "from_node_id": "osm_1416200641",
+      "to_node_id": "osm_1416200560",
+      "category": "SECONDARY_AVENUE",
+      "length_m": 12.3,
+      "speed_limit_kmh": 50.0,
+      "name": "Avenida Enrique Díaz de León Sur",
+      "oneway": false,
+      "lanes": 4
+    },
+    {
+      "segment_id": "osm_1659375499_1659375484",
+      "from_node_id": "osm_1659375499",
+      "to_node_id": "osm_1659375484",
+      "category": "MAIN_AVENUE",
+      "length_m": 24.3,
+      "speed_limit_kmh": 50.0,
+      "name": "Avenida Mariano Otero",
+      "oneway": false,
+      "lanes": 4
+    },
+    {
+      "segment_id": "osm_1659375484_1659375499",
+      "from_node_id": "osm_1659375484",
+      "to_node_id": "osm_1659375499",
+      "category": "MAIN_AVENUE",
+      "length_m": 24.3,
+      "speed_limit_kmh": 50.0,
+      "name": "Avenida Mariano Otero",
+      "oneway": false,
+      "lanes": 4
+    },
+    {
+      "segment_id": "osm_1416200668_1416200512",
+      "from_node_id": "osm_1416200668",
+      "to_node_id": "osm_1416200512",
+      "category": "SECONDARY_AVENUE",
+      "length_m": 395.4,
+      "speed_limit_kmh": 50.0,
+      "name": "Avenida Enrique Díaz de León Norte",
+      "oneway": false,
+      "lanes": 5
+    },
+    {
+      "segment_id": "osm_1416200512_1416200668",
+      "from_node_id": "osm_1416200512",
+      "to_node_id": "osm_1416200668",
+      "category": "SECONDARY_AVENUE",
+      "length_m": 395.4,
+      "speed_limit_kmh": 50.0,
+      "name": "Avenida Enrique Díaz de León Norte",
+      "oneway": false,
+      "lanes": 5
+    },
+    {
+      "segment_id": "osm_1832752174_1832752171",
+      "from_node_id": "osm_1832752174",
+      "to_node_id": "osm_1832752171",
+      "category": "STREET",
+      "length_m": 14.8,
+      "speed_limit_kmh": 30.0,
+      "name": "Calle Rinconada del Nardo",
+      "oneway": false,
+      "lanes": 2
+    },
+    {
+      "segment_id": "osm_1832752171_1832752174",
+      "from_node_id": "osm_1832752171",
+      "to_node_id": "osm_1832752174",
+      "category": "STREET",
+      "length_m": 14.8,
+      "speed_limit_kmh": 30.0,
+      "name": "Calle Rinconada del Nardo",
+      "oneway": false,
+      "lanes": 2
+    },
+    {
+      "segment_id": "osm_1345430068_1345430075",
+      "from_node_id": "osm_1345430068",
+      "to_node_id": "osm_1345430075",
+      "category": "STREET",
+      "length_m": 13.7,
+      "speed_limit_kmh": 30.0,
+      "name": "Calle La Cauda",
+      "oneway": false,
+      "lanes": 1
+    },
+    {
+      "segment_id": "osm_1345430075_1345430068",
+      "from_node_id": "osm_1345430075",
+      "to_node_id": "osm_1345430068",
+      "category": "STREET",
+      "length_m": 13.7,
+      "speed_limit_kmh": 30.0,
+      "name": "Calle La Cauda",
+      "oneway": false,
+      "lanes": 1
+    },
+    {
+      "segment_id": "osm_1416200550_1416200477",
+      "from_node_id": "osm_1416200550",
+      "to_node_id": "osm_1416200477",
+      "category": "SECONDARY_AVENUE",
+      "length_m": 118.2,
+      "speed_limit_kmh": 50.0,
+      "name": "Avenida Enrique Díaz de León Norte",
+      "oneway": false,
+      "lanes": 5
+    },
+    {
+      "segment_id": "osm_1416200477_1416200550",
+      "from_node_id": "osm_1416200477",
+      "to_node_id": "osm_1416200550",
+      "category": "SECONDARY_AVENUE",
+      "length_m": 118.2,
+      "speed_limit_kmh": 50.0,
+      "name": "Avenida Enrique Díaz de León Norte",
+      "oneway": false,
+      "lanes": 5
+    },
+    {
+      "segment_id": "osm_1373262565_1373262607",
+      "from_node_id": "osm_1373262565",
+      "to_node_id": "osm_1373262607",
+      "category": "STREET",
+      "length_m": 11.9,
+      "speed_limit_kmh": 30.0,
+      "name": "Calle 12 de Diciembre",
+      "oneway": true,
+      "lanes": 1
+    },
+    {
+      "segment_id": "osm_2881061800_2881061798",
+      "from_node_id": "osm_2881061800",
+      "to_node_id": "osm_2881061798",
+      "category": "MAIN_AVENUE",
+      "length_m": 9.7,
+      "speed_limit_kmh": 60.0,
+      "name": "Avenida Adolfo López Mateos Sur",
+      "oneway": true,
+      "lanes": 2
+    },
+    {
+      "segment_id": "osm_1659375478_1659375499",
+      "from_node_id": "osm_1659375478",
+      "to_node_id": "osm_1659375499",
+      "category": "STREET",
+      "length_m": 13.8,
+      "speed_limit_kmh": 30.0,
+      "name": "Avenida Plaza del Sol",
+      "oneway": true,
+      "lanes": 3
+    },
+    {
+      "segment_id": "osm_1659375534_1659375495",
+      "from_node_id": "osm_1659375534",
+      "to_node_id": "osm_1659375495",
+      "category": "STREET",
+      "length_m": 13.8,
+      "speed_limit_kmh": 30.0,
+      "name": "Avenida Plaza del Sol",
+      "oneway": true,
+      "lanes": 3
+    },
+    {
+      "segment_id": "osm_1659375534_1659375499",
+      "from_node_id": "osm_1659375534",
+      "to_node_id": "osm_1659375499",
+      "category": "MAIN_AVENUE",
+      "length_m": 8.7,
+      "speed_limit_kmh": 50.0,
+      "name": "Avenida Mariano Otero",
+      "oneway": false,
+      "lanes": 4
+    },
+    {
+      "segment_id": "osm_1659375499_1659375534",
+      "from_node_id": "osm_1659375499",
+      "to_node_id": "osm_1659375534",
+      "category": "MAIN_AVENUE",
+      "length_m": 8.7,
+      "speed_limit_kmh": 50.0,
+      "name": "Avenida Mariano Otero",
+      "oneway": false,
+      "lanes": 4
+    },
+    {
+      "segment_id": "osm_1659375495_1659375478",
+      "from_node_id": "osm_1659375495",
+      "to_node_id": "osm_1659375478",
+      "category": "SECONDARY_AVENUE",
+      "length_m": 8.9,
+      "speed_limit_kmh": 50.0,
+      "name": "Avenida Mariano Otero",
+      "oneway": true,
+      "lanes": 3
+    },
+    {
+      "segment_id": "osm_1659375484_1659375527",
+      "from_node_id": "osm_1659375484",
+      "to_node_id": "osm_1659375527",
+      "category": "MAIN_AVENUE",
+      "length_m": 10.2,
+      "speed_limit_kmh": 50.0,
+      "name": "Avenida Mariano Otero",
+      "oneway": false,
+      "lanes": 4
+    },
+    {
+      "segment_id": "osm_1659375527_1659375484",
+      "from_node_id": "osm_1659375527",
+      "to_node_id": "osm_1659375484",
+      "category": "MAIN_AVENUE",
+      "length_m": 10.2,
+      "speed_limit_kmh": 50.0,
+      "name": "Avenida Mariano Otero",
+      "oneway": false,
+      "lanes": 4
+    },
+    {
+      "segment_id": "osm_1659375529_1659375484",
+      "from_node_id": "osm_1659375529",
+      "to_node_id": "osm_1659375484",
+      "category": "STREET",
+      "length_m": 13.0,
+      "speed_limit_kmh": 30.0,
+      "name": "Calle Perla",
+      "oneway": true,
+      "lanes": 1
+    },
+    {
+      "segment_id": "osm_1659375523_1659375529",
+      "from_node_id": "osm_1659375523",
+      "to_node_id": "osm_1659375529",
+      "category": "SECONDARY_AVENUE",
+      "length_m": 10.4,
+      "speed_limit_kmh": 50.0,
+      "name": "Avenida Mariano Otero",
+      "oneway": true,
+      "lanes": 2
+    },
+    {
+      "segment_id": "osm_1659375527_1659375523",
+      "from_node_id": "osm_1659375527",
+      "to_node_id": "osm_1659375523",
+      "category": "STREET",
+      "length_m": 13.0,
+      "speed_limit_kmh": 30.0,
+      "name": "Calle Coral",
+      "oneway": true,
+      "lanes": 1
+    },
+    {
+      "segment_id": "osm_1268343818_1894163442",
+      "from_node_id": "osm_1268343818",
+      "to_node_id": "osm_1894163442",
+      "category": "STREET",
+      "length_m": 92.9,
+      "speed_limit_kmh": 30.0,
+      "name": "Calle Aurelio Aceves",
+      "oneway": true,
+      "lanes": 3
+    },
+    {
+      "segment_id": "osm_1470468651_1268343818",
+      "from_node_id": "osm_1470468651",
+      "to_node_id": "osm_1268343818",
+      "category": "STREET",
+      "length_m": 145.4,
+      "speed_limit_kmh": 30.0,
+      "name": "Calle Aurelio Aceves",
+      "oneway": true,
+      "lanes": 3
+    },
+    {
+      "segment_id": "osm_3730575634_8311184183",
+      "from_node_id": "osm_3730575634",
+      "to_node_id": "osm_8311184183",
+      "category": "SECONDARY_AVENUE",
+      "length_m": 8.9,
+      "speed_limit_kmh": 50.0,
+      "name": "Avenida Ignacio L. Vallarta",
+      "oneway": true,
+      "lanes": 4
+    },
+    {
+      "segment_id": "osm_1339101055_1339101049",
+      "from_node_id": "osm_1339101055",
+      "to_node_id": "osm_1339101049",
+      "category": "STREET",
+      "length_m": 21.5,
+      "speed_limit_kmh": 30.0,
+      "name": "Calle José Guadalupe Zuno Hernández",
+      "oneway": true,
+      "lanes": 2
+    },
+    {
+      "segment_id": "osm_1347454136_1347454135",
+      "from_node_id": "osm_1347454136",
+      "to_node_id": "osm_1347454135",
+      "category": "STREET",
+      "length_m": 29.0,
+      "speed_limit_kmh": 30.0,
+      "name": "Calle El Sol",
+      "oneway": false,
+      "lanes": 1
+    },
+    {
+      "segment_id": "osm_1347454135_1347454136",
+      "from_node_id": "osm_1347454135",
+      "to_node_id": "osm_1347454136",
+      "category": "STREET",
+      "length_m": 29.0,
+      "speed_limit_kmh": 30.0,
+      "name": "Calle El Sol",
+      "oneway": false,
+      "lanes": 1
+    },
+    {
+      "segment_id": "osm_1940884250_1940884245",
+      "from_node_id": "osm_1940884250",
+      "to_node_id": "osm_1940884245",
+      "category": "STREET",
+      "length_m": 11.3,
+      "speed_limit_kmh": 30.0,
+      "name": "Avenida Tepeyac",
+      "oneway": true,
+      "lanes": 2
+    },
+    {
+      "segment_id": "osm_321258975_803078771",
+      "from_node_id": "osm_321258975",
+      "to_node_id": "osm_803078771",
+      "category": "MAIN_AVENUE",
+      "length_m": 23.2,
+      "speed_limit_kmh": 60.0,
+      "name": "Avenida Manuel Ávila Camacho",
+      "oneway": true,
+      "lanes": 2
+    }
+  ]
+}

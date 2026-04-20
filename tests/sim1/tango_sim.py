@@ -34,10 +34,14 @@ from core.road          import (Intersection, IntersectionType,
                                 RoadSegment, RoadCategory, Phase, Turn)
 from core.entities      import Vehicle, Pedestrian, VehicleType, Direction
 from graph.simulator    import TrafficGraph
+from graph.city_loader  import json_to_traffic_graph, load_graph_from_json
 
 OUTPUT_PLOTLY = Path(__file__).parent / "tango_sim.html"
 OUTPUT_FOLIUM = Path(__file__).parent / "tango_map.html"
 N_TICKS = 40
+
+# JSON del grafo real — generado por graph/city_loader.py
+CITY_JSON = ROOT / "graph" / "city_graph.json"
 
 # ─────────────────────────────────────────────────────────────────────────────
 #  RED VIAL REAL DE LA ZMG — 16 intersecciones
@@ -597,11 +601,20 @@ def build_folium_map(graph: TrafficGraph, final_snap: dict) -> folium.Map:
 
 if __name__ == "__main__":
     print("tanGo — simulación ZMG Guadalajara")
-    print(f"  {len(ZMG_INTERSECTIONS)} intersecciones · "
-          f"{len(ZMG_SEGMENTS)*2} segmentos bidireccionales")
-    print(f"  {len(SCENARIOS)} escenarios × {N_TICKS} ticks\n")
 
-    graph = build_zmg_graph()
+    # Cargar grafo: JSON real si existe, hardcodeado como fallback
+    if CITY_JSON.exists():
+        print(f"  Usando grafo desde JSON: {CITY_JSON.name}")
+        graph = json_to_traffic_graph(CITY_JSON)
+        print(f"  {graph.graph.number_of_nodes()} intersecciones reales · "
+              f"{graph.graph.number_of_edges()} aristas")
+    else:
+        print(f"  JSON no encontrado — usando grafo de ejemplo.")
+        print(f"  Para datos reales ejecuta:")
+        print(f"    python graph/city_loader.py --city zmg_centro\n")
+        graph = build_zmg_graph()
+
+    print(f"  {len(SCENARIOS)} escenarios × {N_TICKS} ticks\n")
 
     all_histories = []
     final_snap    = None
