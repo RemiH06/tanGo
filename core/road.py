@@ -220,6 +220,19 @@ class RoadSegment:
 
 # ── Intersection ──────────────────────────────────────────────────────────────
 
+# ── Eje de dirección ─────────────────────────────────────────────────────────
+# Un semáforo real controla dos ejes independientes:
+#   Eje NS (Norte-Sur / Sur-Norte) — vertical
+#   Eje EW (Este-Oeste / Oeste-Este) — horizontal
+# Cuando el eje NS está en verde, el EW está en rojo, y viceversa.
+# Las intersecciones BLIND no tienen ejes (sin semáforo).
+
+class TrafficAxis(Enum):
+    """Eje de circulación controlado por el semáforo."""
+    NS = "ns"   # Norte-Sur / Sur-Norte
+    EW = "ew"   # Este-Oeste / Oeste-Este
+
+
 # Duración de fase amarilla — fija por seguridad vial
 _YELLOW_DURATION_S: int = 3
 
@@ -285,8 +298,46 @@ class Intersection:
     _phase_started_at: datetime          = field(
         default_factory=datetime.now, init=False, repr=False
     )
-    _ticks_in_phase:   int               = field(default=0, init=False, repr=False)
-    _timeout_triggered: bool             = field(default=False, init=False, repr=False)
+    _ticks_in_phase:    int  = field(default=0, init=False, repr=False)
+    _timeout_triggered: bool = field(default=False, init=False, repr=False)
+    # Eje activo en verde — el otro está en rojo.
+    # Alterna entre NS y EW en cada cambio de ciclo.
+    _active_axis:       "TrafficAxis" = field(
+        default=None, init=False, repr=False
+    )
+    # Presión por eje — permite saber cuál eje tiene más demanda
+    _pressure_ns:       float = field(default=0.0, init=False, repr=False)
+    _pressure_ew:       float = field(default=0.0, init=False, repr=False)
+
+    def __post_init__(self) -> None:
+        if not (-90.0 <= self.latitude <= 90.0):
+            raise ValueError(f"Latitud fuera de rango: {self.latitude}")
+        if not (-180.0 <= self.longitude <= 180.0):
+            raise ValueError(f"Longitud fuera de rango: {self.longitude}")
+        # Inicializar eje activo importando TrafficAxis aquí para evitar
+        # referencia circular en el field default
+        from core.road import TrafficAxis as TA
+        self._active_axis = TA.NS  # empieza con NS en verde
+
+    @property
+    def phase_ns(self) -> Phase:
+        """Fase del eje Norte-Sur."""
+        if not self.has_traffic_light:
+            return Phase.RED
+        from core.road import TrafficAxis as TA
+        if self.current_phase == Phase.YELLOW:
+            return Phase.YELLOW
+        return self.current_phase if self._active_axis == TA.NS else Phase.RED
+
+    @property
+    def phase_ew(self) -> Phase:
+        """Fase del eje Este-Oeste."""
+        if not self.has_traffic_light:
+            return Phase.RED
+        from core.road import TrafficAxis as TA
+        if self.current_phase == Phase.YELLOW:
+            return Phase.YELLOW
+        return self.current_phase if self._active_axis == TA.EW else Phase.RED
 
     @property
     def has_traffic_light(self) -> bool:
@@ -333,12 +384,6 @@ class Intersection:
         indefinidamente aunque la presión no alcance el umbral.
         """
         return max(3, int(_RED_TIMEOUT_BASE_TICKS / (self.pressure_threshold / 100)))
-
-    def __post_init__(self) -> None:
-        if not (-90.0 <= self.latitude <= 90.0):
-            raise ValueError(f"Latitud fuera de rango: {self.latitude}")
-        if not (-180.0 <= self.longitude <= 180.0):
-            raise ValueError(f"Longitud fuera de rango: {self.longitude}")
 
     # ── Lógica de fase ────────────────────────────────────────────────────────
 
@@ -419,7 +464,16 @@ class Intersection:
             self.current_phase      = new_phase
             self._phase_started_at  = datetime.now()
             self._ticks_in_phase    = 0
-            self._timeout_triggered = False   # reset para el próximo ciclo rojo
+            self._timeout_triggered = False
+
+            # Alternar eje activo cuando termina el ciclo (YELLOW → RED)
+            # El eje que estaba en verde pasa a rojo y el otro toma el turno
+            if new_phase == Phase.RED:
+                from core.road import TrafficAxis as TA
+                self._active_axis = (TA.EW if self._active_axis == TA.NS
+                                     else TA.NS)
+                logger.debug("[%s] Eje activo ahora: %s",
+                             self.name, self._active_axis.value)
 
         return self.current_phase
 

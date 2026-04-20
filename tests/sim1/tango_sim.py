@@ -31,7 +31,8 @@ from folium.plugins import MarkerCluster
 from core.context       import TrafficContext
 from core.weight_engine import WeightEngine
 from core.road          import (Intersection, IntersectionType,
-                                RoadSegment, RoadCategory, Phase, Turn)
+                                RoadSegment, RoadCategory, Phase, Turn,
+                                TrafficAxis)
 from core.entities      import Vehicle, Pedestrian, VehicleType, Direction
 from graph.simulator    import TrafficGraph
 from graph.city_loader  import json_to_traffic_graph, load_graph_from_json
@@ -256,6 +257,9 @@ def simulate(scenario: dict, graph: TrafficGraph, n_ticks: int) -> list[dict]:
 
             frame["nodes"][node_id] = {
                 "phase":     inter.current_phase.value,
+                "phase_ns":  inter.phase_ns.value,
+                "phase_ew":  inter.phase_ew.value,
+                "active_axis": getattr(inter._active_axis, "value", "ns"),
                 "pressure":  inter.pressure,
                 "itype":     inter.intersection_type,
                 "has_light": inter.has_traffic_light,
@@ -348,27 +352,51 @@ def build_plotly(graph: TrafficGraph, all_histories: list[tuple]) -> go.Figure:
                 nd = snap["nodes"][n]
                 lons.append(nd["lon"])
                 lats.append(nd["lat"])
-                colors.append(PHASE_COLOR[nd["phase"]])
-                symbols.append(TYPE_SYMBOL[nd["itype"]])
+                # Color principal = eje activo en verde
+                # Si ambos están en rojo (transición) → rojo
+                # Si hay amarillo → amarillo
+                if nd["phase_ns"] == "yellow" or nd["phase_ew"] == "yellow":
+                    main_color = PHASE_COLOR["yellow"]
+                elif nd["phase_ns"] == "green" or nd["phase_ew"] == "green":
+                    main_color = PHASE_COLOR["green"]
+                else:
+                    main_color = PHASE_COLOR["red"]
+                colors.append(main_color)
+
+                # Símbolo: flecha según eje activo para indicar qué dirección fluye
+                axis = nd.get("active_axis", "ns")
+                if not nd["has_light"]:
+                    sym = TYPE_SYMBOL[nd["itype"]]  # diamante para BLIND
+                elif nd["phase"] == "red":
+                    sym = "circle-x"  # X cuando ambos ejes en rojo
+                elif axis == "ns":
+                    sym = "arrow-up"  # flecha arriba = NS en verde
+                else:
+                    sym = "arrow-right"  # flecha derecha = EW en verde
+                symbols.append(sym)
                 borders.append(TYPE_RING[nd["itype"]])
 
-                base = {"master":20,"normal":15,"blind":11}[nd["itype"].value]
-                sizes.append(min(40, base + nd["pressure"]*0.08))
+                base = {"master":22,"normal":17,"blind":12}[nd["itype"].value]
+                sizes.append(min(42, base + nd["pressure"]*0.08))
 
                 pct = min(100, nd["pressure"]/nd["threshold"]*100)
                 c   = nd["counts"]
                 timeout_info = (
-                    f"⏱ Timeout en {nd['timeout'] - nd['ticks_red']} ticks"
+                    f"⏱ timeout en {max(0, nd['timeout'] - nd['ticks_red'])} ticks"
                     if nd["phase"]=="red" and nd["has_light"] else ""
                 )
+                ns_col = {"green":"🟢","yellow":"🟡","red":"🔴"}.get(nd["phase_ns"],"⚫")
+                ew_col = {"green":"🟢","yellow":"🟡","red":"🔴"}.get(nd["phase_ew"],"⚫")
                 hovers.append(
                     f"<b>{n}</b> {nd['name']}<br>"
                     f"Tipo: {nd['itype'].value.upper()} "
-                    f"{'🚦' if nd['has_light'] else '⛔'}<br>"
-                    f"Fase: <b>{nd['phase'].upper()}</b> {timeout_info}<br>"
-                    f"Presión: {nd['pressure']:.1f}/{nd['threshold']:.0f} "
-                    f"({pct:.0f}%)<br>"
-                    f"─────────<br>"
+                    f"{'🚦' if nd['has_light'] else '⛔ sin semáforo'}<br>"
+                    f"─────────────<br>"
+                    f"{ns_col} Eje N-S: <b>{nd['phase_ns'].upper()}</b><br>"
+                    f"{ew_col} Eje E-O: <b>{nd['phase_ew'].upper()}</b><br>"
+                    f"Eje activo: {nd['active_axis'].upper()} {timeout_info}<br>"
+                    f"─────────────<br>"
+                    f"Presión: {nd['pressure']:.1f}/{nd['threshold']:.0f} ({pct:.0f}%)<br>"
                     f"🚗{c.get('CAR',0)} 🏍{c.get('MOTORCYCLE',0)} "
                     f"🚌{c.get('BUS',0)} 🚛{c.get('TRUCK',0)} "
                     f"🚲{c.get('BICYCLE',0)} 🚑{c.get('EMERGENCY',0)}<br>"

@@ -121,6 +121,44 @@ CITY_BBOXES = {
     },
 }
 
+# Puntos de interés predefinidos para el modo radio
+CITY_CENTERS = {
+    "vallarta_lopez":    (20.6757, -103.4093),  # Av. Vallarta y López Mateos
+    "vallarta_patria":   (20.6757, -103.3800),  # Av. Vallarta y Av. Patria
+    "americas_mexico":   (20.6650, -103.3800),  # Av. Américas y Av. México
+    "centro_gdl":        (20.6736, -103.3447),  # Centro histórico GDL
+    "zapopan_centro":    (20.7209, -103.3893),  # Centro Zapopan
+    "tlaquepaque":       (20.6452, -103.3105),  # Tlaquepaque centro
+}
+
+
+def radius_to_bbox(lat: float, lon: float, radius_m: float) -> dict:
+    """
+    Convierte un centro + radio en metros a un bounding box.
+    Aproximación válida para radios < 50km en latitudes medias.
+
+    Parameters
+    ----------
+    lat      : Latitud del centro.
+    lon      : Longitud del centro.
+    radius_m : Radio en metros.
+
+    Returns
+    -------
+    Dict con south, north, west, east.
+    """
+    import math
+    # 1 grado de latitud ≈ 111,320 m
+    # 1 grado de longitud ≈ 111,320 * cos(lat) m
+    delta_lat = radius_m / 111_320
+    delta_lon = radius_m / (111_320 * math.cos(math.radians(lat)))
+    return {
+        "south": round(lat - delta_lat, 6),
+        "north": round(lat + delta_lat, 6),
+        "west":  round(lon - delta_lon, 6),
+        "east":  round(lon + delta_lon, 6),
+    }
+
 
 # ── Descarga desde Overpass ───────────────────────────────────────────────────
 
@@ -557,20 +595,37 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--city", choices=list(CITY_BBOXES.keys()),
-        default="zmg_centro",
-        help="Ciudad predefinida (default: zmg_centro)",
+        default=None,
+        help="Ciudad predefinida por bounding box",
+    )
+    parser.add_argument(
+        "--center", choices=list(CITY_CENTERS.keys()),
+        default=None,
+        help="Centro predefinido + radio (usar con --radius)",
+    )
+    parser.add_argument(
+        "--radius", type=float, default=800,
+        help="Radio en metros desde --center (default: 800m ≈ ~10 cuadras)",
+    )
+    parser.add_argument(
+        "--lat", type=float,
+        help="Latitud del centro (alternativa a --center)",
+    )
+    parser.add_argument(
+        "--lon", type=float,
+        help="Longitud del centro (alternativa a --center)",
     )
     parser.add_argument(
         "--bbox",
-        help="Bounding box personalizado: south,north,west,east",
+        help="Bounding box manual: south,north,west,east",
     )
     parser.add_argument(
         "--output", default="graph/city_graph.json",
-        help="Ruta de salida del JSON (default: graph/city_graph.json)",
+        help="Ruta de salida (default: graph/city_graph.json)",
     )
     parser.add_argument(
-        "--max-nodes", type=int, default=150,
-        help="Máximo de intersecciones a incluir (default: 150)",
+        "--max-nodes", type=int, default=80,
+        help="Máximo de intersecciones (default: 80 — rápido en simulación)",
     )
     parser.add_argument(
         "--verify",
@@ -582,12 +637,35 @@ if __name__ == "__main__":
         verify_json(args.verify)
         raise SystemExit(0)
 
-    # Determinar bbox
+    # ── Determinar bbox ───────────────────────────────────────────────────────
     if args.bbox:
         parts = [float(x) for x in args.bbox.split(",")]
         bbox  = dict(zip(["south","north","west","east"], parts))
-    else:
+        print(f"  Modo: bbox manual {bbox}")
+
+    elif args.lat and args.lon:
+        bbox = radius_to_bbox(args.lat, args.lon, args.radius)
+        print(f"  Modo: radio {args.radius:.0f}m desde ({args.lat:.4f}, {args.lon:.4f})")
+
+    elif args.center:
+        lat, lon = CITY_CENTERS[args.center]
+        bbox = radius_to_bbox(lat, lon, args.radius)
+        print(f"  Modo: radio {args.radius:.0f}m desde '{args.center}' "
+              f"({lat:.4f}, {lon:.4f})")
+
+    elif args.city:
         bbox = CITY_BBOXES[args.city]
+        print(f"  Modo: ciudad '{args.city}'")
+
+    else:
+        # Default: 800m alrededor de Vallarta y López Mateos
+        lat, lon = CITY_CENTERS["vallarta_lopez"]
+        bbox = radius_to_bbox(lat, lon, 800)
+        print(f"  Modo: default — 800m desde Vallarta y López Mateos")
+
+    print(f"  Bbox: {bbox}")
+    print(f"  Máx nodos: {args.max_nodes}")
+
 
     # Descargar y procesar
     raw   = download_graph(bbox, max_nodes=args.max_nodes)
