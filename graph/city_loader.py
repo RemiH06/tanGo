@@ -304,12 +304,16 @@ def process_graph(raw: dict, max_nodes: int = 200) -> dict:
         else:
             itype = "BLIND"
 
+        # Inferir geometría desde OSM
+        geometry = _infer_geometry(osm_id, way_types, street_cnt, osm_ways)
+
         tango_nodes.append({
             "node_id":           f"osm_{osm_id}",
             "name":              _guess_name(osm_id, way_types, osm_ways),
             "latitude":          node_data["lat"],
             "longitude":         node_data["lon"],
             "intersection_type": itype,
+            "geometry":          geometry,
             "osm_id":            osm_id,
             "street_count":      street_cnt,
         })
@@ -407,6 +411,42 @@ def process_graph(raw: dict, max_nodes: int = 200) -> dict:
     }
 
 
+def _infer_geometry(osm_id: int, way_types: set,
+                    street_count: int, ways: list) -> str:
+    """
+    Infiere la geometría de la intersección desde los datos de OSM.
+
+    Reglas de inferencia:
+      - Tag junction=roundabout en cualquier vía adyacente → ROUNDABOUT
+      - Tag highway=pedestrian o crossing en vías → PEDESTRIAN
+      - street_count >= 5 → MULTIWAY
+      - street_count == 3 → T (o Y si ángulo oblicuo, pero OSM no lo da fácil)
+      - street_count == 2 y una vía es link/slip → MERGE
+      - Default → CROSS
+    """
+    for way in ways:
+        if osm_id not in way.get("nodes", []):
+            continue
+        tags = way.get("tags", {})
+        # Glorieta
+        if tags.get("junction") == "roundabout":
+            return "roundabout"
+        # Cruce peatonal
+        hw = tags.get("highway", "")
+        if hw in ("pedestrian", "footway", "crossing"):
+            return "pedestrian"
+        # Incorporación
+        if "_link" in hw or hw == "service":
+            if street_count <= 2:
+                return "merge"
+
+    if street_count >= 5:
+        return "multiway"
+    if street_count == 3:
+        return "t"
+    return "cross"
+
+
 def _guess_name(osm_id: int, way_types: set, ways: list) -> str:
     """Intenta construir el nombre de la intersección desde las vías adyacentes."""
     names = []
@@ -496,7 +536,7 @@ def json_to_traffic_graph(path: str | Path) -> "TrafficGraph":
     sys.path.insert(0, str(Path(__file__).parent.parent))
 
     from graph.simulator import TrafficGraph
-    from core.road import (Intersection, IntersectionType,
+    from core.road import (Intersection, IntersectionType, IntersectionGeometry,
                            RoadSegment, RoadCategory, Turn)
 
     data  = load_graph_from_json(path)
@@ -507,6 +547,15 @@ def json_to_traffic_graph(path: str | Path) -> "TrafficGraph":
         "MASTER": IntersectionType.MASTER,
         "NORMAL": IntersectionType.NORMAL,
         "BLIND":  IntersectionType.BLIND,
+    }
+    geo_map = {
+        "cross":      IntersectionGeometry.CROSS,
+        "t":          IntersectionGeometry.T,
+        "y":          IntersectionGeometry.Y,
+        "roundabout": IntersectionGeometry.ROUNDABOUT,
+        "pedestrian": IntersectionGeometry.PEDESTRIAN,
+        "multiway":   IntersectionGeometry.MULTIWAY,
+        "merge":      IntersectionGeometry.MERGE,
     }
     cat_map = {
         "HIGHWAY":          RoadCategory.HIGHWAY,
@@ -523,8 +572,10 @@ def json_to_traffic_graph(path: str | Path) -> "TrafficGraph":
             name              = n["name"],
             latitude          = n["latitude"],
             longitude         = n["longitude"],
-            intersection_type = itype_map.get(n["intersection_type"],
+            intersection_type = itype_map.get(n.get("intersection_type","NORMAL"),
                                               IntersectionType.NORMAL),
+            geometry          = geo_map.get(n.get("geometry", "cross"),
+                                           IntersectionGeometry.CROSS),
         ))
 
     # Aristas (solo las que tienen ambos extremos en el grafo)

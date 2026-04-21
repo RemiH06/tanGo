@@ -57,24 +57,86 @@ class RoadCategory(Enum):
 class IntersectionType(Enum):
     """
     Tipo de intersección — determina si tiene semáforo y cuánto peso tiene.
+    Esta clasificación es ORTOGONAL a IntersectionGeometry: una glorieta
+    puede ser MASTER o NORMAL; una T puede ser NORMAL o BLIND.
 
-    MASTER : Intersección maestra — cruce de avenidas importantes.
-             Siempre tiene semáforo. Mayor peso base (multiplicador × 1.5).
-             Ejemplo: Av. Vallarta y Av. López Mateos.
-
-    NORMAL : Intersección normal — calle con avenida o entre calles
-             importantes. Tiene semáforo. Peso base estándar.
-             Ejemplo: Calle Morelos y Av. México.
-
-    BLIND  : Intersección ciega — cruce entre calles secundarias dentro
-             de una colonia. NO tiene semáforo físico.
-             El tráfico fluye por probabilidad hacia la salida más cercana
-             a una avenida. Solo se mapea para el grafo de rutas.
-             Peso base mínimo (multiplicador × 0.3).
+    MASTER : Cruce de avenidas principales. Semáforo siempre presente.
+             Multiplicador de peso × 1.5. Umbral de presión 120.
+    NORMAL : Cruce mixto (avenida + calle). Semáforo presente.
+             Multiplicador × 1.0. Umbral 100.
+    BLIND  : Cruce ciego sin semáforo — calles internas de colonia.
+             Solo se mapea para el grafo de rutas. Multiplicador × 0.3.
     """
-    MASTER = "master"   # cruce de avenidas — semáforo siempre presente
-    NORMAL = "normal"   # cruce mixto — semáforo presente
-    BLIND  = "blind"    # cruce ciego — sin semáforo, solo mapeo
+    MASTER = "master"
+    NORMAL = "normal"
+    BLIND  = "blind"
+
+
+class IntersectionGeometry(Enum):
+    """
+    Geometría física de la intersección — cómo se conectan las vías.
+    Afecta el peso base, los giros permitidos y la lógica de fases.
+
+    CROSS      : Cruce en +. Cuatro ramas. El más común en ciudad.
+                 Tiene dos ejes (NS y EW) que alternan verde/rojo.
+                 Peso base × 1.0.
+
+    T          : Cruce en T. Tres ramas. Una calle termina en otra.
+                 Solo un eje principal; el ramal tiene fase propia corta.
+                 Peso base × 0.8. No hay giro prohibido en el extremo.
+
+    Y          : Cruce en Y / bifurcación. Tres ramas en ángulo oblicuo.
+                 Común en zonas de trazo irregular o histórico.
+                 Peso base × 0.8. Fases ajustadas por ángulo.
+
+    ROUNDABOUT : Glorieta. N ramas (≥3). El tráfico circula en un sentido.
+                 No tiene semáforo propio — el flujo se regula por prioridad.
+                 Peso base × 1.2 (absorbe mucho flujo sin semáforo).
+                 IntersectionType siempre BLIND o NORMAL.
+
+    PEDESTRIAN : Cruce peatonal en una sola calle (no es cruce de dos calles).
+                 Un eje vehicular + fase peatonal.
+                 Peso peatón aumentado × 1.4. Sin eje EW vehicular.
+                 Puede tener botón de solicitud de verde.
+
+    MULTIWAY   : Cruce de 5 o más ramas. Poco común, alto flujo.
+                 Peso base × 1.4. Fases múltiples necesarias.
+                 Ejemplo: La Minerva en Guadalajara (glorieta con 8 ramas).
+
+    MERGE      : Incorporación / carril de aceleración. Una vía se une
+                 a otra sin cruce perpendicular. Sin semáforo.
+                 Solo mapeo para el grafo. Peso base × 0.5.
+    """
+    CROSS      = "cross"       # + estándar
+    T          = "t"           # T (tres ramas)
+    Y          = "y"           # Y (bifurcación oblicua)
+    ROUNDABOUT = "roundabout"  # glorieta
+    PEDESTRIAN = "pedestrian"  # cruce peatonal
+    MULTIWAY   = "multiway"    # 5+ ramas
+    MERGE      = "merge"       # incorporación sin cruce
+
+
+# Multiplicadores de peso base por geometría
+GEOMETRY_WEIGHT_MULTIPLIER: dict[IntersectionGeometry, float] = {
+    IntersectionGeometry.CROSS:      1.0,
+    IntersectionGeometry.T:          0.8,
+    IntersectionGeometry.Y:          0.8,
+    IntersectionGeometry.ROUNDABOUT: 1.2,
+    IntersectionGeometry.PEDESTRIAN: 0.6,
+    IntersectionGeometry.MULTIWAY:   1.4,
+    IntersectionGeometry.MERGE:      0.5,
+}
+
+# Geometrías que tienen semáforo por defecto
+GEOMETRY_HAS_LIGHT: dict[IntersectionGeometry, bool] = {
+    IntersectionGeometry.CROSS:      True,
+    IntersectionGeometry.T:          True,
+    IntersectionGeometry.Y:          False,
+    IntersectionGeometry.ROUNDABOUT: False,
+    IntersectionGeometry.PEDESTRIAN: True,
+    IntersectionGeometry.MULTIWAY:   True,
+    IntersectionGeometry.MERGE:      False,
+}
 
 
 # ── RoadSegment ───────────────────────────────────────────────────────────────
@@ -290,11 +352,12 @@ class Intersection:
     name:              str
     latitude:          float
     longitude:         float
-    intersection_type: IntersectionType  = IntersectionType.NORMAL
-    incoming_segments: List[RoadSegment] = field(default_factory=list)
-    current_phase:     Phase             = Phase.RED
-    pressure:          float             = 0.0
-    min_green_seconds: int               = _GREEN_MIN_S
+    intersection_type: IntersectionType     = IntersectionType.NORMAL
+    geometry:          IntersectionGeometry = IntersectionGeometry.CROSS
+    incoming_segments: List[RoadSegment]    = field(default_factory=list)
+    current_phase:     Phase                = Phase.RED
+    pressure:          float                = 0.0
+    min_green_seconds: int                  = _GREEN_MIN_S
     _phase_started_at: datetime          = field(
         default_factory=datetime.now, init=False, repr=False
     )
@@ -341,8 +404,16 @@ class Intersection:
 
     @property
     def has_traffic_light(self) -> bool:
-        """True si esta intersección tiene semáforo físico."""
-        return self.intersection_type != IntersectionType.BLIND
+        """
+        True si esta intersección tiene semáforo físico.
+        Depende tanto del tipo como de la geometría:
+          - BLIND nunca tiene semáforo.
+          - Glorietas, incorporaciones y bifurcaciones Y tampoco.
+          - El resto sí, salvo que el tipo lo fuerce a BLIND.
+        """
+        if self.intersection_type == IntersectionType.BLIND:
+            return False
+        return GEOMETRY_HAS_LIGHT.get(self.geometry, True)
 
     @property
     def pressure_threshold(self) -> float:
@@ -360,14 +431,36 @@ class Intersection:
     @property
     def weight_multiplier(self) -> float:
         """
-        Multiplicador de peso base según el tipo de intersección.
-        Usado por WeightEngine para normalizar la presión.
+        Multiplicador de peso base combinando tipo y geometría.
+        Ambos factores se multiplican entre sí.
+
+        Ejemplos:
+          MASTER + CROSS      → 1.5 × 1.0 = 1.5
+          MASTER + MULTIWAY   → 1.5 × 1.4 = 2.1  (La Minerva)
+          NORMAL + ROUNDABOUT → 1.0 × 1.2 = 1.2
+          NORMAL + T          → 1.0 × 0.8 = 0.8
+          BLIND  + cualquiera → 0.3 × geo  (siempre bajo)
         """
-        return {
+        type_mult = {
             IntersectionType.MASTER: 1.5,
             IntersectionType.NORMAL: 1.0,
             IntersectionType.BLIND:  0.3,
         }[self.intersection_type]
+        geo_mult = GEOMETRY_WEIGHT_MULTIPLIER.get(self.geometry, 1.0)
+        return type_mult * geo_mult
+
+    @property
+    def geometry_label(self) -> str:
+        """Etiqueta corta de la geometría para mostrar en el dashboard."""
+        return {
+            IntersectionGeometry.CROSS:      "+",
+            IntersectionGeometry.T:          "T",
+            IntersectionGeometry.Y:          "Y",
+            IntersectionGeometry.ROUNDABOUT: "O",
+            IntersectionGeometry.PEDESTRIAN: "P",
+            IntersectionGeometry.MULTIWAY:   "*",
+            IntersectionGeometry.MERGE:      ">",
+        }.get(self.geometry, "?")
 
     @property
     def red_timeout_ticks(self) -> int:

@@ -2,7 +2,7 @@
   "metadata": {
     "ciudad": "Guadalajara ZMG",
     "fuente": "OpenStreetMap via Overpass API",
-    "fecha": "2026-04-20T00:58:40.526917",
+    "fecha": "2026-04-20T13:29:26.821431",
     "bbox": {},
     "n_nodes": 80,
     "n_edges": 88
@@ -14,6 +14,7 @@
       "latitude": 20.6725943,
       "longitude": -103.4037259,
       "intersection_type": "NORMAL",
+      "geometry": "cross",
       "osm_id": 6489360384,
       "street_count": 2
     },
@@ -23,6 +24,7 @@
       "latitude": 20.6705705,
       "longitude": -103.4049287,
       "intersection_type": "NORMAL",
+      "geometry": "cross",
       "osm_id": 1940884483,
       "street_count": 4
     },
@@ -32,6 +34,7 @@
       "latitude": 20.6779708,
       "longitude": -103.4074944,
       "intersection_type": "NORMAL",
+      "geometry": "cross",
       "osm_id": 1371254787,
       "street_count": 2
     },
@@ -41,6 +44,7 @@
       "latitude": 20.6722598,
       "longitude": -103.4106493,
       "intersection_type": "NORMAL",
+      "geometry": "cross",
       "osm_id": 1929428996,
       "street_count": 2
     },
@@ -50,6 +54,7 @@
       "latitude": 20.6723572,
       "longitude": -103.4113667,
       "intersection_type": "NORMAL",
+      "geometry": "cross",
       "osm_id": 1929428998,
       "street_count": 2
     },
@@ -59,6 +64,7 @@
       "latitude": 20.6725007,
       "longitude": -103.4120445,
       "intersection_type": "NORMAL",
+      "geometry": "cross",
       "osm_id": 1929428999,
       "street_count": 2
     },
@@ -68,6 +74,7 @@
       "latitude": 20.6734992,
       "longitude": -103.4167168,
       "intersection_type": "NORMAL",
+      "geometry": "t",
       "osm_id": 1670630920,
       "street_count": 3
     },
@@ -77,6 +84,7 @@
       "latitude": 20.6726538,
       "longitude": -103.4127572,
       "intersection_type": "NORMAL",
+      "geometry": "cross",
       "osm_id": 1929429000,
       "street_count": 2
     },
@@ -86,6 +94,7 @@
       "latitude": 20.673555,
       "longitude": -103.4168788,
       "intersection_type": "NORMAL",
+      "geometry": "cross",
       "osm_id": 1670630922,
       "street_count": 4
     },
@@ -95,6 +104,7 @@
       "latitude": 20.6735823,
       "longitude": -103.4104698,
       "intersection_type": "NORMAL",
+      "geometry": "t",
       "osm_id": 1929429003,
       "street_count": 3
     },
@@ -104,6 +114,7 @@
       "latitude": 20.6757502,
       "longitude": -103.4157833,
       "intersection_type": "NORMAL",
+      "geometry": "cross",
       "osm_id": 7791958029,
       "street_count": 2
     },
@@ -113,6 +124,7 @@
       "latitude": 20.6797818,
       "longitude": -103.4052693,
       "intersection_type": "NORMAL",
+      "geometry": "cross",
       "osm_id": 1371254797,
       "street_count": 2
     },
@@ -122,6 +134,7 @@
       "latitude": 20.6752112,
       "longitude": -103.4160137,
       "intersection_type": "NORMAL",
+      "geometry": "cross",
       "osm_id": 7791958030,
       "street_count": 2
     },
@@ -131,6 +144,7 @@
       "latitude": 20.6686123,
       "longitude": -103.4156249,
       "intersection_type": "NORMAL",
+      "geometry": "cross",
       "osm_id": 6509709331,
       "street_count": 2
     },
@@ -140,6 +154,7 @@
       "latitude": 20.6808759,
       "longitude": -103.4044658,
       "intersection_type": "NORMAL",
+      "geometry": "t",
       "osm_id": 1620534814,
       "street_count": 3
     },
@@ -149,6 +164,7 @@
       "latitude": 20.6731509,
       "longitude": -103.4096727,
       "intersection_type": "NORMAL",
+      "geometry": "cross",
       "osm_id": 1940884514,
       "street_count": 4
     },
@@ -158,6 +174,7 @@
       "latitude": 20.6732076,
       "longitude": -103.4097774,
       "intersection_type": "NORMAL",
+      "geometry": "cross",
       "osm_id": 1940884517,
       "street_count": 4
     },
@@ -167,6 +184,7 @@
       "latitude": 20.6739714,
       "longitude": -103.4165244,
       "intersection_type": "NORMAL",
+      "geometry": "cross",
       "osm_id": 1670630957,
       "street_count": 4
     },
@@ -176,6 +194,7 @@
       "latitude": 20.6778916,
       "longitude": -103.4052629,
       "intersection_type": "NORMAL",
+      "geometry": "t",
       "osm_id": 1371254831,
       "street_count": 3
     },
@@ -185,6 +204,7 @@
       "latitude": 20.6740256,
       "longitude": -103.4166836,
       "intersection_type": "NORMAL",
+      "geometry": "cross",
       "osm_id": 1670630961,
       "street_count": 4
     },
@@ -194,6 +214,7 @@
       "latitude": 20.6763099,
       "longitude": -103.4091619,
       "intersection_type": "MASTER",
+      "geometry": "cross",
       "osm_id": 4086623282,
       "street_count": 4
     },
@@ -203,6 +224,7 @@
       "latitude": 20.676524,
       "longitude": -103.4110219,
       "intersection_type": "NORMAL",
+      "geometry": "cross",
       "osm_id": 1190162483,
       "street_count": 2
     },
@@ -212,6 +234,7 @@
       "latitude": 20.6760245,
       "longitude": -103.4031782,
       "intersection_type": "NORMAL",
+      "geometry": "cross",
       "osm_id": 7722264639,
       "street_count": 2
     },
@@ -221,6 +244,7 @@
       "latitude": 20.6762328,
       "longitude": -103.4036556,
       "intersection_type": "NORMAL",
+      "geometry": "cross",
       "osm_id": 7722264640,
       "street_count": 2
     },
@@ -230,6 +254,7 @@
       "latitude": 20.6716017,
       "longitude": -103.4041721,
       "intersection_type": "NORMAL",
+      "geometry": "t",
       "osm_id": 1669635141,
       "street_count": 3
     },
@@ -239,6 +264,7 @@
       "latitude": 20.6716545,
       "longitude": -103.4042683,
       "intersection_type": "NORMAL",
+      "geometry": "t",
       "osm_id": 1669635142,
       "street_count": 3
     },
@@ -248,6 +274,7 @@
       "latitude": 20.6778155,
       "longitude": -103.4093179,
       "intersection_type": "NORMAL",
+      "geometry": "cross",
       "osm_id": 1371254853,
       "street_count": 2
     },
@@ -257,6 +284,7 @@
       "latitude": 20.6727779,
       "longitude": -103.4036032,
       "intersection_type": "NORMAL",
+      "geometry": "t",
       "osm_id": 2362569811,
       "street_count": 3
     },
@@ -266,6 +294,7 @@
       "latitude": 20.6749305,
       "longitude": -103.4161293,
       "intersection_type": "NORMAL",
+      "geometry": "t",
       "osm_id": 1670630997,
       "street_count": 3
     },
@@ -275,6 +304,7 @@
       "latitude": 20.6749917,
       "longitude": -103.4162822,
       "intersection_type": "NORMAL",
+      "geometry": "cross",
       "osm_id": 1670630998,
       "street_count": 4
     },
@@ -284,6 +314,7 @@
       "latitude": 20.6719255,
       "longitude": -103.4062174,
       "intersection_type": "NORMAL",
+      "geometry": "t",
       "osm_id": 273146454,
       "street_count": 3
     },
@@ -293,6 +324,7 @@
       "latitude": 20.6698888,
       "longitude": -103.4024417,
       "intersection_type": "MASTER",
+      "geometry": "t",
       "osm_id": 1210872410,
       "street_count": 3
     },
@@ -302,6 +334,7 @@
       "latitude": 20.6754086,
       "longitude": -103.4159324,
       "intersection_type": "NORMAL",
+      "geometry": "cross",
       "osm_id": 1670631003,
       "street_count": 4
     },
@@ -311,6 +344,7 @@
       "latitude": 20.675697,
       "longitude": -103.402604,
       "intersection_type": "NORMAL",
+      "geometry": "t",
       "osm_id": 290910815,
       "street_count": 3
     },
@@ -320,6 +354,7 @@
       "latitude": 20.6754799,
       "longitude": -103.4160815,
       "intersection_type": "NORMAL",
+      "geometry": "t",
       "osm_id": 1670631008,
       "street_count": 3
     },
@@ -329,6 +364,7 @@
       "latitude": 20.6760734,
       "longitude": -103.4158201,
       "intersection_type": "NORMAL",
+      "geometry": "t",
       "osm_id": 1670631025,
       "street_count": 3
     },
@@ -338,6 +374,7 @@
       "latitude": 20.6808769,
       "longitude": -103.4052769,
       "intersection_type": "NORMAL",
+      "geometry": "t",
       "osm_id": 1620534899,
       "street_count": 3
     },
@@ -347,6 +384,7 @@
       "latitude": 20.6785525,
       "longitude": -103.4096889,
       "intersection_type": "NORMAL",
+      "geometry": "t",
       "osm_id": 1620534922,
       "street_count": 3
     },
@@ -356,6 +394,7 @@
       "latitude": 20.6692512,
       "longitude": -103.4024993,
       "intersection_type": "MASTER",
+      "geometry": "t",
       "osm_id": 2313754766,
       "street_count": 3
     },
@@ -365,6 +404,7 @@
       "latitude": 20.6708638,
       "longitude": -103.4072937,
       "intersection_type": "NORMAL",
+      "geometry": "t",
       "osm_id": 1372808864,
       "street_count": 3
     },
@@ -374,6 +414,7 @@
       "latitude": 20.6703141,
       "longitude": -103.4150008,
       "intersection_type": "NORMAL",
+      "geometry": "t",
       "osm_id": 1450263208,
       "street_count": 3
     },
@@ -383,6 +424,7 @@
       "latitude": 20.6789065,
       "longitude": -103.4106143,
       "intersection_type": "NORMAL",
+      "geometry": "t",
       "osm_id": 1620534955,
       "street_count": 3
     },
@@ -392,6 +434,7 @@
       "latitude": 20.6710038,
       "longitude": -103.4045315,
       "intersection_type": "NORMAL",
+      "geometry": "cross",
       "osm_id": 1451119289,
       "street_count": 4
     },
@@ -401,6 +444,7 @@
       "latitude": 20.6762235,
       "longitude": -103.4091824,
       "intersection_type": "MASTER",
+      "geometry": "cross",
       "osm_id": 1374438097,
       "street_count": 4
     },
@@ -410,6 +454,7 @@
       "latitude": 20.6711961,
       "longitude": -103.4098491,
       "intersection_type": "NORMAL",
+      "geometry": "t",
       "osm_id": 1374438098,
       "street_count": 3
     },
@@ -419,6 +464,7 @@
       "latitude": 20.6737812,
       "longitude": -103.4096877,
       "intersection_type": "NORMAL",
+      "geometry": "cross",
       "osm_id": 1374438099,
       "street_count": 4
     },
@@ -428,6 +474,7 @@
       "latitude": 20.6762885,
       "longitude": -103.4090621,
       "intersection_type": "MASTER",
+      "geometry": "cross",
       "osm_id": 1374438100,
       "street_count": 4
     },
@@ -437,6 +484,7 @@
       "latitude": 20.6776726,
       "longitude": -103.4076275,
       "intersection_type": "NORMAL",
+      "geometry": "cross",
       "osm_id": 1467619542,
       "street_count": 4
     },
@@ -446,6 +494,7 @@
       "latitude": 20.6737272,
       "longitude": -103.4095869,
       "intersection_type": "NORMAL",
+      "geometry": "cross",
       "osm_id": 1374438103,
       "street_count": 4
     },
@@ -455,6 +504,7 @@
       "latitude": 20.6699245,
       "longitude": -103.4051933,
       "intersection_type": "NORMAL",
+      "geometry": "t",
       "osm_id": 290951895,
       "street_count": 3
     },
@@ -464,6 +514,7 @@
       "latitude": 20.6762013,
       "longitude": -103.4090797,
       "intersection_type": "MASTER",
+      "geometry": "t",
       "osm_id": 3158276313,
       "street_count": 3
     },
@@ -473,6 +524,7 @@
       "latitude": 20.6686025,
       "longitude": -103.4090177,
       "intersection_type": "NORMAL",
+      "geometry": "t",
       "osm_id": 1929404142,
       "street_count": 3
     },
@@ -482,6 +534,7 @@
       "latitude": 20.6725372,
       "longitude": -103.4022513,
       "intersection_type": "NORMAL",
+      "geometry": "t",
       "osm_id": 1041108722,
       "street_count": 3
     },
@@ -491,6 +544,7 @@
       "latitude": 20.6692569,
       "longitude": -103.4051863,
       "intersection_type": "NORMAL",
+      "geometry": "t",
       "osm_id": 1450249988,
       "street_count": 3
     },
@@ -500,6 +554,7 @@
       "latitude": 20.6710601,
       "longitude": -103.4046358,
       "intersection_type": "NORMAL",
+      "geometry": "cross",
       "osm_id": 1373262614,
       "street_count": 4
     },
@@ -509,6 +564,7 @@
       "latitude": 20.6796865,
       "longitude": -103.4126689,
       "intersection_type": "NORMAL",
+      "geometry": "t",
       "osm_id": 1908639018,
       "street_count": 3
     },
@@ -518,6 +574,7 @@
       "latitude": 20.676235,
       "longitude": -103.4155706,
       "intersection_type": "NORMAL",
+      "geometry": "t",
       "osm_id": 291177260,
       "street_count": 3
     },
@@ -527,6 +584,7 @@
       "latitude": 20.6780512,
       "longitude": -103.4132083,
       "intersection_type": "NORMAL",
+      "geometry": "t",
       "osm_id": 291177275,
       "street_count": 3
     },
@@ -536,6 +594,7 @@
       "latitude": 20.6686094,
       "longitude": -103.4155339,
       "intersection_type": "NORMAL",
+      "geometry": "cross",
       "osm_id": 1649865540,
       "street_count": 4
     },
@@ -545,6 +604,7 @@
       "latitude": 20.6779406,
       "longitude": -103.4044632,
       "intersection_type": "NORMAL",
+      "geometry": "t",
       "osm_id": 291176778,
       "street_count": 3
     },
@@ -554,6 +614,7 @@
       "latitude": 20.6686199,
       "longitude": -103.4158675,
       "intersection_type": "NORMAL",
+      "geometry": "cross",
       "osm_id": 1649864561,
       "street_count": 4
     },
@@ -563,6 +624,7 @@
       "latitude": 20.6779301,
       "longitude": -103.4072233,
       "intersection_type": "NORMAL",
+      "geometry": "t",
       "osm_id": 1470440834,
       "street_count": 3
     },
@@ -572,6 +634,7 @@
       "latitude": 20.6793862,
       "longitude": -103.4084087,
       "intersection_type": "NORMAL",
+      "geometry": "t",
       "osm_id": 1620534148,
       "street_count": 3
     },
@@ -581,6 +644,7 @@
       "latitude": 20.668645,
       "longitude": -103.4137026,
       "intersection_type": "NORMAL",
+      "geometry": "t",
       "osm_id": 1649865130,
       "street_count": 3
     },
@@ -590,6 +654,7 @@
       "latitude": 20.6778882,
       "longitude": -103.4053994,
       "intersection_type": "NORMAL",
+      "geometry": "t",
       "osm_id": 1371254700,
       "street_count": 3
     },
@@ -599,6 +664,7 @@
       "latitude": 20.6685434,
       "longitude": -103.4052055,
       "intersection_type": "NORMAL",
+      "geometry": "cross",
       "osm_id": 1649865136,
       "street_count": 4
     },
@@ -608,6 +674,7 @@
       "latitude": 20.6807633,
       "longitude": -103.4072101,
       "intersection_type": "NORMAL",
+      "geometry": "t",
       "osm_id": 1620534718,
       "street_count": 3
     },
@@ -617,6 +684,7 @@
       "latitude": 20.6711761,
       "longitude": -103.4099724,
       "intersection_type": "NORMAL",
+      "geometry": "t",
       "osm_id": 291234770,
       "street_count": 3
     },
@@ -626,6 +694,7 @@
       "latitude": 20.6691906,
       "longitude": -103.4158645,
       "intersection_type": "NORMAL",
+      "geometry": "t",
       "osm_id": 1685297108,
       "street_count": 3
     },
@@ -635,6 +704,7 @@
       "latitude": 20.6702578,
       "longitude": -103.4155375,
       "intersection_type": "NORMAL",
+      "geometry": "t",
       "osm_id": 1685297112,
       "street_count": 3
     },
@@ -644,6 +714,7 @@
       "latitude": 20.6750126,
       "longitude": -103.4027175,
       "intersection_type": "NORMAL",
+      "geometry": "t",
       "osm_id": 1190162905,
       "street_count": 3
     },
@@ -653,6 +724,7 @@
       "latitude": 20.6686393,
       "longitude": -103.4143831,
       "intersection_type": "NORMAL",
+      "geometry": "t",
       "osm_id": 2643978719,
       "street_count": 3
     },
@@ -662,6 +734,7 @@
       "latitude": 20.6685428,
       "longitude": -103.4050935,
       "intersection_type": "NORMAL",
+      "geometry": "t",
       "osm_id": 1940884448,
       "street_count": 3
     },
@@ -671,6 +744,7 @@
       "latitude": 20.6807781,
       "longitude": -103.4084934,
       "intersection_type": "NORMAL",
+      "geometry": "t",
       "osm_id": 1620534244,
       "street_count": 3
     },
@@ -680,6 +754,7 @@
       "latitude": 20.669648,
       "longitude": -103.403212,
       "intersection_type": "NORMAL",
+      "geometry": "t",
       "osm_id": 1940884459,
       "street_count": 3
     },
@@ -689,6 +764,7 @@
       "latitude": 20.6686433,
       "longitude": -103.4166137,
       "intersection_type": "NORMAL",
+      "geometry": "t",
       "osm_id": 1649865711,
       "street_count": 3
     },
@@ -698,6 +774,7 @@
       "latitude": 20.6721141,
       "longitude": -103.409488,
       "intersection_type": "NORMAL",
+      "geometry": "t",
       "osm_id": 6489360370,
       "street_count": 3
     },
@@ -707,6 +784,7 @@
       "latitude": 20.6705174,
       "longitude": -103.4048298,
       "intersection_type": "NORMAL",
+      "geometry": "cross",
       "osm_id": 1940884471,
       "street_count": 4
     },
@@ -716,6 +794,7 @@
       "latitude": 20.6828207,
       "longitude": -103.4169208,
       "intersection_type": "NORMAL",
+      "geometry": "t",
       "osm_id": 1497972728,
       "street_count": 3
     },
@@ -725,6 +804,7 @@
       "latitude": 20.6720413,
       "longitude": -103.4094981,
       "intersection_type": "NORMAL",
+      "geometry": "t",
       "osm_id": 6489360380,
       "street_count": 3
     }

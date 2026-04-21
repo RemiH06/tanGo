@@ -31,15 +31,26 @@ from folium.plugins import MarkerCluster
 from core.context       import TrafficContext
 from core.weight_engine import WeightEngine
 from core.road          import (Intersection, IntersectionType,
-                                RoadSegment, RoadCategory, Phase, Turn,
-                                TrafficAxis)
+                                IntersectionGeometry, RoadSegment,
+                                RoadCategory, Phase, Turn, TrafficAxis)
 from core.entities      import Vehicle, Pedestrian, VehicleType, Direction
 from graph.simulator    import TrafficGraph
 from graph.city_loader  import json_to_traffic_graph, load_graph_from_json
 
 OUTPUT_PLOTLY = Path(__file__).parent / "tango_sim.html"
 OUTPUT_FOLIUM = Path(__file__).parent / "tango_map.html"
+OUTPUT_VIS    = Path(__file__).parent / "tango_vis.html"
 N_TICKS = 40
+
+
+def compute_center(graph: TrafficGraph) -> tuple[float, float]:
+    """Calcula el centroide geográfico del grafo actual."""
+    nodes = list(graph.intersections.values())
+    if not nodes:
+        return 20.6656, -103.3863
+    lat = sum(n.latitude  for n in nodes) / len(nodes)
+    lon = sum(n.longitude for n in nodes) / len(nodes)
+    return lat, lon
 
 # JSON del grafo real — generado por graph/city_loader.py
 CITY_JSON = ROOT / "graph" / "city_graph.json"
@@ -256,20 +267,22 @@ def simulate(scenario: dict, graph: TrafficGraph, n_ticks: int) -> list[dict]:
                     if e.is_wheelchair: counts["WHEELCHAIR"] += 1
 
             frame["nodes"][node_id] = {
-                "phase":     inter.current_phase.value,
-                "phase_ns":  inter.phase_ns.value,
-                "phase_ew":  inter.phase_ew.value,
+                "phase":      inter.current_phase.value,
+                "phase_ns":   inter.phase_ns.value,
+                "phase_ew":   inter.phase_ew.value,
                 "active_axis": getattr(inter._active_axis, "value", "ns"),
-                "pressure":  inter.pressure,
-                "itype":     inter.intersection_type,
-                "has_light": inter.has_traffic_light,
-                "threshold": inter.pressure_threshold,
-                "timeout":   inter.red_timeout_ticks,
-                "ticks_red": inter._ticks_in_phase,
-                "name":      inter.name,
-                "lat":       inter.latitude,
-                "lon":       inter.longitude,
-                "counts":    dict(counts),
+                "pressure":   inter.pressure,
+                "itype":      inter.intersection_type,
+                "geometry":   inter.geometry,
+                "geo_label":  inter.geometry_label,
+                "has_light":  inter.has_traffic_light,
+                "threshold":  inter.pressure_threshold,
+                "timeout":    inter.red_timeout_ticks,
+                "ticks_red":  inter._ticks_in_phase,
+                "name":       inter.name,
+                "lat":        inter.latitude,
+                "lon":        inter.longitude,
+                "counts":     dict(counts),
             }
             frame["total"] += len(ents)
             if inter.current_phase == Phase.GREEN:
@@ -337,6 +350,23 @@ def build_plotly(graph: TrafficGraph, all_histories: list[tuple]) -> go.Figure:
                       marker=dict(size=11,color="#1e293b",symbol="diamond",
                                   line=dict(color="#64748b",width=2)),
                       name="◆ BLIND",showlegend=True),
+        # Geometrías
+        go.Scattergeo(lon=[None],lat=[None],mode="markers",
+                      marker=dict(size=10,color="#475569",symbol="circle"),
+                      name="＋ CROSS · ⊤ T · Ψ Y",showlegend=True),
+        go.Scattergeo(lon=[None],lat=[None],mode="markers",
+                      marker=dict(size=10,color="#475569",symbol="circle"),
+                      name="⊙ Glorieta · ✳ Multiway · ♿ Peatonal",showlegend=True),
+        # Flujo
+        go.Scattergeo(lon=[None],lat=[None],mode="lines",
+                      line=dict(width=4,color="#22c55e"),
+                      name="Flujo bajo (<8 veh)",showlegend=True),
+        go.Scattergeo(lon=[None],lat=[None],mode="lines",
+                      line=dict(width=4,color="#f59e0b"),
+                      name="Flujo medio (8-14)",showlegend=True),
+        go.Scattergeo(lon=[None],lat=[None],mode="lines",
+                      line=dict(width=4,color="#ef4444"),
+                      name="Flujo alto (≥15 veh)",showlegend=True),
     ]
 
     all_frames   = []
@@ -387,15 +417,19 @@ def build_plotly(graph: TrafficGraph, all_histories: list[tuple]) -> go.Figure:
                 )
                 ns_col = {"green":"🟢","yellow":"🟡","red":"🔴"}.get(nd["phase_ns"],"⚫")
                 ew_col = {"green":"🟢","yellow":"🟡","red":"🔴"}.get(nd["phase_ew"],"⚫")
+                geo = nd.get("geo_label","?")
+                geo_name = nd.get("geometry", IntersectionGeometry.CROSS)
+                geo_str = geo_name.value if hasattr(geo_name,"value") else str(geo_name)
                 hovers.append(
                     f"<b>{n}</b> {nd['name']}<br>"
-                    f"Tipo: {nd['itype'].value.upper()} "
-                    f"{'🚦' if nd['has_light'] else '⛔ sin semáforo'}<br>"
-                    f"─────────────<br>"
+                    f"Tipo: {nd['itype'].value.upper()} | "
+                    f"Geometría: {geo} {geo_str.upper()}<br>"
+                    f"{'🚦 Con semáforo' if nd['has_light'] else '⛔ Sin semáforo'}<br>"
+                    f"─────────────────<br>"
                     f"{ns_col} Eje N-S: <b>{nd['phase_ns'].upper()}</b><br>"
                     f"{ew_col} Eje E-O: <b>{nd['phase_ew'].upper()}</b><br>"
                     f"Eje activo: {nd['active_axis'].upper()} {timeout_info}<br>"
-                    f"─────────────<br>"
+                    f"─────────────────<br>"
                     f"Presión: {nd['pressure']:.1f}/{nd['threshold']:.0f} ({pct:.0f}%)<br>"
                     f"🚗{c.get('CAR',0)} 🏍{c.get('MOTORCYCLE',0)} "
                     f"🚌{c.get('BUS',0)} 🚛{c.get('TRUCK',0)} "
@@ -404,33 +438,76 @@ def build_plotly(graph: TrafficGraph, all_histories: list[tuple]) -> go.Figure:
                 )
                 texts.append(n)
 
+            # Etiqueta de geometría bajo el ID del nodo
+            geo_labels = []
+            for n in node_ids:
+                nd = snap["nodes"][n]
+                geo_labels.append(nd.get("geo_label","?"))
+
             node_trace = go.Scattergeo(
                 lon=lons, lat=lats,
                 mode="markers+text",
                 marker=dict(size=sizes, color=colors, symbol=symbols,
                             line=dict(width=2,color=borders), opacity=0.9),
-                text=texts,
+                text=[f"{nid}<br><sup>{gl}</sup>"
+                      for nid, gl in zip(node_ids, geo_labels)],
                 textposition="middle center",
                 textfont=dict(size=9,color="#f8fafc",family="monospace"),
                 hovertext=hovers, hoverinfo="text",
                 showlegend=False,
             )
 
-            # Flujos como texto sobre aristas
-            flow_annotations = []
+            # ── Flechas de flujo animadas por arista ──────────────────────
+            # Una traza por par de nodos — grosor proporcional al volumen
+            flow_traces = []
             for fl in snap["flows"]:
                 if fl["from"] not in graph.intersections: continue
                 if fl["to"]   not in graph.intersections: continue
-                if fl["fwd"]+fl["bwd"] == 0: continue
+                total = fl["fwd"] + fl["bwd"]
+                if total == 0: continue
+
                 n_a = graph.intersections[fl["from"]]
                 n_b = graph.intersections[fl["to"]]
-                flow_annotations.append(dict(
-                    lon=(n_a.longitude+n_b.longitude)/2,
-                    lat=(n_a.latitude +n_b.latitude)/2,
-                    text=f"→{fl['fwd']}←{fl['bwd']}",
-                    showarrow=False,
-                    font=dict(size=7,color="#64748b"),
+
+                # Color según intensidad de flujo
+                if total >= 15:
+                    flow_color = "#ef4444"   # rojo — flujo alto
+                elif total >= 8:
+                    flow_color = "#f59e0b"   # ámbar — flujo medio
+                else:
+                    flow_color = "#22c55e"   # verde — flujo bajo
+
+                flow_width = min(8, 1.5 + total * 0.3)
+
+                # Dirección dominante — flecha apunta al destino mayor
+                if fl["fwd"] >= fl["bwd"]:
+                    lon_seq = [n_a.longitude, n_b.longitude, None]
+                    lat_seq = [n_a.latitude,  n_b.latitude,  None]
+                else:
+                    lon_seq = [n_b.longitude, n_a.longitude, None]
+                    lat_seq = [n_b.latitude,  n_a.latitude,  None]
+
+                flow_traces.append(go.Scattergeo(
+                    lon=lon_seq, lat=lat_seq,
+                    mode="lines",
+                    line=dict(width=flow_width, color=flow_color),
+                    opacity=0.55,
+                    hoverinfo="skip",
+                    showlegend=False,
                 ))
+
+                # Texto de volumen en el centro de la arista
+                flow_traces.append(go.Scattergeo(
+                    lon=[(n_a.longitude+n_b.longitude)/2],
+                    lat=[(n_a.latitude +n_b.latitude )/2],
+                    mode="text",
+                    text=[f"↑{fl['fwd']} ↓{fl['bwd']}"],
+                    textfont=dict(size=7, color="#94a3b8"),
+                    hoverinfo="skip",
+                    showlegend=False,
+                ))
+
+            flow_annotations = []
 
             title_str = (
                 f"{scenario_label} | tick #{snap['tick']} | "
@@ -440,7 +517,7 @@ def build_plotly(graph: TrafficGraph, all_histories: list[tuple]) -> go.Figure:
             frame_name = f"{scenario_label[:8]}|{snap['tick']}"
 
             all_frames.append(go.Frame(
-                data=[node_trace],
+                data=flow_traces + [node_trace],
                 name=frame_name,
                 layout=go.Layout(
                     title=dict(text=title_str,
@@ -627,6 +704,616 @@ def build_folium_map(graph: TrafficGraph, final_snap: dict) -> folium.Map:
 #  MAIN
 # ─────────────────────────────────────────────────────────────────────────────
 
+#  tango_vis — mapa interactivo + animación fusionados
+# ─────────────────────────────────────────────────────────────────────────────
+
+def build_vis(graph: TrafficGraph, all_histories: list[tuple]) -> str:
+    """
+    Genera un HTML único que combina:
+      - Mapa Folium interactivo (movible, zoom, click para info)
+      - Panel lateral con estado actual de cada nodo
+      - Controles de animación (play/pause/step/velocidad)
+      - Flechas de flujo sobre el mapa actualizadas por tick
+
+    No usa iframes ni archivos externos — todo embebido en un solo HTML.
+
+    Returns
+    -------
+    String con el HTML completo.
+    """
+    from core.road import RoadCategory
+
+    center_lat, center_lon = compute_center(graph)
+
+    # Serializar todos los snapshots de todos los escenarios como JSON
+    # para que el JS del navegador los anime sin servidor
+    all_snaps_js = []
+    for sc_label, history in all_histories:
+        for snap in history:
+            # Serializar nodos
+            nodes_js = {}
+            for nid, nd in snap["nodes"].items():
+                nodes_js[nid] = {
+                    "phase":      nd["phase"],
+                    "phase_ns":   nd["phase_ns"],
+                    "phase_ew":   nd["phase_ew"],
+                    "active_axis": nd["active_axis"],
+                    "pressure":   round(nd["pressure"], 1),
+                    "threshold":  nd["threshold"],
+                    "itype":      nd["itype"].value,
+                    "geo_label":  nd.get("geo_label", "+"),
+                    "has_light":  nd["has_light"],
+                    "ticks_red":  nd["ticks_red"],
+                    "timeout":    nd["timeout"],
+                    "name":       nd["name"],
+                    "lat":        nd["lat"],
+                    "lon":        nd["lon"],
+                    "counts":     nd["counts"],
+                }
+            # Serializar flujos
+            flows_js = [
+                {"from": fl["from"], "to": fl["to"],
+                 "fwd": fl["fwd"], "bwd": fl["bwd"]}
+                for fl in snap["flows"]
+            ]
+            all_snaps_js.append({
+                "scenario": sc_label,
+                "tick":     snap["tick"],
+                "total":    snap["total"],
+                "greens":   snap["greens"],
+                "nodes":    nodes_js,
+                "flows":    flows_js,
+            })
+
+    # Serializar aristas estáticas del grafo
+    edges_js = []
+    drawn = set()
+    for from_id, to_id, data in graph.graph.edges(data=True):
+        pair = tuple(sorted([from_id, to_id]))
+        if pair in drawn: continue
+        drawn.add(pair)
+        seg = data["segment"]
+        n_a = graph.intersections[from_id]
+        n_b = graph.intersections[to_id]
+        edges_js.append({
+            "from": from_id, "to": to_id,
+            "lat_a": n_a.latitude,  "lon_a": n_a.longitude,
+            "lat_b": n_b.latitude,  "lon_b": n_b.longitude,
+            "category": seg.category.name,
+            "weight": seg.base_weight,
+            "length_m": seg.length_m,
+            "speed_kmh": seg.speed_limit_kmh,
+            "name": getattr(seg, "name", ""),
+        })
+
+    # Serializar nodos estáticos
+    nodes_static_js = {}
+    for nid, inter in graph.intersections.items():
+        nodes_static_js[nid] = {
+            "lat": inter.latitude, "lon": inter.longitude,
+            "name": inter.name,
+            "itype": inter.intersection_type.value,
+            "geometry": inter.geometry.value,
+            "geo_label": inter.geometry_label,
+            "has_light": inter.has_traffic_light,
+            "threshold": inter.pressure_threshold,
+        }
+
+    import json as _json
+    snaps_json   = _json.dumps(all_snaps_js)
+    edges_json   = _json.dumps(edges_js)
+    nodes_s_json = _json.dumps(nodes_static_js)
+
+    html = f"""<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>tanGo — Visualización Interactiva</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+  :root {{
+    --bg: #0f1117; --surface: #1a1d2e; --border: #2a2d3e;
+    --text: #e2e8f0; --muted: #64748b;
+    --green: #22c55e; --yellow: #eab308; --red: #ef4444;
+    --blue: #3b82f6; --purple: #7c3aed; --teal: #14b8a6;
+  }}
+  * {{ box-sizing: border-box; margin: 0; padding: 0; }}
+  body {{ background: var(--bg); color: var(--text);
+          font-family: 'Segoe UI', system-ui, sans-serif;
+          font-size: 13px; height: 100vh; overflow: hidden;
+          display: flex; flex-direction: column; }}
+
+  header {{ padding: 8px 16px; background: var(--surface);
+             border-bottom: 1px solid var(--border);
+             display: flex; align-items: center; justify-content: space-between; }}
+  header h1 {{ font-size: 15px; font-weight: 600; letter-spacing:.04em; }}
+  header h1 span {{ color: var(--teal); }}
+  .badges {{ display: flex; gap: 8px; align-items: center; }}
+  .badge {{ font-size: 10px; padding: 2px 8px; border-radius: 999px;
+             background: var(--border); color: var(--muted); }}
+  .badge.running {{ background:#166534; color:var(--green); }}
+
+  .layout {{ display: flex; flex: 1; overflow: hidden; }}
+  #map {{ flex: 1; }}
+
+  aside {{ width: 300px; background: var(--surface);
+            border-left: 1px solid var(--border);
+            display: flex; flex-direction: column; overflow: hidden; }}
+
+  .section {{ padding: 12px; border-bottom: 1px solid var(--border); }}
+  .section h3 {{ font-size: 10px; font-weight: 600; text-transform: uppercase;
+                  letter-spacing:.08em; color: var(--muted); margin-bottom: 10px; }}
+
+  .row {{ display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }}
+  label {{ font-size: 11px; color: var(--muted); min-width: 70px; }}
+  input[type=range] {{ flex: 1; accent-color: var(--teal); }}
+  .val {{ font-size: 11px; min-width: 40px; text-align: right; }}
+
+  .btn-row {{ display: flex; gap: 6px; flex-wrap: wrap; }}
+  .btn {{ padding: 5px 12px; border: none; border-radius: 6px;
+           font-size: 11px; font-weight: 500; cursor: pointer; }}
+  .btn-primary   {{ background: var(--teal);   color: #000; }}
+  .btn-secondary {{ background: var(--border); color: var(--text); }}
+
+  .stat-grid {{ display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }}
+  .stat {{ background: var(--bg); border-radius: 6px; padding: 8px;
+            border: 1px solid var(--border); }}
+  .stat-val {{ font-size: 18px; font-weight: 700; color: var(--teal); }}
+  .stat-lbl {{ font-size: 9px; color: var(--muted); }}
+
+  #node-info {{ flex: 1; overflow-y: auto; padding: 12px; }}
+  #node-info .placeholder {{ color: var(--muted); font-size: 11px;
+                               text-align: center; margin-top: 30px; }}
+  .info-card {{ background: var(--bg); border: 1px solid var(--border);
+                 border-radius: 8px; padding: 12px; margin-bottom: 8px; }}
+  .info-card h4 {{ font-size: 12px; font-weight: 600; margin-bottom: 6px; }}
+  .info-row {{ display: flex; justify-content: space-between;
+                font-size: 11px; color: var(--muted); margin: 2px 0; }}
+  .info-row span {{ color: var(--text); }}
+  .phase-pill {{ display:inline-block; padding:2px 8px; border-radius:999px;
+                  font-size:10px; font-weight:700; }}
+  .pill-green  {{ background:#166534; color:var(--green); }}
+  .pill-yellow {{ background:#713f12; color:var(--yellow); }}
+  .pill-red    {{ background:#7f1d1d; color:var(--red); }}
+
+  #log {{ max-height: 120px; overflow-y: auto; padding: 8px 12px;
+           font-size: 10px; font-family: monospace; color: var(--muted);
+           border-top: 1px solid var(--border); }}
+  .log-ok   {{ color: var(--green); }}
+  .log-warn {{ color: var(--yellow); }}
+  .log-err  {{ color: var(--red); }}
+
+  /* Leaflet dark override */
+  .leaflet-tile {{ filter: brightness(0.7) saturate(0.6); }}
+  .leaflet-container {{ background: var(--bg); }}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>tan<span>Go</span> &mdash; visualización interactiva ZMG</h1>
+  <div class="badges">
+    <span class="badge" id="badge-tick">tick #0</span>
+    <span class="badge" id="badge-scenario">—</span>
+    <span class="badge" id="badge-status">detenido</span>
+  </div>
+</header>
+
+<div class="layout">
+  <div id="map"></div>
+
+  <aside>
+    <!-- Controles -->
+    <div class="section">
+      <h3>Reproducción</h3>
+      <div class="btn-row" style="margin-bottom:10px">
+        <button class="btn btn-primary"  id="btn-play">&#9654; Iniciar</button>
+        <button class="btn btn-secondary" id="btn-step">&#9197; Paso</button>
+        <button class="btn btn-secondary" id="btn-reset">&#8635; Reset</button>
+      </div>
+      <div class="row">
+        <label>Velocidad</label>
+        <input type="range" id="speed" min="300" max="3000" value="800" step="100">
+        <span class="val" id="speed-val">0.8s</span>
+      </div>
+      <div class="row">
+        <label>Frame</label>
+        <input type="range" id="frame-slider" min="0" max="0" value="0" style="flex:1">
+        <span class="val" id="frame-val">0</span>
+      </div>
+    </div>
+
+    <!-- Stats -->
+    <div class="section">
+      <h3>Estadísticas del tick</h3>
+      <div class="stat-grid">
+        <div class="stat">
+          <div class="stat-val" id="s-tick">0</div>
+          <div class="stat-lbl">Tick</div>
+        </div>
+        <div class="stat">
+          <div class="stat-val" id="s-total">0</div>
+          <div class="stat-lbl">Entidades</div>
+        </div>
+        <div class="stat">
+          <div class="stat-val" id="s-green">0</div>
+          <div class="stat-lbl">En verde</div>
+        </div>
+        <div class="stat">
+          <div class="stat-val" id="s-nodes">0</div>
+          <div class="stat-lbl">Nodos</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Info de nodo seleccionado -->
+    <div id="node-info">
+      <div class="placeholder">Haz clic sobre una<br>intersección o arista<br>para ver su información</div>
+    </div>
+
+    <!-- Log -->
+    <div id="log"></div>
+  </aside>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════
+//  DATOS (inyectados desde Python)
+// ═══════════════════════════════════════════════════════
+const ALL_SNAPS   = {snaps_json};
+const EDGES       = {edges_json};
+const NODES_STATIC = {nodes_s_json};
+
+// ═══════════════════════════════════════════════════════
+//  MAPA LEAFLET
+// ═══════════════════════════════════════════════════════
+const map = L.map('map', {{ zoomControl: true }}).setView(
+  [{center_lat}, {center_lon}], 14
+);
+
+L.tileLayer('https://{{s}}.basemaps.cartocdn.com/dark_all/{{z}}/{{x}}/{{y}}{{r}}.png', {{
+  attribution: '&copy; OpenStreetMap &copy; CartoDB',
+  maxZoom: 19,
+}}).addTo(map);
+
+// ═══════════════════════════════════════════════════════
+//  CAPAS DINÁMICAS
+// ═══════════════════════════════════════════════════════
+const nodeMarkers = {{}};   // nid → L.circleMarker
+const edgeLines   = {{}};   // "from-to" → L.polyline (flujo)
+const edgeStatic  = [];     // L.polyline estáticas
+
+const PHASE_COLOR  = {{ green:'#22c55e', yellow:'#eab308', red:'#ef4444' }};
+const ITYPE_RING   = {{ master:'#f59e0b', normal:'#3b82f6', blind:'#64748b' }};
+const CAT_COLOR    = {{
+  MAIN_AVENUE:'#1d4ed8', SECONDARY_AVENUE:'#6d28d9',
+  STREET:'#1e293b', HIGHWAY:'#0f172a', ALLEY:'#0f172a'
+}};
+const CAT_WEIGHT   = {{
+  MAIN_AVENUE:5, SECONDARY_AVENUE:3, STREET:1.5,
+  HIGHWAY:6, ALLEY:1
+}};
+
+// Aristas estáticas
+EDGES.forEach(e => {{
+  const line = L.polyline(
+    [[e.lat_a, e.lon_a],[e.lat_b, e.lon_b]],
+    {{ color: CAT_COLOR[e.category] || '#1e293b',
+       weight: CAT_WEIGHT[e.category] || 1.5,
+       opacity: 0.7 }}
+  ).addTo(map);
+  line.on('click', () => showEdgeInfo(e));
+  edgeStatic.push(line);
+}});
+
+// Nodos iniciales
+Object.entries(NODES_STATIC).forEach(([nid, nd]) => {{
+  const r = nd.itype === 'master' ? 12 : nd.itype === 'normal' ? 9 : 7;
+  const m = L.circleMarker([nd.lat, nd.lon], {{
+    radius: r,
+    color:  ITYPE_RING[nd.itype] || '#64748b',
+    fillColor: '#ef4444',
+    fillOpacity: 0.85,
+    weight: 2,
+  }}).addTo(map);
+  m.bindTooltip(`${{nid}} ${{nd.geo_label}}`, {{
+    permanent: false, direction: 'top', className: 'leaflet-dark-tip'
+  }});
+  m.on('click', () => showNodeInfo(nid, null));
+  nodeMarkers[nid] = m;
+}});
+
+// ═══════════════════════════════════════════════════════
+//  ACTUALIZAR MAPA EN CADA TICK
+// ═══════════════════════════════════════════════════════
+let selectedNode = null;
+
+function applySnap(snap) {{
+  // Actualizar nodos
+  Object.entries(snap.nodes).forEach(([nid, nd]) => {{
+    const m = nodeMarkers[nid];
+    if (!m) return;
+    const st = NODES_STATIC[nid];
+    const phase = nd.phase;
+    const baseR = st.itype === 'master' ? 12 : st.itype === 'normal' ? 9 : 7;
+    const r = Math.min(20, baseR + nd.pressure * 0.05);
+    m.setStyle({{
+      fillColor: PHASE_COLOR[phase] || '#ef4444',
+      radius: r,
+      color: ITYPE_RING[st.itype] || '#64748b',
+    }});
+    // Actualizar tooltip con info resumida
+    const ns = nd.has_light ? `NS:${{nd.phase_ns.toUpperCase()}} EW:${{nd.phase_ew.toUpperCase()}}` : 'sin semáforo';
+    m.setTooltipContent(`<b>${{nid}}</b> ${{st.geo_label}}<br>${{ns}}<br>P=${{nd.pressure}}`);
+    m.on('click', () => showNodeInfo(nid, snap));
+  }});
+
+  // Actualizar flujos
+  // Limpiar flujos anteriores
+  Object.values(edgeLines).forEach(l => map.removeLayer(l));
+  Object.keys(edgeLines).forEach(k => delete edgeLines[k]);
+
+  snap.flows.forEach(fl => {{
+    const total = fl.fwd + fl.bwd;
+    if (total === 0) return;
+    const na = NODES_STATIC[fl.from];
+    const nb = NODES_STATIC[fl.to];
+    if (!na || !nb) return;
+
+    const flowColor = total >= 15 ? '#ef4444' : total >= 8 ? '#f59e0b' : '#22c55e';
+    const w = Math.min(7, 1 + total * 0.25);
+
+    // Dirección dominante
+    const coords = fl.fwd >= fl.bwd
+      ? [[na.lat, na.lon],[nb.lat, nb.lon]]
+      : [[nb.lat, nb.lon],[na.lat, na.lon]];
+
+    const line = L.polyline(coords, {{
+      color: flowColor, weight: w, opacity: 0.6,
+      // Flecha en el extremo
+    }}).addTo(map);
+
+    // Decorator-like: pequeño marcador en el punto medio indicando dirección
+    const mx = (na.lat + nb.lat) / 2;
+    const my = (na.lon + nb.lon) / 2;
+    const lbl = L.marker([mx, my], {{
+      icon: L.divIcon({{
+        html: `<div style="color:${{flowColor}};font-size:9px;font-weight:bold;
+                            white-space:nowrap;text-shadow:0 0 3px #000">
+               +${{fl.fwd}} -${{fl.bwd}}</div>`,
+        className: '',
+        iconAnchor: [20, 6],
+      }}),
+      interactive: false,
+    }}).addTo(map);
+
+    const key = `${{fl.from}}-${{fl.to}}`;
+    edgeLines[key] = line;
+    // Guardar label para limpiar
+    edgeLines[key+'_lbl'] = lbl;
+
+    line.on('click', () => {{
+      const e = EDGES.find(e => e.from === fl.from && e.to === fl.to
+                              || e.from === fl.to && e.to === fl.from);
+      if (e) showEdgeInfo(e, fl);
+    }});
+  }});
+
+  // Si hay nodo seleccionado, actualizar su panel
+  if (selectedNode && snap.nodes[selectedNode]) {{
+    renderNodePanel(selectedNode, snap.nodes[selectedNode],
+                    NODES_STATIC[selectedNode]);
+  }}
+
+  // Stats
+  document.getElementById('s-tick').textContent    = snap.tick;
+  document.getElementById('s-total').textContent   = snap.total;
+  document.getElementById('s-green').textContent   = snap.greens;
+  document.getElementById('s-nodes').textContent   = Object.keys(snap.nodes).length;
+  document.getElementById('badge-tick').textContent = `tick #${{snap.tick}}`;
+  document.getElementById('badge-scenario').textContent = snap.scenario;
+}}
+
+// ═══════════════════════════════════════════════════════
+//  PANELES DE INFORMACIÓN (click)
+// ═══════════════════════════════════════════════════════
+
+function pillClass(phase) {{
+  return {{ green:'pill-green', yellow:'pill-yellow', red:'pill-red' }}[phase] || 'pill-red';
+}}
+
+function renderNodePanel(nid, nd, st) {{
+  const pct = Math.min(100, (nd.pressure / nd.threshold * 100)).toFixed(0);
+  const timeoutLeft = nd.has_light && nd.phase === 'red'
+    ? `<div class="info-row">Timeout en <span>${{Math.max(0, nd.timeout - nd.ticks_red)}} ticks</span></div>`
+    : '';
+  const c = nd.counts || {{}};
+
+  document.getElementById('node-info').innerHTML = `
+    <div class="info-card">
+      <h4>${{nid}} &mdash; ${{st ? st.geo_label : ''}} ${{nd.name}}</h4>
+      <div class="info-row">Tipo <span>${{(nd.itype||'').toUpperCase()}}</span></div>
+      <div class="info-row">Geometría <span>${{st ? st.geometry : ''}}</span></div>
+      <div class="info-row">Semáforo <span>${{nd.has_light ? 'Si' : 'No'}}</span></div>
+    </div>
+    <div class="info-card">
+      <h4>Fases</h4>
+      ${{nd.has_light ? `
+        <div class="info-row">Eje N-S
+          <span><span class="phase-pill ${{pillClass(nd.phase_ns)}}">${{nd.phase_ns.toUpperCase()}}</span></span>
+        </div>
+        <div class="info-row">Eje E-O
+          <span><span class="phase-pill ${{pillClass(nd.phase_ew)}}">${{nd.phase_ew.toUpperCase()}}</span></span>
+        </div>
+        <div class="info-row">Eje activo <span>${{nd.active_axis.toUpperCase()}}</span></div>
+        ${{timeoutLeft}}
+      ` : '<div class="info-row" style="color:var(--muted)">Sin semáforo fisico</div>'}}
+    </div>
+    <div class="info-card">
+      <h4>Presion</h4>
+      <div class="info-row">Valor <span style="color:${{nd.pressure>=nd.threshold?'var(--red)':'var(--teal)'}}">${{nd.pressure}} / ${{nd.threshold}}</span></div>
+      <div class="info-row">Porcentaje <span>${{pct}}%</span></div>
+      <div style="background:var(--border);border-radius:4px;height:6px;margin:6px 0">
+        <div style="background:${{nd.pressure>=nd.threshold?'var(--red)':'var(--teal)'}};
+                    width:${{Math.min(100,pct)}}%;height:100%;border-radius:4px"></div>
+      </div>
+    </div>
+    <div class="info-card">
+      <h4>Entidades</h4>
+      <div class="info-row">Autos <span>${{c.CAR||0}}</span></div>
+      <div class="info-row">Motos <span>${{c.MOTORCYCLE||0}}</span></div>
+      <div class="info-row">Buses <span>${{c.BUS||0}}</span></div>
+      <div class="info-row">Camiones <span>${{c.TRUCK||0}}</span></div>
+      <div class="info-row">Bicicletas <span>${{c.BICYCLE||0}}</span></div>
+      <div class="info-row">Emergencias <span style="color:var(--red)">${{c.EMERGENCY||0}}</span></div>
+      <div class="info-row">Peatones <span>${{c.PEDESTRIAN||0}}</span></div>
+      <div class="info-row">Sillas de ruedas <span>${{c.WHEELCHAIR||0}}</span></div>
+    </div>
+  `;
+}}
+
+function showNodeInfo(nid, snap) {{
+  selectedNode = nid;
+  const st = NODES_STATIC[nid];
+  const nd = snap ? snap.nodes[nid] : null;
+  if (!nd) {{
+    document.getElementById('node-info').innerHTML =
+      `<div class="info-card"><h4>${{nid}}</h4>
+       <div class="info-row">Nombre <span>${{st.name}}</span></div>
+       <div class="info-row">Tipo <span>${{st.itype.toUpperCase()}}</span></div>
+       <div class="info-row">Geometria <span>${{st.geometry}}</span></div>
+       <div class="info-row">Semaforo <span>${{st.has_light ? 'Si' : 'No'}}</span></div>
+       <div style="color:var(--muted);font-size:11px;margin-top:8px">Inicia la simulacion para ver datos en tiempo real</div>
+       </div>`;
+    return;
+  }}
+  renderNodePanel(nid, nd, st);
+}}
+
+function showEdgeInfo(e, fl) {{
+  selectedNode = null;
+  document.getElementById('node-info').innerHTML = `
+    <div class="info-card">
+      <h4>Segmento vial</h4>
+      <div class="info-row">Nombre <span>${{e.name || 'Sin nombre'}}</span></div>
+      <div class="info-row">Categoria <span>${{e.category}}</span></div>
+      <div class="info-row">Peso base <span>${{e.weight}}</span></div>
+      <div class="info-row">Longitud <span>${{e.length_m}} m</span></div>
+      <div class="info-row">Velocidad max <span>${{e.speed_kmh}} km/h</span></div>
+      <div class="info-row">De <span>${{e.from}}</span></div>
+      <div class="info-row">A <span>${{e.to}}</span></div>
+    </div>
+    ${{fl ? `
+    <div class="info-card">
+      <h4>Flujo actual</h4>
+      <div class="info-row">Sentido + <span>${{fl.fwd}} vehiculos</span></div>
+      <div class="info-row">Sentido - <span>${{fl.bwd}} vehiculos</span></div>
+      <div class="info-row">Total <span>${{fl.fwd + fl.bwd}} vehiculos</span></div>
+    </div>` : ''}}
+  `;
+}}
+
+// ═══════════════════════════════════════════════════════
+//  ANIMACIÓN
+// ═══════════════════════════════════════════════════════
+
+let frameIdx = 0;
+let running  = false;
+let timer    = null;
+
+const slider = document.getElementById('frame-slider');
+slider.max   = ALL_SNAPS.length - 1;
+
+function goToFrame(idx) {{
+  if (idx < 0 || idx >= ALL_SNAPS.length) return;
+  frameIdx = idx;
+  slider.value = idx;
+  document.getElementById('frame-val').textContent = idx;
+  applySnap(ALL_SNAPS[idx]);
+}}
+
+function scheduleNext() {{
+  if (!running) return;
+  const nextIdx = (frameIdx + 1) % ALL_SNAPS.length;
+  goToFrame(nextIdx);
+  const delay = parseInt(document.getElementById('speed').value);
+  timer = setTimeout(scheduleNext, delay);
+}}
+
+document.getElementById('btn-play').addEventListener('click', () => {{
+  running = !running;
+  const btn = document.getElementById('btn-play');
+  const badge = document.getElementById('badge-status');
+  if (running) {{
+    btn.innerHTML = '&#9646;&#9646; Pausar';
+    badge.textContent = 'corriendo';
+    badge.className = 'badge running';
+    scheduleNext();
+  }} else {{
+    btn.innerHTML = '&#9654; Iniciar';
+    badge.textContent = 'detenido';
+    badge.className = 'badge';
+    clearTimeout(timer);
+  }}
+}});
+
+document.getElementById('btn-step').addEventListener('click', () => {{
+  clearTimeout(timer);
+  running = false;
+  document.getElementById('btn-play').innerHTML = '&#9654; Iniciar';
+  document.getElementById('badge-status').className = 'badge';
+  document.getElementById('badge-status').textContent = 'detenido';
+  goToFrame((frameIdx + 1) % ALL_SNAPS.length);
+}});
+
+document.getElementById('btn-reset').addEventListener('click', () => {{
+  clearTimeout(timer);
+  running = false;
+  document.getElementById('btn-play').innerHTML = '&#9654; Iniciar';
+  document.getElementById('badge-status').className = 'badge';
+  document.getElementById('badge-status').textContent = 'detenido';
+  selectedNode = null;
+  document.getElementById('node-info').innerHTML =
+    '<div class="placeholder">Haz clic sobre una<br>interseccion o arista<br>para ver su informacion</div>';
+  goToFrame(0);
+}});
+
+document.getElementById('speed').addEventListener('input', function() {{
+  document.getElementById('speed-val').textContent = (this.value/1000).toFixed(1) + 's';
+}});
+
+slider.addEventListener('input', function() {{
+  clearTimeout(timer);
+  running = false;
+  document.getElementById('btn-play').innerHTML = '&#9654; Iniciar';
+  document.getElementById('badge-status').className = 'badge';
+  document.getElementById('badge-status').textContent = 'detenido';
+  goToFrame(parseInt(this.value));
+}});
+
+function log(msg, cls='') {{
+  const el = document.getElementById('log');
+  const d  = document.createElement('div');
+  d.className = cls;
+  d.textContent = `[${{new Date().toLocaleTimeString('es',{{hour12:false}})}}] ${{msg}}`;
+  el.prepend(d);
+  while (el.children.length > 20) el.removeChild(el.lastChild);
+}}
+
+// Init
+document.getElementById('s-nodes').textContent = Object.keys(NODES_STATIC).length;
+goToFrame(0);
+log('tanGo iniciado — ' + Object.keys(NODES_STATIC).length + ' intersecciones cargadas', 'log-ok');
+log('Haz clic en un nodo o arista para ver detalles');
+</script>
+</body>
+</html>"""
+    return html
+
+
+
 if __name__ == "__main__":
     print("tanGo — simulación ZMG Guadalajara")
 
@@ -665,5 +1352,15 @@ if __name__ == "__main__":
     fmap.save(str(OUTPUT_FOLIUM))
     print(f"  ✓ {OUTPUT_FOLIUM}")
 
+    print("  Generando visualizacion interactiva fusionada...")
+    vis_html = build_vis(graph, all_histories)
+    OUTPUT_VIS.write_text(vis_html, encoding="utf-8")
+    print(f"  ✓ {OUTPUT_VIS}")
+
     graph.close()
-    print("\n✓ Listo. Abre los HTML en tu navegador.")
+    print("\n✓ Listo.")
+    print(f"  Recomendado: abre tango_vis.html (mapa interactivo + animacion)")
+    print(f"  Alternativo: tango_sim.html (Plotly) · tango_map.html (Folium estatico)")
+
+
+# ─────────────────────────────────────────────────────────────────────────────
