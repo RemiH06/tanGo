@@ -70,12 +70,28 @@ logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO,
                     format="%(asctime)s %(levelname)s %(message)s")
 
-# ── Overpass API ──────────────────────────────────────────────────────────────
+# ── Cargar city_config.json ───────────────────────────────────────────────────
 
-OVERPASS_URL = "https://overpass-api.de/api/interpreter"
+_CONFIG_FILE = Path(__file__).parent / "city_config.json"
 
-# Tipos de vía de OSM → RoadCategory de tanGo
-OSM_HIGHWAY_MAP = {
+def _load_config() -> dict:
+    """Lee city_config.json si existe, retorna defaults si no."""
+    if _CONFIG_FILE.exists():
+        with open(_CONFIG_FILE, encoding="utf-8") as f:
+            cfg = json.load(f)
+        logger.info("Configuracion cargada desde %s", _CONFIG_FILE.name)
+        return cfg
+    logger.warning("city_config.json no encontrado — usando defaults")
+    return {}
+
+_CFG = _load_config()
+
+# ── Constantes desde config (con fallback hardcodeado) ───────────────────────
+
+OVERPASS_URL = _CFG.get("overpass", {}).get(
+    "url", "https://overpass-api.de/api/interpreter")
+
+OSM_HIGHWAY_MAP: dict = _CFG.get("category_map", {
     "motorway":       "HIGHWAY",
     "trunk":          "HIGHWAY",
     "primary":        "MAIN_AVENUE",
@@ -85,20 +101,53 @@ OSM_HIGHWAY_MAP = {
     "living_street":  "ALLEY",
     "service":        "ALLEY",
     "unclassified":   "STREET",
-}
+})
 
-# Velocidades por defecto (km/h) si OSM no las especifica
-DEFAULT_SPEEDS = {
+DEFAULT_SPEEDS: dict = _CFG.get("default_speeds_kmh", {
     "HIGHWAY":          90.0,
     "MAIN_AVENUE":      60.0,
     "SECONDARY_AVENUE": 50.0,
     "STREET":           30.0,
     "ALLEY":            15.0,
-}
+})
 
-# Umbral de street_count para determinar IntersectionType
-# OSM cuenta cuántas vías confluyen en cada nodo
-MASTER_HIGHWAY_TYPES = {"primary", "trunk", "motorway"}
+_itype_rules = _CFG.get("intersection_type_rules", {})
+MASTER_HIGHWAY_TYPES: set = set(
+    _itype_rules.get("master_highway_types", ["primary", "trunk", "motorway"])
+)
+MASTER_MIN_STREETS: int = int(
+    _itype_rules.get("master_min_street_count", 3)
+)
+BLIND_MAX_STREETS: int = int(
+    _itype_rules.get("blind_max_street_count", 1)
+)
+
+_ov_cfg = _CFG.get("overpass", {})
+OVERPASS_TIMEOUT:  int = int(_ov_cfg.get("timeout_s",       60))
+OVERPASS_RETRY:    int = int(_ov_cfg.get("retry_attempts",   3))
+OVERPASS_WAIT:     int = int(_ov_cfg.get("retry_wait_s",     3))
+OVERPASS_UA:       str = _ov_cfg.get(
+    "user_agent", "tanGo-academic-project/0.1")
+
+BIDIR_ENABLED:     bool = _CFG.get("bidirectional", {}).get("enabled", True)
+BIDIR_RESPECT_OW:  bool = _CFG.get("bidirectional", {}).get(
+    "respect_oneway_tag", True)
+
+_geo_rules = _CFG.get("geometry_rules", {})
+GEO_MULTIWAY_MIN:  int = int(_geo_rules.get("multiway_min_streets", 5))
+GEO_T_COUNT:       int = int(_geo_rules.get("t_street_count",       3))
+GEO_DEFAULT:       str = _geo_rules.get("default", "cross")
+GEO_PEDESTRIAN_TAGS: list = _geo_rules.get(
+    "pedestrian_tags", ["pedestrian", "footway", "crossing"])
+GEO_MERGE_TAGS:    list = _geo_rules.get(
+    "merge_tags", ["motorway_link","trunk_link","primary_link","service"])
+
+_city = _CFG.get("city", {})
+CFG_CENTER_LAT = _city.get("center_lat", None)
+CFG_CENTER_LON = _city.get("center_lon", None)
+CFG_RADIUS_M   = int(_city.get("radius_m",  800))
+CFG_MAX_NODES  = int(_city.get("max_nodes",  80))
+CFG_OUTPUT     = _city.get("output", "graph/city_graph.json")
 
 
 # ── Bounding boxes de ciudades predefinidas ───────────────────────────────────
@@ -207,8 +256,8 @@ def download_graph(bbox: dict,
             resp = requests.post(
                 OVERPASS_URL,
                 data={"data": query},
-                timeout=60,
-                headers={"User-Agent": "tanGo-academic-project/0.1"},
+                timeout=OVERPASS_TIMEOUT,
+                headers={"User-Agent": OVERPASS_UA},
             )
             resp.raise_for_status()
             data = resp.json()
@@ -217,7 +266,7 @@ def download_graph(bbox: dict,
         except requests.RequestException as e:
             logger.warning(f"  Intento {attempt}/{retry} falló: {e}")
             if attempt < retry:
-                time.sleep(3 * attempt)
+                time.sleep(OVERPASS_WAIT * attempt)
             else:
                 raise RuntimeError(
                     f"No se pudo contactar Overpass API tras {retry} intentos. "
@@ -297,9 +346,9 @@ def process_graph(raw: dict, max_nodes: int = 200) -> dict:
         street_cnt = node_way_count.get(osm_id, 1)
 
         # Inferir IntersectionType
-        if any(t in MASTER_HIGHWAY_TYPES for t in way_types) and street_cnt >= 3:
+        if any(t in MASTER_HIGHWAY_TYPES for t in way_types) and street_cnt >= MASTER_MIN_STREETS:
             itype = "MASTER"
-        elif street_cnt >= 2:
+        elif street_cnt > BLIND_MAX_STREETS:
             itype = "NORMAL"
         else:
             itype = "BLIND"
@@ -415,36 +464,25 @@ def _infer_geometry(osm_id: int, way_types: set,
                     street_count: int, ways: list) -> str:
     """
     Infiere la geometría de la intersección desde los datos de OSM.
-
-    Reglas de inferencia:
-      - Tag junction=roundabout en cualquier vía adyacente → ROUNDABOUT
-      - Tag highway=pedestrian o crossing en vías → PEDESTRIAN
-      - street_count >= 5 → MULTIWAY
-      - street_count == 3 → T (o Y si ángulo oblicuo, pero OSM no lo da fácil)
-      - street_count == 2 y una vía es link/slip → MERGE
-      - Default → CROSS
+    Las reglas se leen desde city_config.json["geometry_rules"].
     """
     for way in ways:
         if osm_id not in way.get("nodes", []):
             continue
         tags = way.get("tags", {})
-        # Glorieta
         if tags.get("junction") == "roundabout":
             return "roundabout"
-        # Cruce peatonal
         hw = tags.get("highway", "")
-        if hw in ("pedestrian", "footway", "crossing"):
+        if hw in GEO_PEDESTRIAN_TAGS:
             return "pedestrian"
-        # Incorporación
-        if "_link" in hw or hw == "service":
-            if street_count <= 2:
-                return "merge"
+        if hw in GEO_MERGE_TAGS and street_count <= 2:
+            return "merge"
 
-    if street_count >= 5:
+    if street_count >= GEO_MULTIWAY_MIN:
         return "multiway"
-    if street_count == 3:
+    if street_count == GEO_T_COUNT:
         return "t"
-    return "cross"
+    return GEO_DEFAULT
 
 
 def _guess_name(osm_id: int, way_types: set, ways: list) -> str:
@@ -671,12 +709,12 @@ if __name__ == "__main__":
         help="Bounding box manual: south,north,west,east",
     )
     parser.add_argument(
-        "--output", default="graph/city_graph.json",
-        help="Ruta de salida (default: graph/city_graph.json)",
+        "--output", default=CFG_OUTPUT,
+        help=f"Ruta de salida (config: {CFG_OUTPUT})",
     )
     parser.add_argument(
-        "--max-nodes", type=int, default=80,
-        help="Máximo de intersecciones (default: 80 — rápido en simulación)",
+        "--max-nodes", type=int, default=CFG_MAX_NODES,
+        help=f"Maximo de intersecciones (config: {CFG_MAX_NODES})",
     )
     parser.add_argument(
         "--verify",
@@ -709,10 +747,16 @@ if __name__ == "__main__":
         print(f"  Modo: ciudad '{args.city}'")
 
     else:
-        # Default: 800m alrededor de Vallarta y López Mateos
-        lat, lon = CITY_CENTERS["vallarta_lopez"]
-        bbox = radius_to_bbox(lat, lon, 800)
-        print(f"  Modo: default — 800m desde Vallarta y López Mateos")
+        # Default desde city_config.json
+        if CFG_CENTER_LAT and CFG_CENTER_LON:
+            r    = CFG_RADIUS_M
+            bbox = radius_to_bbox(CFG_CENTER_LAT, CFG_CENTER_LON, r)
+            print(f"  Modo: city_config — {r:.0f}m desde "
+                  f"({CFG_CENTER_LAT:.4f}, {CFG_CENTER_LON:.4f})")
+        else:
+            lat, lon = CITY_CENTERS["vallarta_lopez"]
+            bbox = radius_to_bbox(lat, lon, 800)
+            print(f"  Modo: default — 800m desde Vallarta y Lopez Mateos")
 
     print(f"  Bbox: {bbox}")
     print(f"  Máx nodos: {args.max_nodes}")

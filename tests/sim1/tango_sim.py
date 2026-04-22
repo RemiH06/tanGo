@@ -37,10 +37,31 @@ from core.entities      import Vehicle, Pedestrian, VehicleType, Direction
 from graph.simulator    import TrafficGraph
 from graph.city_loader  import json_to_traffic_graph, load_graph_from_json
 
-OUTPUT_PLOTLY = Path(__file__).parent / "tango_sim.html"
-OUTPUT_FOLIUM = Path(__file__).parent / "tango_map.html"
-OUTPUT_VIS    = Path(__file__).parent / "tango_vis.html"
-N_TICKS = 40
+import json as _json
+
+OUTPUT_PLOTLY  = Path(__file__).parent / "tango_sim.html"
+OUTPUT_FOLIUM  = Path(__file__).parent / "tango_map.html"
+OUTPUT_VIS     = Path(__file__).parent / "tango_vis.html"
+PARAMS_FILE    = Path(__file__).parent / "sim_params.json"
+
+# Cargar parámetros desde JSON — edita sim_params.json para cambiar
+# el comportamiento sin tocar este archivo
+def load_params() -> dict:
+    if PARAMS_FILE.exists():
+        with open(PARAMS_FILE, encoding="utf-8") as f:
+            return _json.load(f)
+    # Defaults si no existe el JSON
+    return {
+        "n_ticks": 40,
+        "scenarios": [],
+        "spawn": {"vehicle_multiplier": 1.0, "pedestrian_multiplier": 1.0,
+                  "emergency_probability": 0.02, "wheelchair_probability": 0.08},
+        "node_overrides": {},
+        "experiment_presets": {},
+    }
+
+PARAMS = load_params()
+N_TICKS = PARAMS.get("n_ticks", 40)
 
 
 def compute_center(graph: TrafficGraph) -> tuple[float, float]:
@@ -173,39 +194,84 @@ V_TYPES_POOL = (
 )
 
 def spawn_for_node(node_id: str, itype: IntersectionType,
-                   ctx: TrafficContext) -> list:
-    """Genera entidades realistas según tipo de intersección y contexto."""
+                   ctx: TrafficContext,
+                   spawn_params: dict | None = None) -> list:
+    """
+    Genera entidades para un nodo según el tipo de intersección,
+    el contexto ambiental y los multiplicadores de sim_params.json.
+
+    spawn_params puede venir de:
+      - PARAMS["spawn"]           (base)
+      - PARAMS["experiment_presets"][key]  (preset activo)
+      - PARAMS["node_overrides"][node_id]  (override fijo por nodo)
+    """
     import uuid
 
-    # Volumen base por tipo e intersección
-    if itype == IntersectionType.MASTER:
-        nv = random.randint(8,20) if ctx.is_rush_hour else \
-             random.randint(1,4)  if ctx.is_late_night else random.randint(5,14)
-        np_ = random.randint(5,15) if ctx.is_rush_hour else \
-              random.randint(0,2)  if ctx.is_late_night else random.randint(2,8)
-    elif itype == IntersectionType.NORMAL:
-        nv = random.randint(5,12) if ctx.is_rush_hour else \
-             random.randint(0,3)  if ctx.is_late_night else random.randint(3,8)
-        np_ = random.randint(3,10) if ctx.is_rush_hour else \
-              random.randint(0,1)  if ctx.is_late_night else random.randint(1,6)
-    else:  # BLIND — tráfico de colonia
-        nv = random.randint(2,7) if ctx.is_rush_hour else \
-             random.randint(0,2) if ctx.is_late_night else random.randint(1,5)
-        np_ = random.randint(0,3)
+    sp  = spawn_params or PARAMS.get("spawn", {})
+    vm  = float(sp.get("vehicle_multiplier",  1.0))
+    pm  = float(sp.get("pedestrian_multiplier", 1.0))
+    ep  = float(sp.get("emergency_probability", 0.02))
+    wcp = float(sp.get("wheelchair_probability", 0.08))
+    brf = float(sp.get("bicycle_rain_factor", 0.2))
 
-    # Reducir ciclistas con lluvia
-    pool = V_TYPES_POOL if not ctx.is_raining else \
-           [v for v in V_TYPES_POOL if v != VehicleType.BICYCLE] + \
-           [VehicleType.CAR] * 5
+    # Override fijo por nodo (suma fija en TODOS los ticks)
+    node_ov = PARAMS.get("node_overrides", {}).get(node_id, {})
+
+    # Volumen base × multiplicador
+    if itype == IntersectionType.MASTER:
+        nv_base  = random.randint(8,20)  if ctx.is_rush_hour else                    random.randint(1,4)   if ctx.is_late_night else random.randint(5,14)
+        np_base  = random.randint(5,15)  if ctx.is_rush_hour else                    random.randint(0,2)   if ctx.is_late_night else random.randint(2,8)
+    elif itype == IntersectionType.NORMAL:
+        nv_base  = random.randint(5,12)  if ctx.is_rush_hour else                    random.randint(0,3)   if ctx.is_late_night else random.randint(3,8)
+        np_base  = random.randint(3,10)  if ctx.is_rush_hour else                    random.randint(0,1)   if ctx.is_late_night else random.randint(1,6)
+    else:
+        nv_base  = random.randint(2,7)   if ctx.is_rush_hour else                    random.randint(0,2)   if ctx.is_late_night else random.randint(1,5)
+        np_base  = random.randint(0,3)
+
+    nv  = max(0, int(nv_base  * vm))
+    np_ = max(0, int(np_base  * pm))
+
+    # Pool de vehículos — ajustar bicicletas con lluvia
+    if ctx.is_raining:
+        pool = ([v for v in V_TYPES_POOL if v != VehicleType.BICYCLE]
+                + [VehicleType.CAR] * 5)
+    else:
+        pool = V_TYPES_POOL
 
     entities = []
+
+    # Emergencias según probabilidad del preset
+    only_master = sp.get("only_master_nodes", False)
+    should_spawn_emerg = (not only_master or itype == IntersectionType.MASTER)
+    if should_spawn_emerg and random.random() < ep:
+        entities.append(Vehicle(str(uuid.uuid4()), VehicleType.EMERGENCY,
+                                random.choice(list(Direction))))
+
     for _ in range(nv):
         vtype = random.choice(pool)
+        if vtype == VehicleType.EMERGENCY:
+            vtype = VehicleType.CAR   # emergencias solo via probabilidad
         entities.append(Vehicle(str(uuid.uuid4()), vtype,
                                 random.choice(list(Direction))))
+
     for _ in range(np_):
-        wc = random.random() < (0.08 if not ctx.is_late_night else 0.02)
+        wc = random.random() < wcp
         entities.append(Pedestrian(str(uuid.uuid4()), is_wheelchair=wc))
+
+    # Aplicar overrides fijos del nodo (suma adicional)
+    for _ in range(int(node_ov.get("cars", 0))):
+        entities.append(Vehicle(str(uuid.uuid4()), VehicleType.CAR,
+                                random.choice(list(Direction))))
+    for _ in range(int(node_ov.get("buses", 0))):
+        entities.append(Vehicle(str(uuid.uuid4()), VehicleType.BUS,
+                                random.choice(list(Direction))))
+    for _ in range(int(node_ov.get("pedestrians", 0))):
+        entities.append(Pedestrian(str(uuid.uuid4())))
+    for _ in range(int(node_ov.get("wheelchairs", 0))):
+        entities.append(Pedestrian(str(uuid.uuid4()), is_wheelchair=True))
+    for _ in range(int(node_ov.get("emergency", 0))):
+        entities.append(Vehicle(str(uuid.uuid4()), VehicleType.EMERGENCY,
+                                random.choice(list(Direction))))
 
     return entities
 
@@ -214,25 +280,37 @@ def spawn_for_node(node_id: str, itype: IntersectionType,
 #  SIMULACIÓN PRINCIPAL
 # ─────────────────────────────────────────────────────────────────────────────
 
-def simulate(scenario: dict, graph: TrafficGraph, n_ticks: int) -> list[dict]:
+def simulate(scenario: dict, graph: TrafficGraph, n_ticks: int,
+             spawn_params: dict | None = None) -> list[dict]:
     engine = WeightEngine()
-    ctx    = TrafficContext.build(**{k:v for k,v in scenario.items() if k!="label"})
+
+    # Parsear timestamp si viene como string desde JSON
+    sc_clean = {}
+    for k, v in scenario.items():
+        if k == "label": continue
+        if k == "timestamp" and isinstance(v, str):
+            sc_clean[k] = datetime.fromisoformat(v)
+        else:
+            sc_clean[k] = v
+
+    ctx = TrafficContext.build(**sc_clean)
     history = []
 
     # Reset fases
     for inter in graph.intersections.values():
-        inter.current_phase    = Phase.RED
-        inter._ticks_in_phase  = 0
+        inter.current_phase      = Phase.RED
+        inter._ticks_in_phase    = 0
         inter._timeout_triggered = False
-        inter.pressure         = 0.0
+        inter.pressure           = 0.0
 
     for _ in range(n_ticks):
         frame = {"tick":0, "nodes":{}, "flows":[], "total":0, "greens":0}
 
-        # Generar entidades por nodo
+        # Generar entidades por nodo (con parámetros del JSON)
         all_entities = {}
         for node_id, inter in graph.intersections.items():
-            ents = spawn_for_node(node_id, inter.intersection_type, ctx)
+            ents = spawn_for_node(node_id, inter.intersection_type, ctx,
+                                  spawn_params=spawn_params)
             all_entities[node_id] = ents
 
         # Calcular flujos bidireccionales
@@ -707,50 +785,51 @@ def build_folium_map(graph: TrafficGraph, final_snap: dict) -> folium.Map:
 #  tango_vis — mapa interactivo + animación fusionados
 # ─────────────────────────────────────────────────────────────────────────────
 
+
+
 def build_vis(graph: TrafficGraph, all_histories: list[tuple]) -> str:
     """
-    Genera un HTML único que combina:
-      - Mapa Folium interactivo (movible, zoom, click para info)
-      - Panel lateral con estado actual de cada nodo
-      - Controles de animación (play/pause/step/velocidad)
-      - Flechas de flujo sobre el mapa actualizadas por tick
+    HTML único que combina mapa Leaflet interactivo + animación de frames.
 
-    No usa iframes ni archivos externos — todo embebido en un solo HTML.
-
-    Returns
-    -------
-    String con el HTML completo.
+    - Mapa Leaflet sobre CartoDB dark, centrado en el centroide del grafo.
+    - Nodos coloreados por fase (verde/amarillo/rojo) actualizados cada tick.
+    - Flechas de flujo sobre aristas con grosor proporcional al volumen.
+    - Click en nodo/arista → panel de información detallado.
+    - Controles play/pause/step/slider para navegar frames.
+    - Botones de experimento generados desde sim_params.json["experiment_presets"].
+      Cada preset corresponde a un escenario ya simulado — el botón salta al
+      primer frame de ese escenario en el slider.
     """
-    from core.road import RoadCategory
+    import json as _json
 
     center_lat, center_lon = compute_center(graph)
 
-    # Serializar todos los snapshots de todos los escenarios como JSON
-    # para que el JS del navegador los anime sin servidor
+    # ── Serializar snapshots ──────────────────────────────────────────────────
     all_snaps_js = []
+    scenario_index: dict[str, int] = {}   # label → primer índice de frame
+
     for sc_label, history in all_histories:
+        scenario_index[sc_label] = len(all_snaps_js)
         for snap in history:
-            # Serializar nodos
             nodes_js = {}
             for nid, nd in snap["nodes"].items():
                 nodes_js[nid] = {
-                    "phase":      nd["phase"],
-                    "phase_ns":   nd["phase_ns"],
-                    "phase_ew":   nd["phase_ew"],
+                    "phase":       nd["phase"],
+                    "phase_ns":    nd["phase_ns"],
+                    "phase_ew":    nd["phase_ew"],
                     "active_axis": nd["active_axis"],
-                    "pressure":   round(nd["pressure"], 1),
-                    "threshold":  nd["threshold"],
-                    "itype":      nd["itype"].value,
-                    "geo_label":  nd.get("geo_label", "+"),
-                    "has_light":  nd["has_light"],
-                    "ticks_red":  nd["ticks_red"],
-                    "timeout":    nd["timeout"],
-                    "name":       nd["name"],
-                    "lat":        nd["lat"],
-                    "lon":        nd["lon"],
-                    "counts":     nd["counts"],
+                    "pressure":    round(nd["pressure"], 1),
+                    "threshold":   nd["threshold"],
+                    "itype":       nd["itype"].value,
+                    "geo_label":   nd.get("geo_label", "+"),
+                    "has_light":   nd["has_light"],
+                    "ticks_red":   nd["ticks_red"],
+                    "timeout":     nd["timeout"],
+                    "name":        nd["name"],
+                    "lat":         nd["lat"],
+                    "lon":         nd["lon"],
+                    "counts":      nd["counts"],
                 }
-            # Serializar flujos
             flows_js = [
                 {"from": fl["from"], "to": fl["to"],
                  "fwd": fl["fwd"], "bwd": fl["bwd"]}
@@ -765,7 +844,8 @@ def build_vis(graph: TrafficGraph, all_histories: list[tuple]) -> str:
                 "flows":    flows_js,
             })
 
-    # Serializar aristas estáticas del grafo
+    # ── Serializar aristas estáticas ──────────────────────────────────────────
+    from core.road import RoadCategory
     edges_js = []
     drawn = set()
     for from_id, to_id, data in graph.graph.edges(data=True):
@@ -780,13 +860,13 @@ def build_vis(graph: TrafficGraph, all_histories: list[tuple]) -> str:
             "lat_a": n_a.latitude,  "lon_a": n_a.longitude,
             "lat_b": n_b.latitude,  "lon_b": n_b.longitude,
             "category": seg.category.name,
-            "weight": seg.base_weight,
+            "weight":   seg.base_weight,
             "length_m": seg.length_m,
             "speed_kmh": seg.speed_limit_kmh,
             "name": getattr(seg, "name", ""),
         })
 
-    # Serializar nodos estáticos
+    # ── Serializar nodos estáticos ────────────────────────────────────────────
     nodes_static_js = {}
     for nid, inter in graph.intersections.items():
         nodes_static_js[nid] = {
@@ -799,520 +879,494 @@ def build_vis(graph: TrafficGraph, all_histories: list[tuple]) -> str:
             "threshold": inter.pressure_threshold,
         }
 
-    import json as _json
-    snaps_json   = _json.dumps(all_snaps_js)
-    edges_json   = _json.dumps(edges_js)
-    nodes_s_json = _json.dumps(nodes_static_js)
+    # ── Botones de experimento desde sim_params.json ──────────────────────────
+    presets = {k: v for k, v in PARAMS.get("experiment_presets", {}).items()
+               if not k.startswith("_")}
+    # Generar JS del mapa label→frame_index
+    scenario_index_js = {
+        label: idx for label, idx in scenario_index.items()
+    }
+
+    snaps_json      = _json.dumps(all_snaps_js)
+    edges_json      = _json.dumps(edges_js)
+    nodes_s_json    = _json.dumps(nodes_static_js)
+    sc_index_json   = _json.dumps(scenario_index_js)
+
+    # Generar HTML de botones de preset
+    preset_buttons_html = ""
+    for key, preset in presets.items():
+        label = preset.get("label", key)
+        desc  = preset.get("description", "")
+        preset_buttons_html += (
+            f'<button class="btn btn-exp" '
+            f'title="{desc}" '
+            f'onclick="jumpToScenario({_json.dumps(label)})">'
+            f'{label}</button>\n'
+        )
 
     html = f"""<!DOCTYPE html>
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>tanGo — Visualización Interactiva</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>tanGo — Visualizacion Interactiva</title>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <style>
-  :root {{
-    --bg: #0f1117; --surface: #1a1d2e; --border: #2a2d3e;
-    --text: #e2e8f0; --muted: #64748b;
-    --green: #22c55e; --yellow: #eab308; --red: #ef4444;
-    --blue: #3b82f6; --purple: #7c3aed; --teal: #14b8a6;
-  }}
-  * {{ box-sizing: border-box; margin: 0; padding: 0; }}
-  body {{ background: var(--bg); color: var(--text);
-          font-family: 'Segoe UI', system-ui, sans-serif;
-          font-size: 13px; height: 100vh; overflow: hidden;
-          display: flex; flex-direction: column; }}
-
-  header {{ padding: 8px 16px; background: var(--surface);
-             border-bottom: 1px solid var(--border);
-             display: flex; align-items: center; justify-content: space-between; }}
-  header h1 {{ font-size: 15px; font-weight: 600; letter-spacing:.04em; }}
-  header h1 span {{ color: var(--teal); }}
-  .badges {{ display: flex; gap: 8px; align-items: center; }}
-  .badge {{ font-size: 10px; padding: 2px 8px; border-radius: 999px;
-             background: var(--border); color: var(--muted); }}
-  .badge.running {{ background:#166534; color:var(--green); }}
-
-  .layout {{ display: flex; flex: 1; overflow: hidden; }}
-  #map {{ flex: 1; }}
-
-  aside {{ width: 300px; background: var(--surface);
-            border-left: 1px solid var(--border);
-            display: flex; flex-direction: column; overflow: hidden; }}
-
-  .section {{ padding: 12px; border-bottom: 1px solid var(--border); }}
-  .section h3 {{ font-size: 10px; font-weight: 600; text-transform: uppercase;
-                  letter-spacing:.08em; color: var(--muted); margin-bottom: 10px; }}
-
-  .row {{ display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }}
-  label {{ font-size: 11px; color: var(--muted); min-width: 70px; }}
-  input[type=range] {{ flex: 1; accent-color: var(--teal); }}
-  .val {{ font-size: 11px; min-width: 40px; text-align: right; }}
-
-  .btn-row {{ display: flex; gap: 6px; flex-wrap: wrap; }}
-  .btn {{ padding: 5px 12px; border: none; border-radius: 6px;
-           font-size: 11px; font-weight: 500; cursor: pointer; }}
-  .btn-primary   {{ background: var(--teal);   color: #000; }}
-  .btn-secondary {{ background: var(--border); color: var(--text); }}
-
-  .stat-grid {{ display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }}
-  .stat {{ background: var(--bg); border-radius: 6px; padding: 8px;
-            border: 1px solid var(--border); }}
-  .stat-val {{ font-size: 18px; font-weight: 700; color: var(--teal); }}
-  .stat-lbl {{ font-size: 9px; color: var(--muted); }}
-
-  #node-info {{ flex: 1; overflow-y: auto; padding: 12px; }}
-  #node-info .placeholder {{ color: var(--muted); font-size: 11px;
-                               text-align: center; margin-top: 30px; }}
-  .info-card {{ background: var(--bg); border: 1px solid var(--border);
-                 border-radius: 8px; padding: 12px; margin-bottom: 8px; }}
-  .info-card h4 {{ font-size: 12px; font-weight: 600; margin-bottom: 6px; }}
-  .info-row {{ display: flex; justify-content: space-between;
-                font-size: 11px; color: var(--muted); margin: 2px 0; }}
-  .info-row span {{ color: var(--text); }}
-  .phase-pill {{ display:inline-block; padding:2px 8px; border-radius:999px;
-                  font-size:10px; font-weight:700; }}
-  .pill-green  {{ background:#166534; color:var(--green); }}
-  .pill-yellow {{ background:#713f12; color:var(--yellow); }}
-  .pill-red    {{ background:#7f1d1d; color:var(--red); }}
-
-  #log {{ max-height: 120px; overflow-y: auto; padding: 8px 12px;
-           font-size: 10px; font-family: monospace; color: var(--muted);
-           border-top: 1px solid var(--border); }}
-  .log-ok   {{ color: var(--green); }}
-  .log-warn {{ color: var(--yellow); }}
-  .log-err  {{ color: var(--red); }}
-
-  /* Leaflet dark override */
-  .leaflet-tile {{ filter: brightness(0.7) saturate(0.6); }}
-  .leaflet-container {{ background: var(--bg); }}
+:root{{
+  --bg:#0f1117;--surface:#1a1d2e;--border:#2a2d3e;
+  --text:#e2e8f0;--muted:#64748b;
+  --green:#22c55e;--yellow:#eab308;--red:#ef4444;
+  --teal:#14b8a6;--blue:#3b82f6;
+}}
+*{{box-sizing:border-box;margin:0;padding:0}}
+body{{background:var(--bg);color:var(--text);
+      font-family:'Segoe UI',system-ui,sans-serif;font-size:13px;
+      height:100vh;overflow:hidden;display:flex;flex-direction:column}}
+header{{padding:8px 16px;background:var(--surface);
+        border-bottom:1px solid var(--border);
+        display:flex;align-items:center;justify-content:space-between}}
+header h1{{font-size:15px;font-weight:600;letter-spacing:.04em}}
+header h1 span{{color:var(--teal)}}
+.badges{{display:flex;gap:8px;align-items:center}}
+.badge{{font-size:10px;padding:2px 8px;border-radius:999px;
+        background:var(--border);color:var(--muted)}}
+.badge.run{{background:#166534;color:var(--green)}}
+.layout{{display:flex;flex:1;overflow:hidden}}
+#map{{flex:1;padding-bottom:48px}}
+aside{{width:296px;background:var(--surface);
+       border-left:1px solid var(--border);
+       display:flex;flex-direction:column;overflow:hidden}}
+.sec{{padding:10px 12px;border-bottom:1px solid var(--border)}}
+.sec h3{{font-size:10px;font-weight:600;text-transform:uppercase;
+          letter-spacing:.08em;color:var(--muted);margin-bottom:8px}}
+.row{{display:flex;align-items:center;gap:8px;margin-bottom:5px}}
+label{{font-size:11px;color:var(--muted);min-width:68px}}
+input[type=range]{{flex:1;accent-color:var(--teal)}}
+.val{{font-size:11px;min-width:38px;text-align:right}}
+.btn{{padding:5px 10px;border:none;border-radius:6px;
+      font-size:11px;font-weight:500;cursor:pointer;transition:opacity .15s}}
+.btn:hover{{opacity:.82}}
+.btn-p{{background:var(--teal);color:#000}}
+.btn-s{{background:var(--border);color:var(--text)}}
+.btn-exp{{background:#1e3a5f;color:#93c5fd;margin:2px;font-size:10px;
+          padding:4px 8px;border-radius:5px;border:1px solid #1d4ed8}}
+.btn-exp:hover{{background:#1d4ed8;color:#fff}}
+.btn-row{{display:flex;gap:5px;flex-wrap:wrap}}
+.stat-grid{{display:grid;grid-template-columns:1fr 1fr;gap:5px}}
+.stat{{background:var(--bg);border-radius:6px;padding:7px;
+       border:1px solid var(--border)}}
+.stat-val{{font-size:17px;font-weight:700;color:var(--teal)}}
+.stat-lbl{{font-size:9px;color:var(--muted)}}
+#node-info{{flex:1;overflow-y:auto;padding:10px}}
+.placeholder{{color:var(--muted);font-size:11px;text-align:center;margin-top:24px}}
+.ic{{background:var(--bg);border:1px solid var(--border);
+     border-radius:7px;padding:10px;margin-bottom:7px}}
+.ic h4{{font-size:12px;font-weight:600;margin-bottom:5px}}
+.ir{{display:flex;justify-content:space-between;
+     font-size:11px;color:var(--muted);margin:2px 0}}
+.ir span{{color:var(--text)}}
+.pill{{display:inline-block;padding:2px 7px;border-radius:999px;
+       font-size:10px;font-weight:700}}
+.pg{{background:#166534;color:var(--green)}}
+.py{{background:#713f12;color:var(--yellow)}}
+.pr{{background:#7f1d1d;color:var(--red)}}
+.pbar-bg{{background:var(--border);border-radius:3px;height:5px;margin:5px 0}}
+.pbar{{height:100%;border-radius:3px;transition:width .3s}}
+#log{{max-height:110px;overflow-y:auto;padding:7px 10px;
+      font-size:10px;font-family:monospace;color:var(--muted);
+      border-top:1px solid var(--border)}}
+.lok{{color:var(--green)}}.lwarn{{color:var(--yellow)}}.lerr{{color:var(--red)}}
+/* toolbar bottom */
+#toolbar{{position:fixed;bottom:0;left:0;right:296px;
+          background:var(--surface);border-top:1px solid var(--border);
+          padding:7px 14px;display:flex;gap:6px;align-items:center;
+          flex-wrap:wrap;z-index:9999}}
+#toolbar .lbl{{font-size:10px;color:var(--muted);font-weight:600;
+               text-transform:uppercase;letter-spacing:.06em}}
+.leaflet-tile{{filter:brightness(.7) saturate(.6)}}
+.leaflet-container{{background:var(--bg)}}
 </style>
 </head>
 <body>
-
 <header>
-  <h1>tan<span>Go</span> &mdash; visualización interactiva ZMG</h1>
+  <h1>tan<span>Go</span> &mdash; visualizacion interactiva ZMG</h1>
   <div class="badges">
-    <span class="badge" id="badge-tick">tick #0</span>
-    <span class="badge" id="badge-scenario">—</span>
-    <span class="badge" id="badge-status">detenido</span>
+    <span class="badge" id="b-tick">tick #0</span>
+    <span class="badge" id="b-sc">—</span>
+    <span class="badge" id="b-status">detenido</span>
   </div>
 </header>
-
 <div class="layout">
   <div id="map"></div>
-
   <aside>
     <!-- Controles -->
-    <div class="section">
-      <h3>Reproducción</h3>
-      <div class="btn-row" style="margin-bottom:10px">
-        <button class="btn btn-primary"  id="btn-play">&#9654; Iniciar</button>
-        <button class="btn btn-secondary" id="btn-step">&#9197; Paso</button>
-        <button class="btn btn-secondary" id="btn-reset">&#8635; Reset</button>
+    <div class="sec">
+      <h3>Reproduccion</h3>
+      <div class="btn-row" style="margin-bottom:8px">
+        <button class="btn btn-p" id="btn-play">&#9654; Iniciar</button>
+        <button class="btn btn-s" id="btn-step">&#9197; Paso</button>
+        <button class="btn btn-s" id="btn-reset">&#8635; Reset</button>
       </div>
       <div class="row">
         <label>Velocidad</label>
-        <input type="range" id="speed" min="300" max="3000" value="800" step="100">
-        <span class="val" id="speed-val">0.8s</span>
+        <input type="range" id="speed" min="200" max="3000" value="700" step="100">
+        <span class="val" id="v-speed">0.7s</span>
       </div>
       <div class="row">
         <label>Frame</label>
-        <input type="range" id="frame-slider" min="0" max="0" value="0" style="flex:1">
-        <span class="val" id="frame-val">0</span>
+        <input type="range" id="frame-sl" min="0" max="0" value="0">
+        <span class="val" id="v-frame">0/{len(all_snaps_js)-1}</span>
       </div>
     </div>
-
     <!-- Stats -->
-    <div class="section">
-      <h3>Estadísticas del tick</h3>
+    <div class="sec">
+      <h3>Estadisticas</h3>
       <div class="stat-grid">
-        <div class="stat">
-          <div class="stat-val" id="s-tick">0</div>
-          <div class="stat-lbl">Tick</div>
-        </div>
-        <div class="stat">
-          <div class="stat-val" id="s-total">0</div>
-          <div class="stat-lbl">Entidades</div>
-        </div>
-        <div class="stat">
-          <div class="stat-val" id="s-green">0</div>
-          <div class="stat-lbl">En verde</div>
-        </div>
-        <div class="stat">
-          <div class="stat-val" id="s-nodes">0</div>
-          <div class="stat-lbl">Nodos</div>
-        </div>
+        <div class="stat"><div class="stat-val" id="s-tick">0</div><div class="stat-lbl">Tick</div></div>
+        <div class="stat"><div class="stat-val" id="s-total">0</div><div class="stat-lbl">Entidades</div></div>
+        <div class="stat"><div class="stat-val" id="s-green">0</div><div class="stat-lbl">En verde</div></div>
+        <div class="stat"><div class="stat-val" id="s-nodes">{len(nodes_static_js)}</div><div class="stat-lbl">Nodos</div></div>
       </div>
     </div>
-
-    <!-- Info de nodo seleccionado -->
+    <!-- Info panel -->
     <div id="node-info">
-      <div class="placeholder">Haz clic sobre una<br>intersección o arista<br>para ver su información</div>
+      <div class="placeholder">Clic en nodo o arista<br>para ver informacion</div>
     </div>
-
     <!-- Log -->
     <div id="log"></div>
   </aside>
 </div>
 
+<!-- Toolbar de experimentos/presets -->
+<div id="toolbar">
+  <span class="lbl">Escenarios:</span>
+  {preset_buttons_html}
+  <span style="color:var(--border);margin:0 4px">|</span>
+  <span class="lbl">Info:</span>
+  <button class="btn btn-s" style="font-size:10px" onclick="toggleLifetime()">
+    Lifetime: <span id="lt-lbl">OFF</span>
+  </button>
+  <button class="btn btn-s" style="font-size:10px" onclick="log('Todos los semaforos tienen timeout proporcional al umbral: MASTER=6 ticks, NORMAL=8 ticks','lok')">
+    ? Timeout
+  </button>
+</div>
+
 <script>
-// ═══════════════════════════════════════════════════════
-//  DATOS (inyectados desde Python)
-// ═══════════════════════════════════════════════════════
-const ALL_SNAPS   = {snaps_json};
-const EDGES       = {edges_json};
+const ALL_SNAPS    = {snaps_json};
+const EDGES        = {edges_json};
 const NODES_STATIC = {nodes_s_json};
+const SC_INDEX     = {sc_index_json};
+const N_SNAPS      = ALL_SNAPS.length;
 
-// ═══════════════════════════════════════════════════════
-//  MAPA LEAFLET
-// ═══════════════════════════════════════════════════════
-const map = L.map('map', {{ zoomControl: true }}).setView(
-  [{center_lat}, {center_lon}], 14
-);
-
-L.tileLayer('https://{{s}}.basemaps.cartocdn.com/dark_all/{{z}}/{{x}}/{{y}}{{r}}.png', {{
-  attribution: '&copy; OpenStreetMap &copy; CartoDB',
-  maxZoom: 19,
+// ── Mapa Leaflet ──────────────────────────────────────────────────────────
+const map = L.map('map').setView([{center_lat},{center_lon}], 14);
+L.tileLayer('https://{{s}}.basemaps.cartocdn.com/dark_all/{{z}}/{{x}}/{{y}}{{r}}.png',{{
+  attribution:'CartoDB',maxZoom:19
 }}).addTo(map);
 
-// ═══════════════════════════════════════════════════════
-//  CAPAS DINÁMICAS
-// ═══════════════════════════════════════════════════════
-const nodeMarkers = {{}};   // nid → L.circleMarker
-const edgeLines   = {{}};   // "from-to" → L.polyline (flujo)
-const edgeStatic  = [];     // L.polyline estáticas
-
-const PHASE_COLOR  = {{ green:'#22c55e', yellow:'#eab308', red:'#ef4444' }};
-const ITYPE_RING   = {{ master:'#f59e0b', normal:'#3b82f6', blind:'#64748b' }};
-const CAT_COLOR    = {{
-  MAIN_AVENUE:'#1d4ed8', SECONDARY_AVENUE:'#6d28d9',
-  STREET:'#1e293b', HIGHWAY:'#0f172a', ALLEY:'#0f172a'
-}};
-const CAT_WEIGHT   = {{
-  MAIN_AVENUE:5, SECONDARY_AVENUE:3, STREET:1.5,
-  HIGHWAY:6, ALLEY:1
-}};
+const PHASE_C = {{green:'#22c55e',yellow:'#eab308',red:'#ef4444'}};
+const ITYPE_R = {{master:'#f59e0b',normal:'#3b82f6',blind:'#64748b'}};
+const CAT_C   = {{MAIN_AVENUE:'#1d4ed8',SECONDARY_AVENUE:'#6d28d9',
+                  STREET:'#1e293b',HIGHWAY:'#0f172a',ALLEY:'#111827'}};
+const CAT_W   = {{MAIN_AVENUE:5,SECONDARY_AVENUE:3,STREET:1.5,HIGHWAY:6,ALLEY:1}};
 
 // Aristas estáticas
-EDGES.forEach(e => {{
-  const line = L.polyline(
-    [[e.lat_a, e.lon_a],[e.lat_b, e.lon_b]],
-    {{ color: CAT_COLOR[e.category] || '#1e293b',
-       weight: CAT_WEIGHT[e.category] || 1.5,
-       opacity: 0.7 }}
-  ).addTo(map);
-  line.on('click', () => showEdgeInfo(e));
-  edgeStatic.push(line);
-}});
-
-// Nodos iniciales
-Object.entries(NODES_STATIC).forEach(([nid, nd]) => {{
-  const r = nd.itype === 'master' ? 12 : nd.itype === 'normal' ? 9 : 7;
-  const m = L.circleMarker([nd.lat, nd.lon], {{
-    radius: r,
-    color:  ITYPE_RING[nd.itype] || '#64748b',
-    fillColor: '#ef4444',
-    fillOpacity: 0.85,
-    weight: 2,
+EDGES.forEach(e=>{{
+  const ln = L.polyline([[e.lat_a,e.lon_a],[e.lat_b,e.lon_b]],{{
+    color:CAT_C[e.category]||'#1e293b',
+    weight:CAT_W[e.category]||1.5,opacity:.75
   }}).addTo(map);
-  m.bindTooltip(`${{nid}} ${{nd.geo_label}}`, {{
-    permanent: false, direction: 'top', className: 'leaflet-dark-tip'
-  }});
-  m.on('click', () => showNodeInfo(nid, null));
-  nodeMarkers[nid] = m;
+  ln.on('click',()=>showEdgeInfo(e,null));
 }});
 
-// ═══════════════════════════════════════════════════════
-//  ACTUALIZAR MAPA EN CADA TICK
-// ═══════════════════════════════════════════════════════
-let selectedNode = null;
+// Nodos
+const NM = {{}};
+Object.entries(NODES_STATIC).forEach(([nid,nd])=>{{
+  const r = nd.itype==='master'?13:nd.itype==='normal'?10:7;
+  const m = L.circleMarker([nd.lat,nd.lon],{{
+    radius:r,color:ITYPE_R[nd.itype]||'#64748b',
+    fillColor:'#ef4444',fillOpacity:.88,weight:2.5
+  }}).addTo(map);
+  m.bindTooltip(`<b>${{nid}}</b> ${{nd.geo_label}}<br>${{nd.name}}`,
+    {{permanent:false,direction:'top'}});
+  m.on('click',()=>showNodeInfo(nid,ALL_SNAPS[frameIdx]));
+  NM[nid]=m;
+}});
 
-function applySnap(snap) {{
-  // Actualizar nodos
-  Object.entries(snap.nodes).forEach(([nid, nd]) => {{
-    const m = nodeMarkers[nid];
-    if (!m) return;
-    const st = NODES_STATIC[nid];
-    const phase = nd.phase;
-    const baseR = st.itype === 'master' ? 12 : st.itype === 'normal' ? 9 : 7;
-    const r = Math.min(20, baseR + nd.pressure * 0.05);
+// Capas de flujo (dinámicas)
+const FL = {{}};  // key → [polyline, label_marker]
+
+function clearFlows(){{
+  Object.values(FL).forEach(([ln,lm])=>{{
+    map.removeLayer(ln);
+    if(lm) map.removeLayer(lm);
+  }});
+  Object.keys(FL).forEach(k=>delete FL[k]);
+}}
+
+function applySnap(snap){{
+  // Nodos
+  Object.entries(snap.nodes).forEach(([nid,nd])=>{{
+    const m=NM[nid]; if(!m) return;
+    const st=NODES_STATIC[nid];
+    const baseR = st.itype==='master'?13:st.itype==='normal'?10:7;
     m.setStyle({{
-      fillColor: PHASE_COLOR[phase] || '#ef4444',
-      radius: r,
-      color: ITYPE_RING[st.itype] || '#64748b',
+      fillColor: PHASE_C[nd.phase]||'#ef4444',
+      radius: Math.min(22,baseR+nd.pressure*.06),
     }});
-    // Actualizar tooltip con info resumida
-    const ns = nd.has_light ? `NS:${{nd.phase_ns.toUpperCase()}} EW:${{nd.phase_ew.toUpperCase()}}` : 'sin semáforo';
-    m.setTooltipContent(`<b>${{nid}}</b> ${{st.geo_label}}<br>${{ns}}<br>P=${{nd.pressure}}`);
-    m.on('click', () => showNodeInfo(nid, snap));
+    const ns=nd.has_light?`NS:${{nd.phase_ns.toUpperCase()}} EW:${{nd.phase_ew.toUpperCase()}}`:'sin semaforo';
+    m.setTooltipContent(`<b>${{nid}}</b> ${{st.geo_label}}<br>${{ns}}<br>P=${{nd.pressure}}/${{nd.threshold}}`);
+    m.off('click');
+    m.on('click',()=>showNodeInfo(nid,snap));
   }});
 
-  // Actualizar flujos
-  // Limpiar flujos anteriores
-  Object.values(edgeLines).forEach(l => map.removeLayer(l));
-  Object.keys(edgeLines).forEach(k => delete edgeLines[k]);
-
-  snap.flows.forEach(fl => {{
-    const total = fl.fwd + fl.bwd;
-    if (total === 0) return;
-    const na = NODES_STATIC[fl.from];
-    const nb = NODES_STATIC[fl.to];
-    if (!na || !nb) return;
-
-    const flowColor = total >= 15 ? '#ef4444' : total >= 8 ? '#f59e0b' : '#22c55e';
-    const w = Math.min(7, 1 + total * 0.25);
-
-    // Dirección dominante
-    const coords = fl.fwd >= fl.bwd
-      ? [[na.lat, na.lon],[nb.lat, nb.lon]]
-      : [[nb.lat, nb.lon],[na.lat, na.lon]];
-
-    const line = L.polyline(coords, {{
-      color: flowColor, weight: w, opacity: 0.6,
-      // Flecha en el extremo
-    }}).addTo(map);
-
-    // Decorator-like: pequeño marcador en el punto medio indicando dirección
-    const mx = (na.lat + nb.lat) / 2;
-    const my = (na.lon + nb.lon) / 2;
-    const lbl = L.marker([mx, my], {{
-      icon: L.divIcon({{
-        html: `<div style="color:${{flowColor}};font-size:9px;font-weight:bold;
-                            white-space:nowrap;text-shadow:0 0 3px #000">
-               +${{fl.fwd}} -${{fl.bwd}}</div>`,
-        className: '',
-        iconAnchor: [20, 6],
-      }}),
-      interactive: false,
-    }}).addTo(map);
-
-    const key = `${{fl.from}}-${{fl.to}}`;
-    edgeLines[key] = line;
-    // Guardar label para limpiar
-    edgeLines[key+'_lbl'] = lbl;
-
-    line.on('click', () => {{
-      const e = EDGES.find(e => e.from === fl.from && e.to === fl.to
-                              || e.from === fl.to && e.to === fl.from);
-      if (e) showEdgeInfo(e, fl);
-    }});
+  // Flujos
+  clearFlows();
+  // Construir mapa de flujo para lookup rápido
+  const flowLookup={{}};
+  snap.flows.forEach(fl=>{{
+    const key=fl.from+'-'+fl.to;
+    flowLookup[key]=fl;
   }});
 
-  // Si hay nodo seleccionado, actualizar su panel
-  if (selectedNode && snap.nodes[selectedNode]) {{
-    renderNodePanel(selectedNode, snap.nodes[selectedNode],
-                    NODES_STATIC[selectedNode]);
-  }}
+  // Dibujar TODAS las aristas — con flujo o vacías (gris con ceros)
+  EDGES.forEach(e=>{{
+    const na=NODES_STATIC[e.from],nb=NODES_STATIC[e.to];
+    if(!na||!nb) return;
+
+    // Buscar flujo en ambas direcciones
+    const fl  = flowLookup[e.from+'-'+e.to]
+             || flowLookup[e.to+'-'+e.from]
+             || {{from:e.from,to:e.to,fwd:0,bwd:0}};
+    const total = fl.fwd+fl.bwd;
+
+    const fc = total===0 ? '#334155'               // gris — sin vehículos
+             : total>=15 ? '#ef4444'               // rojo — alto
+             : total>=8  ? '#f59e0b'               // ámbar — medio
+                         : '#22c55e';              // verde — bajo
+    const w  = total===0 ? 1.2 : Math.min(7,1.2+total*.28);
+    const op = total===0 ? 0.35 : 0.65;
+
+    const coords = fl.fwd>=fl.bwd
+      ? [[na.lat,na.lon],[nb.lat,nb.lon]]
+      : [[nb.lat,nb.lon],[na.lat,na.lon]];
+
+    const ln = L.polyline(coords,{{color:fc,weight:w,opacity:op}}).addTo(map);
+    ln.on('click',()=>showEdgeInfo(e, total>0?fl:null));
+
+    // Label en el centro — siempre visible ("+0 -0" para vacías)
+    const mx=(na.lat+nb.lat)/2, my=(na.lon+nb.lon)/2;
+    const labelColor = total===0 ? '#475569' : fc;
+    const lm = L.marker([mx,my],{{
+      icon:L.divIcon({{
+        html:`<div style="color:${{labelColor}};font-size:8px;font-weight:700;
+                          text-shadow:0 0 3px #000;white-space:nowrap;
+                          opacity:${{total===0?0.5:0.9}}">
+              +${{fl.fwd}} -${{fl.bwd}}</div>`,
+        className:'',iconAnchor:[16,5]
+      }}),interactive:false
+    }}).addTo(map);
+    FL[`${{e.from}}-${{e.to}}`]=[ln,lm];
+  }});
 
   // Stats
-  document.getElementById('s-tick').textContent    = snap.tick;
-  document.getElementById('s-total').textContent   = snap.total;
-  document.getElementById('s-green').textContent   = snap.greens;
-  document.getElementById('s-nodes').textContent   = Object.keys(snap.nodes).length;
-  document.getElementById('badge-tick').textContent = `tick #${{snap.tick}}`;
-  document.getElementById('badge-scenario').textContent = snap.scenario;
+  document.getElementById('s-tick').textContent  = snap.tick;
+  document.getElementById('s-total').textContent = snap.total;
+  document.getElementById('s-green').textContent = snap.greens;
+  document.getElementById('b-tick').textContent  = `tick #${{snap.tick}}`;
+  document.getElementById('b-sc').textContent    = snap.scenario.substring(0,20);
+
+  if(selectedNode && snap.nodes[selectedNode])
+    renderNodePanel(selectedNode,snap.nodes[selectedNode],NODES_STATIC[selectedNode]);
 }}
 
-// ═══════════════════════════════════════════════════════
-//  PANELES DE INFORMACIÓN (click)
-// ═══════════════════════════════════════════════════════
+// ── Paneles de información ────────────────────────────────────────────────
+let selectedNode = null;
 
-function pillClass(phase) {{
-  return {{ green:'pill-green', yellow:'pill-yellow', red:'pill-red' }}[phase] || 'pill-red';
+function pillCls(p){{ return {{green:'pg',yellow:'py',red:'pr'}}[p]||'pr'; }}
+
+function renderNodePanel(nid,nd,st){{
+  const pct=Math.min(100,(nd.pressure/nd.threshold*100)).toFixed(0);
+  const c=nd.counts||{{}};
+  const barColor=nd.pressure>=nd.threshold?'var(--red)':'var(--teal)';
+  const toInfo = nd.has_light&&nd.phase==='red'
+    ? `<div class="ir">Timeout en <span>${{Math.max(0,nd.timeout-nd.ticks_red)}} ticks</span></div>`:'';
+  document.getElementById('node-info').innerHTML=`
+  <div class="ic">
+    <h4>${{nid}} &mdash; ${{st?st.geo_label:''}} ${{nd.name}}</h4>
+    <div class="ir">Tipo<span>${{(nd.itype||'').toUpperCase()}}</span></div>
+    <div class="ir">Geometria<span>${{st?st.geometry:''}}</span></div>
+    <div class="ir">Semaforo<span>${{nd.has_light?'Si':'No'}}</span></div>
+  </div>
+  ${{nd.has_light?`
+  <div class="ic">
+    <h4>Fases</h4>
+    <div class="ir">Eje N-S<span><span class="pill ${{pillCls(nd.phase_ns)}}">${{nd.phase_ns.toUpperCase()}}</span></span></div>
+    <div class="ir">Eje E-O<span><span class="pill ${{pillCls(nd.phase_ew)}}">${{nd.phase_ew.toUpperCase()}}</span></span></div>
+    <div class="ir">Activo<span>${{nd.active_axis.toUpperCase()}}</span></div>
+    ${{toInfo}}
+  </div>`:'<div class="ic" style="color:var(--muted);font-size:11px">Sin semaforo fisico</div>'}}
+  <div class="ic">
+    <h4>Presion</h4>
+    <div class="ir">Valor<span style="color:${{nd.pressure>=nd.threshold?'var(--red)':'var(--teal)'}}">${{nd.pressure}} / ${{nd.threshold}}</span></div>
+    <div class="pbar-bg"><div class="pbar" style="width:${{Math.min(100,pct)}}%;background:${{barColor}}"></div></div>
+    <div style="font-size:10px;color:var(--muted)">${{pct}}% del umbral</div>
+  </div>
+  <div class="ic">
+    <h4>Entidades</h4>
+    <div class="ir">Autos<span>${{c.CAR||0}}</span></div>
+    <div class="ir">Motos<span>${{c.MOTORCYCLE||0}}</span></div>
+    <div class="ir">Buses<span>${{c.BUS||0}}</span></div>
+    <div class="ir">Camiones<span>${{c.TRUCK||0}}</span></div>
+    <div class="ir">Bicicletas<span>${{c.BICYCLE||0}}</span></div>
+    <div class="ir">Peatones<span>${{c.PEDESTRIAN||0}}</span></div>
+    <div class="ir">Sillas<span>${{c.WHEELCHAIR||0}}</span></div>
+    <div class="ir" style="color:var(--red)">Emergencias<span style="color:var(--red)">${{c.EMERGENCY||0}}</span></div>
+  </div>`;
 }}
 
-function renderNodePanel(nid, nd, st) {{
-  const pct = Math.min(100, (nd.pressure / nd.threshold * 100)).toFixed(0);
-  const timeoutLeft = nd.has_light && nd.phase === 'red'
-    ? `<div class="info-row">Timeout en <span>${{Math.max(0, nd.timeout - nd.ticks_red)}} ticks</span></div>`
-    : '';
-  const c = nd.counts || {{}};
-
-  document.getElementById('node-info').innerHTML = `
-    <div class="info-card">
-      <h4>${{nid}} &mdash; ${{st ? st.geo_label : ''}} ${{nd.name}}</h4>
-      <div class="info-row">Tipo <span>${{(nd.itype||'').toUpperCase()}}</span></div>
-      <div class="info-row">Geometría <span>${{st ? st.geometry : ''}}</span></div>
-      <div class="info-row">Semáforo <span>${{nd.has_light ? 'Si' : 'No'}}</span></div>
-    </div>
-    <div class="info-card">
-      <h4>Fases</h4>
-      ${{nd.has_light ? `
-        <div class="info-row">Eje N-S
-          <span><span class="phase-pill ${{pillClass(nd.phase_ns)}}">${{nd.phase_ns.toUpperCase()}}</span></span>
-        </div>
-        <div class="info-row">Eje E-O
-          <span><span class="phase-pill ${{pillClass(nd.phase_ew)}}">${{nd.phase_ew.toUpperCase()}}</span></span>
-        </div>
-        <div class="info-row">Eje activo <span>${{nd.active_axis.toUpperCase()}}</span></div>
-        ${{timeoutLeft}}
-      ` : '<div class="info-row" style="color:var(--muted)">Sin semáforo fisico</div>'}}
-    </div>
-    <div class="info-card">
-      <h4>Presion</h4>
-      <div class="info-row">Valor <span style="color:${{nd.pressure>=nd.threshold?'var(--red)':'var(--teal)'}}">${{nd.pressure}} / ${{nd.threshold}}</span></div>
-      <div class="info-row">Porcentaje <span>${{pct}}%</span></div>
-      <div style="background:var(--border);border-radius:4px;height:6px;margin:6px 0">
-        <div style="background:${{nd.pressure>=nd.threshold?'var(--red)':'var(--teal)'}};
-                    width:${{Math.min(100,pct)}}%;height:100%;border-radius:4px"></div>
-      </div>
-    </div>
-    <div class="info-card">
-      <h4>Entidades</h4>
-      <div class="info-row">Autos <span>${{c.CAR||0}}</span></div>
-      <div class="info-row">Motos <span>${{c.MOTORCYCLE||0}}</span></div>
-      <div class="info-row">Buses <span>${{c.BUS||0}}</span></div>
-      <div class="info-row">Camiones <span>${{c.TRUCK||0}}</span></div>
-      <div class="info-row">Bicicletas <span>${{c.BICYCLE||0}}</span></div>
-      <div class="info-row">Emergencias <span style="color:var(--red)">${{c.EMERGENCY||0}}</span></div>
-      <div class="info-row">Peatones <span>${{c.PEDESTRIAN||0}}</span></div>
-      <div class="info-row">Sillas de ruedas <span>${{c.WHEELCHAIR||0}}</span></div>
-    </div>
-  `;
-}}
-
-function showNodeInfo(nid, snap) {{
-  selectedNode = nid;
-  const st = NODES_STATIC[nid];
-  const nd = snap ? snap.nodes[nid] : null;
-  if (!nd) {{
-    document.getElementById('node-info').innerHTML =
-      `<div class="info-card"><h4>${{nid}}</h4>
-       <div class="info-row">Nombre <span>${{st.name}}</span></div>
-       <div class="info-row">Tipo <span>${{st.itype.toUpperCase()}}</span></div>
-       <div class="info-row">Geometria <span>${{st.geometry}}</span></div>
-       <div class="info-row">Semaforo <span>${{st.has_light ? 'Si' : 'No'}}</span></div>
-       <div style="color:var(--muted);font-size:11px;margin-top:8px">Inicia la simulacion para ver datos en tiempo real</div>
-       </div>`;
+function showNodeInfo(nid,snap){{
+  selectedNode=nid;
+  const st=NODES_STATIC[nid];
+  const nd=snap?snap.nodes[nid]:null;
+  if(!nd){{
+    document.getElementById('node-info').innerHTML=
+      `<div class="ic"><h4>${{nid}}</h4>
+       <div class="ir">Nombre<span>${{st.name}}</span></div>
+       <div class="ir">Tipo<span>${{st.itype.toUpperCase()}}</span></div>
+       <div class="ir">Geometria<span>${{st.geometry}}</span></div>
+       <div class="ir">Semaforo<span>${{st.has_light?'Si':'No'}}</span></div>
+       <div style="color:var(--muted);font-size:10px;margin-top:6px">Inicia la simulacion para datos en tiempo real</div></div>`;
     return;
   }}
-  renderNodePanel(nid, nd, st);
+  renderNodePanel(nid,nd,st);
 }}
 
-function showEdgeInfo(e, fl) {{
-  selectedNode = null;
-  document.getElementById('node-info').innerHTML = `
-    <div class="info-card">
-      <h4>Segmento vial</h4>
-      <div class="info-row">Nombre <span>${{e.name || 'Sin nombre'}}</span></div>
-      <div class="info-row">Categoria <span>${{e.category}}</span></div>
-      <div class="info-row">Peso base <span>${{e.weight}}</span></div>
-      <div class="info-row">Longitud <span>${{e.length_m}} m</span></div>
-      <div class="info-row">Velocidad max <span>${{e.speed_kmh}} km/h</span></div>
-      <div class="info-row">De <span>${{e.from}}</span></div>
-      <div class="info-row">A <span>${{e.to}}</span></div>
-    </div>
-    ${{fl ? `
-    <div class="info-card">
-      <h4>Flujo actual</h4>
-      <div class="info-row">Sentido + <span>${{fl.fwd}} vehiculos</span></div>
-      <div class="info-row">Sentido - <span>${{fl.bwd}} vehiculos</span></div>
-      <div class="info-row">Total <span>${{fl.fwd + fl.bwd}} vehiculos</span></div>
-    </div>` : ''}}
-  `;
+function showEdgeInfo(e,fl){{
+  selectedNode=null;
+  document.getElementById('node-info').innerHTML=`
+  <div class="ic">
+    <h4>Segmento vial</h4>
+    <div class="ir">Nombre<span>${{e.name||'Sin nombre'}}</span></div>
+    <div class="ir">Categoria<span>${{e.category}}</span></div>
+    <div class="ir">Peso base<span>${{e.weight}}</span></div>
+    <div class="ir">Longitud<span>${{e.length_m}} m</span></div>
+    <div class="ir">Velocidad max<span>${{e.speed_kmh}} km/h</span></div>
+    <div class="ir">De → A<span>${{e.from}} → ${{e.to}}</span></div>
+  </div>
+  ${{fl?`<div class="ic"><h4>Flujo actual</h4>
+    <div class="ir">Sentido +<span>${{fl.fwd}} vehiculos</span></div>
+    <div class="ir">Sentido -<span>${{fl.bwd}} vehiculos</span></div>
+    <div class="ir">Total<span style="color:var(--teal)">${{fl.fwd+fl.bwd}}</span></div>
+  </div>`:'<div class="ic" style="color:var(--muted);font-size:10px">Inicia la simulacion para datos de flujo</div>'}}`;
 }}
 
-// ═══════════════════════════════════════════════════════
-//  ANIMACIÓN
-// ═══════════════════════════════════════════════════════
+// ── Animación ─────────────────────────────────────────────────────────────
+let frameIdx=0, running=false, timer=null;
+const slider=document.getElementById('frame-sl');
+slider.max=N_SNAPS-1;
 
-let frameIdx = 0;
-let running  = false;
-let timer    = null;
-
-const slider = document.getElementById('frame-slider');
-slider.max   = ALL_SNAPS.length - 1;
-
-function goToFrame(idx) {{
-  if (idx < 0 || idx >= ALL_SNAPS.length) return;
-  frameIdx = idx;
-  slider.value = idx;
-  document.getElementById('frame-val').textContent = idx;
+function goToFrame(idx){{
+  if(idx<0||idx>=N_SNAPS) return;
+  frameIdx=idx; slider.value=idx;
+  document.getElementById('v-frame').textContent=`${{idx}}/${{N_SNAPS-1}}`;
   applySnap(ALL_SNAPS[idx]);
 }}
 
-function scheduleNext() {{
-  if (!running) return;
-  const nextIdx = (frameIdx + 1) % ALL_SNAPS.length;
-  goToFrame(nextIdx);
-  const delay = parseInt(document.getElementById('speed').value);
-  timer = setTimeout(scheduleNext, delay);
+function scheduleNext(){{
+  if(!running) return;
+  goToFrame((frameIdx+1)%N_SNAPS);
+  timer=setTimeout(scheduleNext,parseInt(document.getElementById('speed').value));
 }}
 
-document.getElementById('btn-play').addEventListener('click', () => {{
-  running = !running;
-  const btn = document.getElementById('btn-play');
-  const badge = document.getElementById('badge-status');
-  if (running) {{
-    btn.innerHTML = '&#9646;&#9646; Pausar';
-    badge.textContent = 'corriendo';
-    badge.className = 'badge running';
+document.getElementById('btn-play').addEventListener('click',()=>{{
+  running=!running;
+  const btn=document.getElementById('btn-play');
+  const bs=document.getElementById('b-status');
+  if(running){{
+    btn.innerHTML='&#9646;&#9646; Pausar';
+    bs.textContent='corriendo'; bs.className='badge run';
     scheduleNext();
-  }} else {{
-    btn.innerHTML = '&#9654; Iniciar';
-    badge.textContent = 'detenido';
-    badge.className = 'badge';
+  }}else{{
+    btn.innerHTML='&#9654; Iniciar';
+    bs.textContent='detenido'; bs.className='badge';
     clearTimeout(timer);
   }}
 }});
 
-document.getElementById('btn-step').addEventListener('click', () => {{
-  clearTimeout(timer);
-  running = false;
-  document.getElementById('btn-play').innerHTML = '&#9654; Iniciar';
-  document.getElementById('badge-status').className = 'badge';
-  document.getElementById('badge-status').textContent = 'detenido';
-  goToFrame((frameIdx + 1) % ALL_SNAPS.length);
+document.getElementById('btn-step').addEventListener('click',()=>{{
+  clearTimeout(timer); running=false;
+  document.getElementById('btn-play').innerHTML='&#9654; Iniciar';
+  document.getElementById('b-status').className='badge';
+  document.getElementById('b-status').textContent='detenido';
+  goToFrame((frameIdx+1)%N_SNAPS);
 }});
 
-document.getElementById('btn-reset').addEventListener('click', () => {{
-  clearTimeout(timer);
-  running = false;
-  document.getElementById('btn-play').innerHTML = '&#9654; Iniciar';
-  document.getElementById('badge-status').className = 'badge';
-  document.getElementById('badge-status').textContent = 'detenido';
-  selectedNode = null;
-  document.getElementById('node-info').innerHTML =
-    '<div class="placeholder">Haz clic sobre una<br>interseccion o arista<br>para ver su informacion</div>';
+document.getElementById('btn-reset').addEventListener('click',()=>{{
+  clearTimeout(timer); running=false;
+  document.getElementById('btn-play').innerHTML='&#9654; Iniciar';
+  document.getElementById('b-status').className='badge';
+  document.getElementById('b-status').textContent='detenido';
+  selectedNode=null;
+  document.getElementById('node-info').innerHTML=
+    '<div class="placeholder">Clic en nodo o arista<br>para ver informacion</div>';
   goToFrame(0);
 }});
 
-document.getElementById('speed').addEventListener('input', function() {{
-  document.getElementById('speed-val').textContent = (this.value/1000).toFixed(1) + 's';
+document.getElementById('speed').addEventListener('input',function(){{
+  document.getElementById('v-speed').textContent=(this.value/1000).toFixed(1)+'s';
 }});
 
-slider.addEventListener('input', function() {{
-  clearTimeout(timer);
-  running = false;
-  document.getElementById('btn-play').innerHTML = '&#9654; Iniciar';
-  document.getElementById('badge-status').className = 'badge';
-  document.getElementById('badge-status').textContent = 'detenido';
+slider.addEventListener('input',function(){{
+  clearTimeout(timer); running=false;
+  document.getElementById('btn-play').innerHTML='&#9654; Iniciar';
+  document.getElementById('b-status').className='badge';
+  document.getElementById('b-status').textContent='detenido';
   goToFrame(parseInt(this.value));
 }});
 
-function log(msg, cls='') {{
-  const el = document.getElementById('log');
-  const d  = document.createElement('div');
-  d.className = cls;
-  d.textContent = `[${{new Date().toLocaleTimeString('es',{{hour12:false}})}}] ${{msg}}`;
+// ── Botones de escenario/preset ───────────────────────────────────────────
+function jumpToScenario(label){{
+  const idx = SC_INDEX[label];
+  if(idx===undefined){{ log('Escenario no encontrado: '+label,'lerr'); return; }}
+  clearTimeout(timer); running=false;
+  document.getElementById('btn-play').innerHTML='&#9654; Iniciar';
+  document.getElementById('b-status').className='badge';
+  document.getElementById('b-status').textContent='detenido';
+  goToFrame(idx);
+  log('Saltando a: '+label+' (frame '+idx+')','lok');
+}}
+
+// ── Lifetime toggle (informativo) ─────────────────────────────────────────
+let lifetimeOn=false;
+function toggleLifetime(){{
+  lifetimeOn=!lifetimeOn;
+  document.getElementById('lt-lbl').textContent=lifetimeOn?'ON':'OFF';
+  if(lifetimeOn)
+    log('Lifetime ON: en esta sim cada tick genera entidades nuevas (sin persistencia entre ticks). Para lifetime real se necesita el servidor Python.','lwarn');
+  else
+    log('Lifetime OFF','lok');
+}}
+
+// ── Log ───────────────────────────────────────────────────────────────────
+function log(msg,cls=''){{
+  const el=document.getElementById('log');
+  const d=document.createElement('div');
+  d.className=cls;
+  d.textContent=`[${{new Date().toLocaleTimeString('es',{{hour12:false}})}}] ${{msg}}`;
   el.prepend(d);
-  while (el.children.length > 20) el.removeChild(el.lastChild);
+  while(el.children.length>25) el.removeChild(el.lastChild);
 }}
 
 // Init
-document.getElementById('s-nodes').textContent = Object.keys(NODES_STATIC).length;
 goToFrame(0);
-log('tanGo iniciado — ' + Object.keys(NODES_STATIC).length + ' intersecciones cargadas', 'log-ok');
-log('Haz clic en un nodo o arista para ver detalles');
+log('tanGo listo — '+Object.keys(NODES_STATIC).length+' nodos · '+N_SNAPS+' frames','lok');
+log('Usa los botones de escenario abajo para saltar entre experimentos');
 </script>
 </body>
 </html>"""
     return html
-
-
 
 if __name__ == "__main__":
     print("tanGo — simulación ZMG Guadalajara")
@@ -1329,15 +1383,40 @@ if __name__ == "__main__":
         print(f"    python graph/city_loader.py --city zmg_centro\n")
         graph = build_zmg_graph()
 
-    print(f"  {len(SCENARIOS)} escenarios × {N_TICKS} ticks\n")
+    # Escenarios: desde JSON si existen, sino los hardcodeados
+    json_scenarios = [s for s in PARAMS.get("scenarios", [])
+                      if not str(s.get("label","")).startswith("_")]
+    active_scenarios = json_scenarios if json_scenarios else SCENARIOS
+
+    # Presets del JSON como escenarios adicionales
+    presets = {k: v for k, v in PARAMS.get("experiment_presets", {}).items()
+               if not k.startswith("_")}
+
+    print(f"  {len(active_scenarios)} escenarios base + "
+          f"{len(presets)} presets × {N_TICKS} ticks\n")
 
     all_histories = []
     final_snap    = None
 
-    for sc in SCENARIOS:
+    # Escenarios base
+    for sc in active_scenarios:
         print(f"  Simulando: {sc['label']}...")
-        history = simulate(sc, graph, N_TICKS)
+        history = simulate(sc, graph, N_TICKS,
+                           spawn_params=PARAMS.get("spawn"))
         all_histories.append((sc["label"], history))
+        final_snap = history[-1]
+
+    # Presets como escenarios extra
+    base_sc = dict(active_scenarios[0]) if active_scenarios else dict(SCENARIOS[0])
+    for preset_key, preset in presets.items():
+        label = preset.get("label", preset_key)
+        print(f"  Simulando preset: {label}...")
+        sc_merged = dict(base_sc)
+        sc_merged["label"] = label
+        if preset.get("force_rain"):    sc_merged["is_raining"]     = True
+        if preset.get("force_weekend"): sc_merged["timestamp"]      = "2024-03-09T15:00:00"
+        history = simulate(sc_merged, graph, N_TICKS, spawn_params=preset)
+        all_histories.append((label, history))
         final_snap = history[-1]
 
     print("\n  Generando animación Plotly...")
