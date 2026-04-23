@@ -149,6 +149,11 @@ CFG_RADIUS_M   = int(_city.get("radius_m",  800))
 CFG_MAX_NODES  = int(_city.get("max_nodes",  80))
 CFG_OUTPUT     = _city.get("output", "graph/city_graph.json")
 
+_cl = _CFG.get("intersection_clustering", {})
+MERGE_RADIUS_M   = float(_cl.get("merge_radius_m",   15))
+CLUSTER_RADIUS_M = float(_cl.get("cluster_radius_m",  60))
+CLUSTER_COORD    = bool(_cl.get("cluster_coordination", True))
+
 
 # ── Bounding boxes de ciudades predefinidas ───────────────────────────────────
 
@@ -446,17 +451,59 @@ def process_graph(raw: dict, max_nodes: int = 200) -> dict:
 
     logger.info(f"  Aristas tanGo: {len(tango_edges)}")
 
+    # ── Eliminar nodos aislados ───────────────────────────────────────────────
+    # Un nodo aislado es aquel que no aparece en ninguna arista.
+    # Puede ocurrir cuando el segmento que lo conectaba se filtró porque
+    # el nodo vecino no era intersección (tenía street_count < 2).
+    nodes_in_edges = set()
+    for e in tango_edges:
+        nodes_in_edges.add(e["from_node_id"])
+        nodes_in_edges.add(e["to_node_id"])
+
+    isolated = [n for n in tango_nodes if n["node_id"] not in nodes_in_edges]
+    if isolated:
+        logger.warning(
+            "  Eliminando %d nodos aislados (sin aristas): %s",
+            len(isolated),
+            [n["node_id"] for n in isolated[:5]]
+        )
+        tango_nodes = [n for n in tango_nodes if n["node_id"] in nodes_in_edges]
+
+    logger.info(
+        "  Nodos finales: %d (%d aislados eliminados)",
+        len(tango_nodes), len(isolated)
+    )
+
+    # ── Fusionar nodos duplicados del mismo cruce físico ──────────────────
+    tango_nodes = merge_nearby_nodes(tango_nodes, MERGE_RADIUS_M)
+
+    # ── Identificar clusters de coordinación ─────────────────────────────
+    clusters = {}
+    if CLUSTER_COORD:
+        clusters = find_intersection_clusters(tango_nodes, CLUSTER_RADIUS_M)
+        node_to_cluster = {
+            nid: cid
+            for cid, members in clusters.items()
+            for nid in members
+        }
+        for node in tango_nodes:
+            node["cluster_id"] = node_to_cluster.get(node["node_id"])
+
     return {
         "metadata": {
-            "ciudad":    "Guadalajara ZMG",
-            "fuente":    "OpenStreetMap via Overpass API",
-            "fecha":     datetime.now().isoformat(),
-            "bbox":      raw.get("_bbox", {}),
-            "n_nodes":   len(tango_nodes),
-            "n_edges":   len(tango_edges),
+            "ciudad":           "Guadalajara ZMG",
+            "fuente":           "OpenStreetMap via Overpass API",
+            "fecha":            datetime.now().isoformat(),
+            "bbox":             raw.get("_bbox", {}),
+            "n_nodes":          len(tango_nodes),
+            "n_edges":          len(tango_edges),
+            "merge_radius_m":   MERGE_RADIUS_M,
+            "cluster_radius_m": CLUSTER_RADIUS_M,
+            "n_clusters":       len(clusters),
         },
-        "nodes": tango_nodes,
-        "edges": tango_edges,
+        "nodes":    tango_nodes,
+        "edges":    tango_edges,
+        "clusters": clusters,
     }
 
 
@@ -511,6 +558,158 @@ def _haversine(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
     dlam = math.radians(lon2 - lon1)
     a = math.sin(dphi/2)**2 + math.cos(phi1)*math.cos(phi2)*math.sin(dlam/2)**2
     return R * 2 * math.atan2(math.sqrt(a), math.sqrt(1-a))
+
+
+def merge_nearby_nodes(nodes: list[dict],
+                       merge_radius_m: float = MERGE_RADIUS_M) -> list[dict]:
+    """
+    Fusiona nodos OSM que están a menos de merge_radius_m entre sí.
+
+    Esto corrige el caso donde OSM genera múltiples nodos para lo que
+    físicamente es un solo cruce — común en glorietas y cruces complejos.
+
+    Algoritmo:
+      - Para cada par de nodos, si la distancia es < merge_radius_m,
+        se fusionan tomando el centroide geográfico como posición final.
+      - El tipo resultante es el de mayor jerarquía (MASTER > NORMAL > BLIND).
+      - Los osm_ids se acumulan en una lista para trazabilidad.
+      - El street_count es la suma de ambos (más conectividad).
+
+    Parameters
+    ----------
+    nodes         : Lista de nodos del grafo (output de process_graph).
+    merge_radius_m: Radio de fusión en metros (default de city_config.json).
+
+    Returns
+    -------
+    Lista de nodos fusionados — puede ser más corta que la entrada.
+    """
+    if not nodes:
+        return nodes
+
+    TYPE_RANK = {"MASTER": 3, "NORMAL": 2, "BLIND": 1}
+    merged    = []
+    used      = set()
+
+    for i, a in enumerate(nodes):
+        if i in used:
+            continue
+        group = [a]
+        used.add(i)
+
+        for j, b in enumerate(nodes):
+            if j in used or j == i:
+                continue
+            dist = _haversine(a["latitude"], a["longitude"],
+                              b["latitude"], b["longitude"])
+            if dist <= merge_radius_m:
+                group.append(b)
+                used.add(j)
+
+        if len(group) == 1:
+            merged.append(a)
+            continue
+
+        # Centroide del grupo
+        center_lat = sum(n["latitude"]  for n in group) / len(group)
+        center_lon = sum(n["longitude"] for n in group) / len(group)
+
+        # Tipo de mayor jerarquía
+        best_type = max(group,
+                        key=lambda n: TYPE_RANK.get(n["intersection_type"], 0))
+
+        # Nombre del más conectado
+        best_name = max(group, key=lambda n: n.get("street_count", 0))
+
+        # OSM IDs fusionados (para trazabilidad)
+        all_osm_ids = []
+        for n in group:
+            ids = n.get("osm_ids", [n.get("osm_id", 0)])
+            all_osm_ids.extend(ids if isinstance(ids, list) else [ids])
+
+        merged_node = {
+            "node_id":           group[0]["node_id"],  # usar el ID del primero
+            "name":              best_name["name"],
+            "latitude":          round(center_lat, 7),
+            "longitude":         round(center_lon, 7),
+            "intersection_type": best_type["intersection_type"],
+            "geometry":          best_type.get("geometry", "cross"),
+            "osm_ids":           all_osm_ids,
+            "osm_id":            group[0].get("osm_id", 0),
+            "street_count":      sum(n.get("street_count", 1) for n in group),
+            "merged_count":      len(group),
+        }
+        merged.append(merged_node)
+        logger.info(
+            "Fusionados %d nodos en radio %.0fm → %s",
+            len(group), merge_radius_m, merged_node["name"]
+        )
+
+    logger.info("Fusión: %d nodos → %d (%.0f%% reducción)",
+                len(nodes), len(merged),
+                (1 - len(merged)/len(nodes)) * 100)
+    return merged
+
+
+def find_intersection_clusters(nodes: list[dict],
+                                cluster_radius_m: float = CLUSTER_RADIUS_M
+                                ) -> dict[str, list[str]]:
+    """
+    Identifica grupos de intersecciones cercanas que deben coordinarse.
+
+    Un cluster es un grupo de nodos (post-fusión) que están a menos de
+    cluster_radius_m entre sí. Estos nodos representan intersecciones
+    distintas pero tan próximas que sus semáforos deben sincronizarse
+    (ejemplo: avenida con camellón donde hay dos cruces separados 30m).
+
+    La coordinación significa: si un nodo del cluster está en VERDE,
+    los demás deben esperar o estar en ROJO — se trata como un semáforo
+    complejo de múltiples puntos.
+
+    Parameters
+    ----------
+    nodes           : Nodos post-fusión.
+    cluster_radius_m: Radio de clustering en metros.
+
+    Returns
+    -------
+    Dict cluster_id → lista de node_ids en ese cluster.
+    Solo incluye clusters con 2+ nodos.
+    """
+    clusters: dict[str, list[str]] = {}
+    assigned: dict[str, str]       = {}  # node_id → cluster_id
+    cluster_idx = 0
+
+    for i, a in enumerate(nodes):
+        a_id = a["node_id"]
+        if a_id in assigned:
+            c_id = assigned[a_id]
+        else:
+            c_id = f"cluster_{cluster_idx}"
+            cluster_idx += 1
+            clusters[c_id] = [a_id]
+            assigned[a_id] = c_id
+
+        for j, b in enumerate(nodes):
+            if i == j:
+                continue
+            b_id = b["node_id"]
+            dist = _haversine(a["latitude"],  a["longitude"],
+                              b["latitude"],  b["longitude"])
+            if dist <= cluster_radius_m and b_id not in assigned:
+                clusters[c_id].append(b_id)
+                assigned[b_id] = c_id
+
+    # Filtrar solo clusters con 2+ nodos
+    multi = {k: v for k, v in clusters.items() if len(v) >= 2}
+    if multi:
+        logger.info(
+            "Clusters de coordinacion: %d grupos con 2+ nodos",
+            len(multi)
+        )
+        for cid, members in multi.items():
+            logger.info("  %s: %s", cid, ", ".join(members))
+    return multi
 
 
 # ── Carga del JSON en el simulador ────────────────────────────────────────────
@@ -616,6 +815,23 @@ def json_to_traffic_graph(path: str | Path) -> "TrafficGraph":
                                            IntersectionGeometry.CROSS),
         ))
 
+    # Registrar clusters de coordinación en el grafo
+    clusters = data.get("clusters", {})
+    if clusters:
+        graph.intersection_clusters = clusters
+        # Mapa inverso: node_id → cluster_id
+        graph.node_to_cluster = {
+            nid: cid
+            for cid, members in clusters.items()
+            for nid in members
+        }
+        logger.info(
+            "Clusters de coordinacion registrados: %d grupos", len(clusters)
+        )
+    else:
+        graph.intersection_clusters = {}
+        graph.node_to_cluster = {}
+
     # Aristas (solo las que tienen ambos extremos en el grafo)
     skipped = 0
     for e in data["edges"]:
@@ -638,6 +854,17 @@ def json_to_traffic_graph(path: str | Path) -> "TrafficGraph":
 
     if skipped:
         logger.warning("Segmentos omitidos: %d", skipped)
+
+    # Verificar y eliminar nodos aislados en el grafo cargado
+    isolated_ids = [nid for nid in graph.intersections
+                    if graph.graph.degree(nid) == 0]
+    if isolated_ids:
+        logger.warning(
+            "Nodos aislados en el grafo: %d — eliminando", len(isolated_ids)
+        )
+        for nid in isolated_ids:
+            graph.graph.remove_node(nid)
+            del graph.intersections[nid]
 
     logger.info(
         "TrafficGraph listo: %d nodos, %d aristas",

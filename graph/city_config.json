@@ -1,6 +1,5 @@
 {
   "_doc": "Configuracion del grafo vial. Edita y corre: python graph/city_loader.py",
-
   "city": {
     "name": "Guadalajara ZMG",
     "center_lat": 20.60831694920433,
@@ -9,61 +8,80 @@
     "max_nodes": 1000,
     "output": "graph/city_graph.json"
   },
-
   "highway_filter": [
-    "motorway", "trunk", "primary",
-    "secondary", "tertiary", "residential",
-    "living_street", "unclassified"
+    "motorway",
+    "trunk",
+    "primary",
+    "secondary",
+    "tertiary",
+    "residential",
+    "living_street",
+    "unclassified"
   ],
-
   "category_map": {
-    "motorway":      "HIGHWAY",
-    "trunk":         "HIGHWAY",
-    "primary":       "MAIN_AVENUE",
-    "secondary":     "SECONDARY_AVENUE",
-    "tertiary":      "STREET",
-    "residential":   "STREET",
+    "motorway": "HIGHWAY",
+    "trunk": "HIGHWAY",
+    "primary": "MAIN_AVENUE",
+    "secondary": "SECONDARY_AVENUE",
+    "tertiary": "STREET",
+    "residential": "STREET",
     "living_street": "ALLEY",
-    "service":       "ALLEY",
-    "unclassified":  "STREET"
+    "service": "ALLEY",
+    "unclassified": "STREET"
   },
-
   "default_speeds_kmh": {
-    "HIGHWAY":          90.0,
-    "MAIN_AVENUE":      60.0,
+    "HIGHWAY": 90.0,
+    "MAIN_AVENUE": 60.0,
     "SECONDARY_AVENUE": 50.0,
-    "STREET":           30.0,
-    "ALLEY":            15.0
+    "STREET": 30.0,
+    "ALLEY": 15.0
   },
-
   "intersection_type_rules": {
     "_doc": "street_count = cuantas vias confluyen en el nodo OSM",
     "master_min_street_count": 3,
-    "master_highway_types": ["primary", "trunk", "motorway"],
+    "master_highway_types": [
+      "primary",
+      "trunk",
+      "motorway"
+    ],
     "blind_max_street_count": 1
   },
-
   "geometry_rules": {
     "_doc": "Reglas para inferir geometria desde tags OSM",
     "roundabout_tag": "roundabout",
-    "pedestrian_tags": ["pedestrian", "footway", "crossing"],
-    "merge_tags": ["motorway_link", "trunk_link", "primary_link", "service"],
+    "pedestrian_tags": [
+      "pedestrian",
+      "footway",
+      "crossing"
+    ],
+    "merge_tags": [
+      "motorway_link",
+      "trunk_link",
+      "primary_link",
+      "service"
+    ],
     "multiway_min_streets": 5,
     "t_street_count": 3,
     "default": "cross"
   },
-
   "bidirectional": {
     "_doc": "Si true, cada via genera dos segmentos salvo que OSM marque oneway=yes",
     "enabled": true,
     "respect_oneway_tag": true
   },
-
   "overpass": {
     "url": "https://overpass-api.de/api/interpreter",
     "timeout_s": 60,
     "retry_attempts": 3,
     "retry_wait_s": 3,
     "user_agent": "tanGo-academic-project/0.1"
+  },
+  "intersection_clustering": {
+    "_doc": "Agrupa intersecciones fisicamente cercanas del mismo cruce",
+    "merge_radius_m": 15,
+    "_doc_merge": "Nodos a menos de esta distancia se fusionan en uno solo",
+    "cluster_radius_m": 60,
+    "_doc_cluster": "Nodos entre merge y cluster forman un grupo coordinado",
+    "cluster_coordination": true
   }
 }

@@ -16,10 +16,12 @@ Ejecutar:
 """
 
 from __future__ import annotations
-import sys, random
+import sys, random, logging
 from pathlib import Path
 from datetime import datetime
 from collections import defaultdict
+
+logger = logging.getLogger(__name__)
 
 ROOT = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(ROOT))
@@ -151,7 +153,7 @@ SCENARIOS = [
          wind_speed_kmh=20.0, visibility_m=3000.0),
 ]
 
-PHASE_COLOR = {"green":"#22c55e", "yellow":"#eab308", "red":"#ef4444"}
+PHASE_COLOR = {"green":"#22c55e", "yellow":"#eab308", "red":"#ef4444", "blink":"#f59e0b"}
 TYPE_SYMBOL = {IntersectionType.MASTER:"star", IntersectionType.NORMAL:"circle",
                IntersectionType.BLIND:"diamond"}
 TYPE_RING   = {IntersectionType.MASTER:"#f59e0b", IntersectionType.NORMAL:"#3b82f6",
@@ -301,6 +303,9 @@ def simulate(scenario: dict, graph: TrafficGraph, n_ticks: int,
         inter.current_phase      = Phase.RED
         inter._ticks_in_phase    = 0
         inter._timeout_triggered = False
+        inter._ticks_empty       = 0
+        inter._pressure_ns       = 0.0
+        inter._pressure_ew       = 0.0
         inter.pressure           = 0.0
 
     for _ in range(n_ticks):
@@ -329,11 +334,108 @@ def simulate(scenario: dict, graph: TrafficGraph, n_ticks: int,
             for k,v in flow_map.items()
         ]
 
-        # Ajustar fases con WeightEngine real + timeout
+        # ── Paso 1: calcular presiones propias ───────────────────────────────
+        pressures_own = {}
         for node_id, inter in graph.intersections.items():
             ents = all_entities[node_id]
-            pressure = engine.aggregate_pressure(ents, inter, ctx)
-            inter.pressure = pressure
+            pressures_own[node_id] = engine.aggregate_pressure(ents, inter, ctx)
+            inter.pressure = pressures_own[node_id]
+
+        # ── Paso 2: mente colmena — señal vecinal + green wave offset ─────────
+        # Cada nodo recibe:
+        #   a) Influencia de vecinos upstream (cuánto tráfico se aproxima)
+        #   b) Green wave offset: si el upstream está en verde y los vehículos
+        #      llegarán pronto, este nodo debe prepararse para recibirlos.
+        #
+        # El green_wave_offset se calcula con WeightEngine.compute_green_wave_offset
+        # que ya existe en core/weight_engine.py.
+        pressures_combined = {}
+        green_wave_offsets: dict[str, float] = {}  # node_id → segundos hasta que llegue la ola
+
+        for node_id, inter in graph.intersections.items():
+            combined = pressures_own[node_id]
+            min_offset = float("inf")
+
+            for from_id, to_id, data in graph.graph.edges(data=True):
+                if to_id != node_id:
+                    continue
+                neighbor_id  = from_id
+                neighbor_inter = graph.intersections.get(neighbor_id)
+                if not neighbor_inter or neighbor_id not in pressures_own:
+                    continue
+
+                seg = data["segment"]
+
+                # Señal de influencia de presión vecinal
+                influence = inter.receive_neighbor_signal(
+                    neighbor_pressure = pressures_own[neighbor_id],
+                    distance_m        = seg.length_m,
+                    speed_kmh         = seg.speed_limit_kmh,
+                )
+                # Nodos MASTER propagan señal más fuerte
+                if neighbor_inter.intersection_type.value == "master":
+                    influence *= 1.3
+                combined += influence * 0.25
+
+                # Green wave offset: si el vecino está en VERDE,
+                # calcular cuándo llegará su flujo a este nodo.
+                # Si el offset es corto, aumentar presión adicional para
+                # preparar el verde a tiempo.
+                if neighbor_inter.current_phase.value == "green":
+                    try:
+                        offset_s = engine.compute_green_wave_offset(
+                            distance_m      = seg.length_m,
+                            speed_limit_kmh = seg.speed_limit_kmh,
+                        )
+                        # Boost de presión inversamente proporcional al offset:
+                        # offset pequeño → más urgente → más boost
+                        wave_boost = pressures_own[neighbor_id] * (1.0 / (1.0 + offset_s / 20.0))
+                        combined  += wave_boost * 0.15
+                        min_offset = min(min_offset, offset_s)
+                    except (ValueError, ZeroDivisionError):
+                        pass
+
+            pressures_combined[node_id] = combined
+            green_wave_offsets[node_id] = (
+                min_offset if min_offset < float("inf") else 0.0
+            )
+
+        # ── Paso 3: ajustar fases con coordinación de cluster ────────────────
+        # Nodos del mismo cluster son interdependientes:
+        # si uno está en verde, los demás deben estar en rojo.
+        # Se determina el nodo de mayor presión en el cluster → gana el verde.
+        clusters = getattr(graph, "intersection_clusters", {})
+        node_to_cluster = getattr(graph, "node_to_cluster", {})
+
+        # Para cada cluster, determinar qué nodo tiene la mayor presión
+        cluster_winner: dict[str, str] = {}  # cluster_id → node_id ganador
+        for cid, members in clusters.items():
+            valid = [nid for nid in members if nid in pressures_combined]
+            if not valid:
+                continue
+            winner = max(valid, key=lambda n: pressures_combined[n])
+            cluster_winner[cid] = winner
+
+        for node_id, inter in graph.intersections.items():
+            ents = all_entities[node_id]
+            inter.pressure = pressures_combined[node_id]
+
+            # Si este nodo pertenece a un cluster y NO es el ganador,
+            # reducir su presión efectiva para que ceda el verde al ganador.
+            cid = node_to_cluster.get(node_id)
+            if cid and cluster_winner.get(cid) != node_id:
+                winner_id = cluster_winner.get(cid)
+                winner_phase = (graph.intersections[winner_id].current_phase
+                                if winner_id else None)
+                # Si el ganador del cluster está en verde, este nodo
+                # debe esperar — reducir presión efectiva temporalmente
+                if winner_phase and winner_phase.value == "green":
+                    inter.pressure = inter.pressure * 0.3
+                    logger.debug(
+                        "[%s] en cluster %s — cediendo verde a %s",
+                        node_id, cid, winner_id
+                    )
+
             inter.adjust_phase(engine, ctx, ents)
 
             counts = defaultdict(int)
@@ -345,22 +447,28 @@ def simulate(scenario: dict, graph: TrafficGraph, n_ticks: int,
                     if e.is_wheelchair: counts["WHEELCHAIR"] += 1
 
             frame["nodes"][node_id] = {
-                "phase":      inter.current_phase.value,
-                "phase_ns":   inter.phase_ns.value,
-                "phase_ew":   inter.phase_ew.value,
-                "active_axis": getattr(inter._active_axis, "value", "ns"),
-                "pressure":   inter.pressure,
-                "itype":      inter.intersection_type,
-                "geometry":   inter.geometry,
-                "geo_label":  inter.geometry_label,
-                "has_light":  inter.has_traffic_light,
-                "threshold":  inter.pressure_threshold,
-                "timeout":    inter.red_timeout_ticks,
-                "ticks_red":  inter._ticks_in_phase,
-                "name":       inter.name,
-                "lat":        inter.latitude,
-                "lon":        inter.longitude,
-                "counts":     dict(counts),
+                "phase":           inter.current_phase.value,
+                "phase_ns":        inter.phase_ns.value,
+                "phase_ew":        inter.phase_ew.value,
+                "active_axis":     getattr(inter._active_axis, "value", "ns"),
+                "signals":         inter.signal_summary,
+                "pressure":        round(inter.pressure, 1),
+                "pressure_own":    round(pressures_own.get(node_id, inter.pressure), 1),
+                "pressure_ns":     round(inter._pressure_ns, 1),
+                "pressure_ew":     round(inter._pressure_ew, 1),
+                "wave_offset_s":   round(green_wave_offsets.get(node_id, 0.0), 1),
+                "itype":           inter.intersection_type,
+                "geometry":        inter.geometry,
+                "geo_label":       inter.geometry_label,
+                "has_light":       inter.has_traffic_light,
+                "threshold":       inter.pressure_threshold,
+                "timeout":         inter.red_timeout_ticks,
+                "ticks_red":       inter._ticks_in_phase,
+                "name":            inter.name,
+                "lat":             inter.latitude,
+                "lon":             inter.longitude,
+                "counts":    dict(counts),
+                "cluster_id": getattr(graph, "node_to_cluster", {}).get(node_id),
             }
             frame["total"] += len(ents)
             if inter.current_phase == Phase.GREEN:
@@ -814,21 +922,25 @@ def build_vis(graph: TrafficGraph, all_histories: list[tuple]) -> str:
             nodes_js = {}
             for nid, nd in snap["nodes"].items():
                 nodes_js[nid] = {
-                    "phase":       nd["phase"],
-                    "phase_ns":    nd["phase_ns"],
-                    "phase_ew":    nd["phase_ew"],
-                    "active_axis": nd["active_axis"],
-                    "pressure":    round(nd["pressure"], 1),
-                    "threshold":   nd["threshold"],
-                    "itype":       nd["itype"].value,
-                    "geo_label":   nd.get("geo_label", "+"),
-                    "has_light":   nd["has_light"],
-                    "ticks_red":   nd["ticks_red"],
-                    "timeout":     nd["timeout"],
-                    "name":        nd["name"],
-                    "lat":         nd["lat"],
-                    "lon":         nd["lon"],
-                    "counts":      nd["counts"],
+                    "phase":         nd["phase"],
+                    "phase_ns":      nd["phase_ns"],
+                    "phase_ew":      nd["phase_ew"],
+                    "active_axis":   nd["active_axis"],
+                    "signals":       nd.get("signals", {}),
+                    "pressure":      round(nd["pressure"], 1),
+                    "pressure_own":  round(nd.get("pressure_own", nd["pressure"]), 1),
+                    "wave_offset_s": round(nd.get("wave_offset_s", 0.0), 1),
+                    "threshold":     nd["threshold"],
+                    "itype":         nd["itype"].value,
+                    "geo_label":     nd.get("geo_label", "+"),
+                    "has_light":     nd["has_light"],
+                    "ticks_red":     nd["ticks_red"],
+                    "timeout":       nd["timeout"],
+                    "name":          nd["name"],
+                    "lat":           nd["lat"],
+                    "lon":           nd["lon"],
+                    "counts":    nd["counts"],
+                    "cluster_id": nd.get("cluster_id"),
                 }
             flows_js = [
                 {"from": fl["from"], "to": fl["to"],
@@ -1065,7 +1177,9 @@ L.tileLayer('https://{{s}}.basemaps.cartocdn.com/dark_all/{{z}}/{{x}}/{{y}}{{r}}
   attribution:'CartoDB',maxZoom:19
 }}).addTo(map);
 
-const PHASE_C = {{green:'#22c55e',yellow:'#eab308',red:'#ef4444'}};
+const PHASE_C = {{green:'#22c55e',yellow:'#eab308',red:'#ef4444',blink:'#f59e0b'}};
+    let _blinkOn = true;
+    setInterval(()=>{{ _blinkOn=!_blinkOn; }}, 600);
 const ITYPE_R = {{master:'#f59e0b',normal:'#3b82f6',blind:'#64748b'}};
 const CAT_C   = {{MAIN_AVENUE:'#1d4ed8',SECONDARY_AVENUE:'#6d28d9',
                   STREET:'#1e293b',HIGHWAY:'#0f172a',ALLEY:'#111827'}};
@@ -1112,7 +1226,7 @@ function applySnap(snap){{
     const st=NODES_STATIC[nid];
     const baseR = st.itype==='master'?13:st.itype==='normal'?10:7;
     m.setStyle({{
-      fillColor: PHASE_C[nd.phase]||'#ef4444',
+      fillColor: nd.phase==='blink' ? (_blinkOn?'#f59e0b':'#1e293b') : (PHASE_C[nd.phase]||'#ef4444'),
       radius: Math.min(22,baseR+nd.pressure*.06),
     }});
     const ns=nd.has_light?`NS:${{nd.phase_ns.toUpperCase()}} EW:${{nd.phase_ew.toUpperCase()}}`:'sin semaforo';
@@ -1198,20 +1312,55 @@ function renderNodePanel(nid,nd,st){{
     <div class="ir">Tipo<span>${{(nd.itype||'').toUpperCase()}}</span></div>
     <div class="ir">Geometria<span>${{st?st.geometry:''}}</span></div>
     <div class="ir">Semaforo<span>${{nd.has_light?'Si':'No'}}</span></div>
+    ${{nd.cluster_id?`<div class="ir">Cluster<span style="color:#f59e0b">${{nd.cluster_id}}</span></div>`:''}}
   </div>
   ${{nd.has_light?`
   <div class="ic">
-    <h4>Fases</h4>
-    <div class="ir">Eje N-S<span><span class="pill ${{pillCls(nd.phase_ns)}}">${{nd.phase_ns.toUpperCase()}}</span></span></div>
-    <div class="ir">Eje E-O<span><span class="pill ${{pillCls(nd.phase_ew)}}">${{nd.phase_ew.toUpperCase()}}</span></span></div>
-    <div class="ir">Activo<span>${{nd.active_axis.toUpperCase()}}</span></div>
+    <h4>Semaforos por direccion</h4>
+    <div style="font-size:10px;color:var(--muted);margin-bottom:6px">
+      Eje activo: <b>${{nd.active_axis.toUpperCase()}}</b> — exclusion mutua garantizada
+    </div>
+    ${{Object.entries(nd.signals||{{}}).map(([dir,ph])=>`
+      <div class="ir">
+        <span style="font-family:monospace;font-weight:700">${{dir}}</span>
+        <span>
+          <span class="pill ${{pillCls(ph)}}">${{ph.toUpperCase()}}</span>
+        </span>
+      </div>
+    `).join('')}}
+    <div style="font-size:9px;color:var(--muted);margin-top:4px;padding-top:4px;
+                border-top:1px solid var(--border)">
+      Eje NS (N+S) y Eje EW (E+O) son mutuamente excluyentes.<br>
+      Si NS esta en verde, EW esta en rojo — siempre.
+    </div>
     ${{toInfo}}
-  </div>`:'<div class="ic" style="color:var(--muted);font-size:11px">Sin semaforo fisico</div>'}}
+  </div>`:'<div class="ic" style="color:var(--muted);font-size:11px">Sin semaforo fisico (glorieta, incorporacion o calle interna)</div>'}}
   <div class="ic">
     <h4>Presion</h4>
-    <div class="ir">Valor<span style="color:${{nd.pressure>=nd.threshold?'var(--red)':'var(--teal)'}}">${{nd.pressure}} / ${{nd.threshold}}</span></div>
-    <div class="pbar-bg"><div class="pbar" style="width:${{Math.min(100,pct)}}%;background:${{barColor}}"></div></div>
+    <div class="ir">Propia
+      <span style="color:var(--blue)">${{nd.pressure_own||nd.pressure}} / ${{nd.threshold}}</span>
+    </div>
+    <div class="ir">+ Vecinal
+      <span style="color:${{nd.pressure>=nd.threshold?'var(--red)':'var(--teal)'}}">${{nd.pressure}}</span>
+    </div>
+    <div class="ir" style="font-size:10px">Eje N-S
+      <span style="color:#a78bfa">${{nd.pressure_ns||0}}</span>
+    </div>
+    <div class="ir" style="font-size:10px">Eje E-O
+      <span style="color:#60a5fa">${{nd.pressure_ew||0}}</span>
+    </div>
+    ${{nd.wave_offset_s>0?`
+    <div class="ir">Ola verde en
+      <span style="color:#f59e0b">${{nd.wave_offset_s}}s</span>
+    </div>`:''}}
+    <div class="pbar-bg">
+      <div class="pbar" style="width:${{Math.min(100,pct)}}%;background:${{barColor}}"></div>
+    </div>
     <div style="font-size:10px;color:var(--muted)">${{pct}}% del umbral</div>
+    <div style="font-size:9px;color:var(--muted);margin-top:3px">
+      La presion vecinal incluye la influencia de nodos adyacentes.<br>
+      Nodos MASTER propagan señal 1.3x mas fuerte.
+    </div>
   </div>
   <div class="ic">
     <h4>Entidades</h4>
@@ -1369,7 +1518,11 @@ log('Usa los botones de escenario abajo para saltar entre experimentos');
     return html
 
 if __name__ == "__main__":
+    import time as _time
+    _t0       = _time.perf_counter()
+    _ts_start = datetime.now()
     print("tanGo — simulación ZMG Guadalajara")
+    print(f"  Inicio: {_ts_start.strftime('%Y-%m-%d %H:%M:%S')}\n")
 
     # Cargar grafo: JSON real si existe, hardcodeado como fallback
     if CITY_JSON.exists():
@@ -1437,7 +1590,21 @@ if __name__ == "__main__":
     print(f"  ✓ {OUTPUT_VIS}")
 
     graph.close()
-    print("\n✓ Listo.")
+
+    _t1       = _time.perf_counter()
+    _ts_end   = datetime.now()
+    _elapsed  = _t1 - _t0
+    _mins     = int(_elapsed // 60)
+    _secs     = _elapsed % 60
+
+    print("\n" + "─" * 52)
+    print(f"  Inicio  : {_ts_start.strftime('%H:%M:%S')}")
+    print(f"  Fin     : {_ts_end.strftime('%H:%M:%S')}")
+    print(f"  Duracion: {_mins}m {_secs:.1f}s")
+    print(f"  Frames  : {sum(len(h) for _,h in all_histories)}")
+    print(f"  Nodos   : {graph.graph.number_of_nodes()}")
+    print("─" * 52)
+    print(f"\n✓ Listo.")
     print(f"  Recomendado: abre tango_vis.html (mapa interactivo + animacion)")
     print(f"  Alternativo: tango_sim.html (Plotly) · tango_map.html (Folium estatico)")
 
