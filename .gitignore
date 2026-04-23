@@ -1,8 +1,6 @@
 # Perso
 steps.md
-tango_map.html
-tango_sim.html
-tango_vis.html
+tests/sim1/*.html
 
 # Python
 __pycache__/
