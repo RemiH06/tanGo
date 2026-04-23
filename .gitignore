@@ -1,5 +1,6 @@
 # Perso
 steps.md
+tests/sim1/*.html
 
 # Python
 __pycache__/
@@ -49,4 +50,8 @@ neo4j/data/
 neo4j/logs/
 
 # Docker
-*.override.yml
+*.override.ymltango_map.html
+tango_sim.html
+tango_vis.html
+tango_vis.html
+tango_map.html

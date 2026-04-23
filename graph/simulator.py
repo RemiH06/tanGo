@@ -57,17 +57,38 @@ class SimulationSnapshot:
 
 # ── Probabilidades de spawn por contexto ─────────────────────────────────────
 
-def _vehicle_count(ctx: TrafficContext) -> int:
-    """Número de vehículos a generar por intersección según el contexto."""
+def _vehicle_count(ctx: TrafficContext,
+                   intersection_type: str = "normal") -> int:
+    """
+    Número de vehículos a generar según contexto y tipo de intersección.
+
+    Las intersecciones BLIND generan más vehículos de paso (tráfico
+    interno de colonia que busca salida hacia avenidas).
+    Las MASTER generan más porque son puntos de mayor flujo.
+    """
+    base_rush  = {"master": (6, 14), "normal": (4, 10), "blind": (2, 6)}
+    base_night = {"master": (0, 3),  "normal": (0, 2),  "blind": (0, 1)}
+    base_norm  = {"master": (3, 8),  "normal": (1, 5),  "blind": (1, 4)}
+
+    itype = intersection_type.lower()
     if ctx.is_rush_hour:
-        return random.randint(4, 10)
-    if ctx.is_late_night:
-        return random.randint(0, 2)
-    return random.randint(1, 5)
+        lo, hi = base_rush.get(itype, (4, 10))
+    elif ctx.is_late_night:
+        lo, hi = base_night.get(itype, (0, 2))
+    else:
+        lo, hi = base_norm.get(itype, (1, 5))
+    return random.randint(lo, hi)
 
 
-def _pedestrian_count(ctx: TrafficContext) -> int:
-    """Número de peatones a generar por intersección según el contexto."""
+def _pedestrian_count(ctx: TrafficContext,
+                      intersection_type: str = "normal") -> int:
+    """
+    Número de peatones. Las BLIND tienen menos peatones (son calles internas).
+    Las MASTER tienen más porque son esquinas de avenidas concurridas.
+    """
+    if intersection_type == "blind":
+        return random.randint(0, 2) if not ctx.is_late_night else 0
+
     if ctx.is_rush_hour:
         return random.randint(2, 8)
     if ctx.is_late_night:
@@ -79,23 +100,45 @@ def _pedestrian_count(ctx: TrafficContext) -> int:
 
 def _wheelchair_probability(ctx: TrafficContext) -> float:
     """Probabilidad de que un peatón use silla de ruedas."""
-    # Aumenta si es de día (más movilidad urbana accesible)
     if ctx.is_late_night:
         return 0.02
     return 0.08
 
 
-def _vehicle_type_weights(ctx: TrafficContext) -> List[Tuple[VehicleType, float]]:
-    """Distribución ponderada de tipos de vehículo según contexto."""
-    weights = [
-        (VehicleType.CAR,        0.70),
-        (VehicleType.MOTORCYCLE, 0.10),
-        (VehicleType.BUS,        0.08),
-        (VehicleType.TRUCK,      0.05),
-        (VehicleType.BICYCLE,    0.05 if not ctx.is_raining else 0.01),
-        (VehicleType.EMERGENCY,  0.02),
-    ]
-    # Normalizar si la lluvia cambió los pesos
+def _vehicle_type_weights(ctx: TrafficContext,
+                          intersection_type: str = "normal") -> List[Tuple[VehicleType, float]]:
+    """
+    Distribución ponderada de tipos de vehículo según contexto e intersección.
+    Las BLIND tienen más motos y autos (tráfico de colonia).
+    Las MASTER tienen más buses y camiones (rutas principales).
+    """
+    if intersection_type == "blind":
+        weights = [
+            (VehicleType.CAR,        0.75),
+            (VehicleType.MOTORCYCLE, 0.15),
+            (VehicleType.BICYCLE,    0.07 if not ctx.is_raining else 0.02),
+            (VehicleType.BUS,        0.02),
+            (VehicleType.TRUCK,      0.01),
+            (VehicleType.EMERGENCY,  0.00),
+        ]
+    elif intersection_type == "master":
+        weights = [
+            (VehicleType.CAR,        0.60),
+            (VehicleType.BUS,        0.15),
+            (VehicleType.TRUCK,      0.08),
+            (VehicleType.MOTORCYCLE, 0.10),
+            (VehicleType.BICYCLE,    0.04 if not ctx.is_raining else 0.01),
+            (VehicleType.EMERGENCY,  0.03),
+        ]
+    else:
+        weights = [
+            (VehicleType.CAR,        0.70),
+            (VehicleType.MOTORCYCLE, 0.10),
+            (VehicleType.BUS,        0.08),
+            (VehicleType.TRUCK,      0.05),
+            (VehicleType.BICYCLE,    0.05 if not ctx.is_raining else 0.01),
+            (VehicleType.EMERGENCY,  0.02),
+        ]
     total = sum(w for _, w in weights)
     return [(vt, w / total) for vt, w in weights]
 
@@ -195,50 +238,88 @@ class TrafficGraph:
     def build_sample_city(self) -> None:
         """
         Construye una ciudad de ejemplo en memoria sin Neo4j.
-        Útil para tests, demos y desarrollo local.
 
-        Topología (Guadalajara simplificado):
+        Topología (Guadalajara simplificado — 9 intersecciones, 3 tipos):
 
-            [A1]──Av.Principal──>[A2]──Av.Principal──>[A3]
-             │                    │
-           Calle               Calle
-             │                    │
-            [B1]──────Calle──────>[B2]
+            [A1*]══Av.Principal(60)══>[A2*]══Av.Principal(60)══>[A3*]
+              ║                         ║                         ║
+           calle(30)               calle(30)                 calle(30)
+              ║                         ║                         ║
+            [B1]──Av.Secundaria(50)──>[B2]──Av.Secundaria(50)──>[B3]
+              │                         │                         │
+           calle(30)               calle(30)                 calle(30)
+              │                         │                         │
+            [C1~]──────calle(30)──────>[C2~]──────calle(30)──────>[C3~]
 
-        A1, A2, A3 → avenida principal (w=80)
-        B1, B2     → calles secundarias (w=20)
+        * MASTER — cruces de avenidas, semáforo, umbral=120
+          (sin *) NORMAL — cruce mixto, semáforo, umbral=100
+          ~ BLIND  — cruce ciego, sin semáforo, solo mapeo
+
+        Todas las calles son BIDIRECCIONALES (dos segmentos opuestos).
+        Los nodos BLIND tienen probabilidad de flujo hacia avenidas.
         """
-        # Intersecciones
+        from core.road import IntersectionType
+
+        # ── Intersecciones ────────────────────────────────────────────────
         intersections = [
-            Intersection("A1", "Av. Vallarta y López Mateos", 20.6756, -103.3910),
-            Intersection("A2", "Av. Vallarta y Av. México",   20.6756, -103.3700),
-            Intersection("A3", "Av. Vallarta y Chapultepec",  20.6756, -103.3500),
-            Intersection("B1", "Calle Juárez y López Mateos", 20.6600, -103.3910),
-            Intersection("B2", "Calle Juárez y Av. México",   20.6600, -103.3700),
+            # Fila A — Av. Vallarta (MASTER: cruce de dos avenidas)
+            Intersection("A1", "Av. Vallarta y López Mateos", 20.6756, -103.3910,
+                         intersection_type=IntersectionType.MASTER),
+            Intersection("A2", "Av. Vallarta y Av. México",   20.6756, -103.3700,
+                         intersection_type=IntersectionType.MASTER),
+            Intersection("A3", "Av. Vallarta y Chapultepec",  20.6756, -103.3500,
+                         intersection_type=IntersectionType.MASTER),
+            # Fila B — Av. Juárez (NORMAL: cruce de avenida con calle)
+            Intersection("B1", "Av. Juárez y López Mateos",   20.6650, -103.3910,
+                         intersection_type=IntersectionType.NORMAL),
+            Intersection("B2", "Av. Juárez y Av. México",     20.6650, -103.3700,
+                         intersection_type=IntersectionType.NORMAL),
+            Intersection("B3", "Av. Juárez y Chapultepec",    20.6650, -103.3500,
+                         intersection_type=IntersectionType.NORMAL),
+            # Fila C — Calle Morelos (BLIND: calles internas sin semáforo)
+            Intersection("C1", "C. Morelos y López Mateos",   20.6550, -103.3910,
+                         intersection_type=IntersectionType.BLIND),
+            Intersection("C2", "C. Morelos y Av. México",     20.6550, -103.3700,
+                         intersection_type=IntersectionType.BLIND),
+            Intersection("C3", "C. Morelos y Chapultepec",    20.6550, -103.3500,
+                         intersection_type=IntersectionType.BLIND),
         ]
         for inter in intersections:
             self.add_intersection(inter)
 
-        # Segmentos
-        segments = [
-            RoadSegment("seg-A1-A2", "A1", "A2",
-                        RoadCategory.MAIN_AVENUE, 500.0, 60.0),
-            RoadSegment("seg-A2-A3", "A2", "A3",
-                        RoadCategory.MAIN_AVENUE, 500.0, 60.0),
-            RoadSegment("seg-A1-B1", "A1", "B1",
-                        RoadCategory.STREET, 200.0, 30.0),
-            RoadSegment("seg-A2-B2", "A2", "B2",
-                        RoadCategory.STREET, 200.0, 30.0),
-            RoadSegment("seg-B1-B2", "B1", "B2",
-                        RoadCategory.STREET, 500.0, 30.0,
-                        forbidden_turns=[Turn.U_TURN]),
-        ]
-        for seg in segments:
-            self.add_segment(seg)
+        # ── Segmentos BIDIRECCIONALES ─────────────────────────────────────
+        # Cada calle real genera DOS segmentos dirigidos (ida y vuelta)
+        def add_bidir(seg_id, a, b, cat, length, speed, **kw):
+            self.add_segment(RoadSegment(f"{seg_id}-fwd", a, b, cat, length, speed, **kw))
+            self.add_segment(RoadSegment(f"{seg_id}-bwd", b, a, cat, length, speed, **kw))
+
+        # Fila A — Av. Principal (bidireccional)
+        add_bidir("seg-A1-A2", "A1", "A2", RoadCategory.MAIN_AVENUE,      500.0, 60.0)
+        add_bidir("seg-A2-A3", "A2", "A3", RoadCategory.MAIN_AVENUE,      500.0, 60.0)
+        # Fila B — Av. Secundaria (bidireccional)
+        add_bidir("seg-B1-B2", "B1", "B2", RoadCategory.SECONDARY_AVENUE, 500.0, 50.0)
+        add_bidir("seg-B2-B3", "B2", "B3", RoadCategory.SECONDARY_AVENUE, 500.0, 50.0)
+        # Fila C — Calles internas (bidireccional, sin semáforo en extremos)
+        add_bidir("seg-C1-C2", "C1", "C2", RoadCategory.STREET,           500.0, 30.0)
+        add_bidir("seg-C2-C3", "C2", "C3", RoadCategory.STREET,           500.0, 30.0)
+        # Columna 1 — transversal izquierda (bidireccional)
+        add_bidir("seg-A1-B1", "A1", "B1", RoadCategory.STREET,           200.0, 30.0)
+        add_bidir("seg-B1-C1", "B1", "C1", RoadCategory.STREET,           200.0, 30.0)
+        # Columna 2 — transversal centro (bidireccional)
+        add_bidir("seg-A2-B2", "A2", "B2", RoadCategory.STREET,           200.0, 30.0)
+        add_bidir("seg-B2-C2", "B2", "C2", RoadCategory.STREET,           200.0, 30.0)
+        # Columna 3 — transversal derecha (bidireccional)
+        add_bidir("seg-A3-B3", "A3", "B3", RoadCategory.STREET,           200.0, 30.0)
+        add_bidir("seg-B3-C3", "B3", "C3", RoadCategory.STREET,           200.0, 30.0,
+                  forbidden_turns=[Turn.U_TURN])
 
         logger.info(
-            "Ciudad de ejemplo construida: %d nodos, %d aristas",
-            self.graph.number_of_nodes(), self.graph.number_of_edges()
+            "Ciudad construida: %d nodos (%d MASTER, %d NORMAL, %d BLIND), %d aristas",
+            self.graph.number_of_nodes(),
+            sum(1 for i in self.intersections.values() if i.intersection_type.value == "master"),
+            sum(1 for i in self.intersections.values() if i.intersection_type.value == "normal"),
+            sum(1 for i in self.intersections.values() if i.intersection_type.value == "blind"),
+            self.graph.number_of_edges(),
         )
 
     # ── Neo4j ─────────────────────────────────────────────────────────────────
@@ -490,20 +571,26 @@ class TrafficGraph:
         types   = [vt for vt, _ in vehicle_type_pool]
         weights = [w  for _, w  in vehicle_type_pool]
 
-        for node_id in self.intersections:
+        for node_id, inter in self.intersections.items():
             node_entities: List[TrafficEntity] = []
+            itype = inter.intersection_type.value
+
+            # Distribución de vehículos específica por tipo de intersección
+            itype_weights = _vehicle_type_weights(ctx, itype)
+            itypes_list   = [vt for vt, _ in itype_weights]
+            iweights_list = [w  for _, w  in itype_weights]
 
             # Vehículos
-            n_vehicles = _vehicle_count(ctx)
+            n_vehicles = _vehicle_count(ctx, itype)
             for _ in range(n_vehicles):
-                vtype = random.choices(types, weights=weights, k=1)[0]
+                vtype     = random.choices(itypes_list, weights=iweights_list, k=1)[0]
                 direction = random.choice(list(Direction))
                 node_entities.append(
                     self.spawn_vehicle(node_id, vtype, direction)
                 )
 
-            # Peatones
-            n_pedestrians = _pedestrian_count(ctx)
+            # Peatones (menos en BLIND)
+            n_pedestrians   = _pedestrian_count(ctx, itype)
             wheelchair_prob = _wheelchair_probability(ctx)
             for _ in range(n_pedestrians):
                 is_wc = random.random() < wheelchair_prob

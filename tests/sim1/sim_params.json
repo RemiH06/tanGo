@@ -1,0 +1,97 @@
+{
+  "_comentario": "Edita este archivo y corre tango_sim.py para regenerar la visualizacion",
+
+  "n_ticks": 40,
+
+  "scenarios": [
+    {
+      "label": "Hora pico — lun 8am",
+      "timestamp": "2024-03-04T08:00:00",
+      "temperature_c": 22.0,
+      "is_raining": false,
+      "wind_speed_kmh": 10.0,
+      "visibility_m": 10000.0
+    },
+    {
+      "label": "Madrugada — mie 2am",
+      "timestamp": "2024-03-06T02:00:00",
+      "temperature_c": 18.0,
+      "is_raining": false,
+      "wind_speed_kmh": 5.0,
+      "visibility_m": 10000.0
+    },
+    {
+      "label": "Lluvia — sab 3pm",
+      "timestamp": "2024-03-09T15:00:00",
+      "temperature_c": 16.0,
+      "is_raining": true,
+      "wind_speed_kmh": 20.0,
+      "visibility_m": 3000.0
+    }
+  ],
+
+  "spawn": {
+    "_comentario": "Multiplica los rangos base de generacion de entidades. 1.0 = normal, 2.0 = doble trafico",
+    "vehicle_multiplier": 1.0,
+    "pedestrian_multiplier": 1.0,
+    "emergency_probability": 0.02,
+    "wheelchair_probability": 0.08,
+    "bicycle_rain_factor": 0.2
+  },
+
+  "node_overrides": {
+    "_comentario": "Fuerza entidades fijas en nodos especificos en TODOS los ticks. Util para casos esquina.",
+    "M1": { "cars": 0, "buses": 0, "trucks": 0, "motorcycles": 0,
+            "bicycles": 0, "pedestrians": 0, "wheelchairs": 0, "emergency": 0 },
+    "M2": { "cars": 0, "buses": 0, "trucks": 0, "motorcycles": 0,
+            "bicycles": 0, "pedestrians": 0, "wheelchairs": 0, "emergency": 0 }
+  },
+
+  "experiment_presets": {
+    "_comentario": "Presets que aparecen como botones en el visor. Cada uno sobrescribe spawn temporalmente.",
+    "random_test": {
+      "label": "Random test",
+      "description": "Comportamiento base aleatorio — verifica que el algoritmo no se rompio",
+      "vehicle_multiplier": 1.0,
+      "pedestrian_multiplier": 1.0,
+      "emergency_probability": 0.02
+    },
+    "rush_hour_extreme": {
+      "label": "Hora pico extrema",
+      "description": "El doble de trafico vehicular en todos los nodos",
+      "vehicle_multiplier": 2.5,
+      "pedestrian_multiplier": 1.5,
+      "emergency_probability": 0.03
+    },
+    "pedestrian_flood": {
+      "label": "Inundacion peatonal",
+      "description": "Alta densidad de peatones — verifica priorizacion vulnerable",
+      "vehicle_multiplier": 0.3,
+      "pedestrian_multiplier": 5.0,
+      "wheelchair_probability": 0.4
+    },
+    "ghost_city": {
+      "label": "Ciudad fantasma",
+      "description": "Casi sin trafico — los semaforos deben cambiar solo por timeout",
+      "vehicle_multiplier": 0.05,
+      "pedestrian_multiplier": 0.05,
+      "emergency_probability": 0.0
+    },
+    "emergency_masters": {
+      "label": "Emergencias en MASTER",
+      "description": "Una ambulancia en cada nodo MASTER — override inmediato esperado",
+      "vehicle_multiplier": 1.0,
+      "pedestrian_multiplier": 1.0,
+      "emergency_probability": 1.0,
+      "only_master_nodes": true
+    },
+    "rainy_weekend": {
+      "label": "Fin de semana lluvioso",
+      "description": "Lluvia + fin de semana — menos ciclos y peatones con mas peso",
+      "vehicle_multiplier": 0.8,
+      "pedestrian_multiplier": 1.3,
+      "force_rain": true,
+      "force_weekend": true
+    }
+  }
+}
