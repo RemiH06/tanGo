@@ -368,11 +368,14 @@ def _tick_result_to_frame(result: TickResult, graph: TrafficGraph) -> dict:
         }
 
     return {
-        "tick":   result.tick_number,
-        "nodes":  nodes_frame,
-        "flows":  result.flows,
-        "total":  result.total_entities,
-        "greens": result.green_count,
+        "tick":    result.tick_number,
+        "nodes":   nodes_frame,
+        "flows":   result.flows,
+        "total":   result.total_entities,
+        "greens":  result.green_count,
+        "yellows": result.yellow_count,
+        "reds":    result.red_count,
+        "blinks":  result.blink_count,
     }
 
 
@@ -1031,7 +1034,11 @@ input[type=range]{{flex:1;accent-color:var(--teal)}}
       <div class="stat-grid">
         <div class="stat"><div class="stat-val" id="s-tick">0</div><div class="stat-lbl">Tick</div></div>
         <div class="stat"><div class="stat-val" id="s-total">0</div><div class="stat-lbl">Entidades</div></div>
-        <div class="stat"><div class="stat-val" id="s-green">0</div><div class="stat-lbl">En verde</div></div>
+        <div class="stat"><div class="stat-val" id="s-green" style="color:var(--green)">0</div><div class="stat-lbl">Verde</div></div>
+        <div class="stat"><div class="stat-val" id="s-yellow" style="color:var(--yellow)">0</div><div class="stat-lbl">Amarillo</div></div>
+        <div class="stat"><div class="stat-val" id="s-red" style="color:var(--red)">0</div><div class="stat-lbl">Rojo</div></div>
+        <div class="stat"><div class="stat-val" id="s-blink" style="color:#f59e0b">0</div><div class="stat-lbl">Blink</div></div>
+        <div class="stat"><div class="stat-val" id="s-blind" style="color:var(--muted)">0</div><div class="stat-lbl">Sin semaf.</div></div>
         <div class="stat"><div class="stat-val" id="s-nodes">{len(nodes_static_js)}</div><div class="stat-lbl">Nodos</div></div>
       </div>
     </div>
@@ -1179,11 +1186,22 @@ function applySnap(snap){{
   }});
 
   // Stats
-  document.getElementById('s-tick').textContent  = snap.tick;
-  document.getElementById('s-total').textContent = snap.total;
-  document.getElementById('s-green').textContent = snap.greens;
-  document.getElementById('b-tick').textContent  = `tick #${{snap.tick}}`;
-  document.getElementById('b-sc').textContent    = snap.scenario.substring(0,20);
+  // Contar fases
+  const phaseCounts = {{green:0,yellow:0,red:0,blink:0,blind:0}};
+  Object.values(snap.nodes).forEach(nd=>{{
+    if (!nd.has_light) phaseCounts.blind++;
+    else if (phaseCounts[nd.phase] !== undefined) phaseCounts[nd.phase]++;
+  }});
+
+  document.getElementById('s-tick').textContent   = snap.tick;
+  document.getElementById('s-total').textContent  = snap.total;
+  document.getElementById('s-green').textContent  = phaseCounts.green;
+  document.getElementById('s-yellow').textContent = phaseCounts.yellow;
+  document.getElementById('s-red').textContent    = phaseCounts.red;
+  document.getElementById('s-blink').textContent  = phaseCounts.blink;
+  document.getElementById('s-blind').textContent  = phaseCounts.blind;
+  document.getElementById('b-tick').textContent   = `tick #${{snap.tick}}`;
+  document.getElementById('b-sc').textContent     = snap.scenario.substring(0,20);
 
   if(selectedNode && snap.nodes[selectedNode])
     renderNodePanel(selectedNode,snap.nodes[selectedNode],NODES_STATIC[selectedNode]);

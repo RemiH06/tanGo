@@ -107,12 +107,14 @@ class TickResult:
     Resultado completo de un tick del algoritmo.
     Contiene el estado de todos los nodos y los flujos entre ellos.
     """
-    tick_number:  int
-    nodes:        dict[str, NodeState]       # node_id → NodeState
-    flows:        list[dict]                  # [{"from","to","fwd","bwd"}]
+    tick_number:    int
+    nodes:          dict[str, NodeState]
+    flows:          list[dict]
     total_entities: int
-    green_count:  int
-    blink_count:  int
+    green_count:    int
+    yellow_count:   int
+    red_count:      int
+    blink_count:    int
 
 
 # ── TrafficAlgorithm ──────────────────────────────────────────────────────────
@@ -370,6 +372,8 @@ class TrafficAlgorithm:
         nodes: dict[str, NodeState] = {}
         total_entities = 0
         green_count    = 0
+        yellow_count   = 0
+        red_count      = 0
         blink_count    = 0
 
         for node_id, inter in self.graph.intersections.items():
@@ -378,8 +382,10 @@ class TrafficAlgorithm:
             total_entities += len(ents)
 
             phase = inter.current_phase.value
-            if phase == "green": green_count += 1
-            if phase == "blink": blink_count += 1
+            if phase == "green":  green_count  += 1
+            elif phase == "yellow": yellow_count += 1
+            elif phase == "red":  red_count    += 1
+            elif phase == "blink": blink_count  += 1
 
             nodes[node_id] = NodeState(
                 node_id        = node_id,
@@ -409,6 +415,8 @@ class TrafficAlgorithm:
             flows          = flows,
             total_entities = total_entities,
             green_count    = green_count,
+            yellow_count   = yellow_count,
+            red_count      = red_count,
             blink_count    = blink_count,
         )
 
