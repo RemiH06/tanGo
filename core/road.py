@@ -565,6 +565,7 @@ class Intersection:
     intersection_type: IntersectionType     = IntersectionType.NORMAL
     geometry:          IntersectionGeometry = IntersectionGeometry.CROSS
     degree_weight:     float                = 1.0  # peso por conectividad del nodo
+    node_weight:       float                = 1.0  # peso estático combinado (centralidad+degree+road_quality)
     incoming_segments: List[RoadSegment]    = field(default_factory=list)
     current_phase:     Phase                = Phase.RED
     pressure:          float                = 0.0
@@ -580,6 +581,12 @@ class Intersection:
     _pressure_ew: float = field(default=0.0, init=False, repr=False)
     # Ticks consecutivos sin entidades → activa BLINK
     _ticks_empty: int   = field(default=0,   init=False, repr=False)
+    # Tick global en que este nodo cambió a verde — para offset temporal
+    _green_started_tick: int  = field(default=-1, init=False, repr=False)
+    # Si True, este nodo debe ponerse en verde por ola verde (offset forzado)
+    _wave_forced: bool        = field(default=False, init=False, repr=False)
+    # Tick en que este nodo cambió a verde — para coordinación de offset
+    _green_started_tick: int = field(default=-1, init=False, repr=False)
 
     def __post_init__(self) -> None:
         if not (-90.0 <= self.latitude <= 90.0):
@@ -897,7 +904,8 @@ class Intersection:
 
             # Al pasar a verde, activar el eje ganador (exclusión mutua)
             if new_phase == Phase.GREEN:
-                self._active_axis = winner_axis
+                self._active_axis        = winner_axis
+                self._green_started_tick = getattr(self, "_current_tick", 0)
 
             # Al pasar a rojo, preparar el eje opuesto para el próximo ciclo
             elif new_phase == Phase.RED:
@@ -943,8 +951,9 @@ class Intersection:
         proximity_factor = 1.0 / (1.0 + travel_time_s / 30.0)
         influence = neighbor_pressure * proximity_factor
         logger.debug(
-            "[%s] señal vecinal: presión=%.1f dist=%.0fm t=%.0fs influencia=%.1f",
-            self.name, neighbor_pressure, distance_m, travel_time_s, influence
+            "[%s] señal vecinal: presión=%.1f dist=%.0fm t=%.1fs influencia=%.1f",
+            self.name, neighbor_pressure, distance_m,
+            min(travel_time_s, 9999.9), influence
         )
         return influence
 

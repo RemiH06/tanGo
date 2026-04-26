@@ -162,10 +162,12 @@ class WeightEngine:
         )
 
         # weight_multiplier: tipo × geometría (escala el denominador)
-        # degree_weight: nodos más conectados necesitan más demanda para cambiar
-        #   degree_weight=1.0 (default) → sin efecto
-        #   degree_weight=1.6 (nodo con 5 vías) → 60% más demanda requerida
-        road_weight *= intersection.weight_multiplier * intersection.degree_weight
+        # node_weight: peso estático combinado (centralidad + degree + road_quality)
+        #   node_weight=1.0 → intersección promedio de la red
+        #   node_weight=1.4 → nodo muy central — necesita más demanda para cambiar
+        #   node_weight=0.6 → nodo periférico — cambia con menos presión
+        # degree_weight se mantiene por compatibilidad; node_weight lo engloba en sim2+
+        road_weight *= intersection.weight_multiplier * intersection.node_weight
 
         pressure = (total_entity_weight / road_weight) * 100.0
 

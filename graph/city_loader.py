@@ -520,6 +520,9 @@ def process_graph(raw: dict, max_nodes: int = 200) -> dict:
         len(tango_nodes), len(isolated)
     )
 
+    # ── Calcular pesos estáticos (centralidad + degree + road_quality) ──
+    tango_nodes = compute_static_weights(tango_nodes, tango_edges)
+
     # ── Fusionar nodos duplicados del mismo cruce físico ──────────────────
     tango_nodes = merge_nearby_nodes(tango_nodes, MERGE_RADIUS_M)
 
@@ -604,6 +607,120 @@ def _haversine(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
     dlam = math.radians(lon2 - lon1)
     a = math.sin(dphi/2)**2 + math.cos(phi1)*math.cos(phi2)*math.sin(dlam/2)**2
     return R * 2 * math.atan2(math.sqrt(a), math.sqrt(1-a))
+
+
+def compute_static_weights(tango_nodes: list[dict],
+                            tango_edges: list[dict]) -> list[dict]:
+    """
+    Calcula los pesos estáticos de cada nodo usando tres dimensiones:
+
+    1. degree_weight   : ya existe — 1 + (street_count - 1) × 0.15
+    2. centrality      : betweenness centrality normalizada [0,1]
+                         Mide qué tan central es el nodo para el flujo
+                         de la red. Un nodo por el que pasan muchas rutas
+                         cortas tiene alta centralidad.
+    3. road_quality    : calidad promedio de las vías que llegan al nodo
+                         (HIGHWAY=1.0, MAIN_AVENUE=0.8, SECONDARY=0.5,
+                          STREET=0.2, ALLEY=0.1)
+
+    El peso combinado es la media geométrica de los tres:
+        combined = (degree × centrality_norm × road_quality) ^ (1/3)
+
+    Donde centrality_norm se escala para que el nodo de mayor centralidad
+    tenga centrality_weight = 1.5 y el menor 0.5.
+
+    Parameters
+    ----------
+    tango_nodes : Lista de nodos del grafo tanGo.
+    tango_edges : Lista de aristas del grafo tanGo.
+
+    Returns
+    -------
+    Lista de nodos con campo "static_weight" agregado.
+    """
+    import math
+    import networkx as nx
+
+    # Construir grafo NetworkX temporal para calcular centralidad
+    G = nx.DiGraph()
+    node_ids = {n["node_id"] for n in tango_nodes}
+
+    for n in tango_nodes:
+        G.add_node(n["node_id"])
+
+    for e in tango_edges:
+        if e["from_node_id"] in node_ids and e["to_node_id"] in node_ids:
+            G.add_edge(e["from_node_id"], e["to_node_id"],
+                       weight=float(e.get("length_m", 300)))
+
+    # Betweenness centrality — normalizada automáticamente por NetworkX
+    logger.info("Calculando betweenness centrality...")
+    if G.number_of_nodes() > 1:
+        centrality = nx.betweenness_centrality(G, normalized=True, weight="weight")
+    else:
+        centrality = {n["node_id"]: 0.5 for n in tango_nodes}
+
+    # Escalar centralidad a [0.5, 1.5]
+    c_values = list(centrality.values())
+    c_min, c_max = min(c_values), max(c_values)
+    c_range = c_max - c_min if c_max > c_min else 1.0
+
+    def scale_centrality(c: float) -> float:
+        return 0.5 + (c - c_min) / c_range
+
+    # Calidad de vía por categoría
+    ROAD_QUALITY = {
+        "HIGHWAY":          1.0,
+        "MAIN_AVENUE":      0.8,
+        "SECONDARY_AVENUE": 0.5,
+        "STREET":           0.2,
+        "ALLEY":            0.1,
+    }
+
+    # Calcular calidad de vía para cada nodo
+    # (promedio de las categorías de sus aristas entrantes)
+    node_road_quality: dict[str, float] = {}
+    for n in tango_nodes:
+        incoming = [e for e in tango_edges if e["to_node_id"] == n["node_id"]]
+        if incoming:
+            avg_q = sum(ROAD_QUALITY.get(e.get("category","STREET"), 0.2)
+                        for e in incoming) / len(incoming)
+        else:
+            avg_q = 0.2
+        node_road_quality[n["node_id"]] = avg_q
+
+    # Añadir pesos estáticos a cada nodo
+    for n in tango_nodes:
+        nid          = n["node_id"]
+        degree_w     = float(n.get("degree_weight", 1.0))
+        centrality_w = scale_centrality(centrality.get(nid, 0.0))
+        road_q       = node_road_quality.get(nid, 0.2)
+
+        # Media geométrica de las tres dimensiones
+        combined = (degree_w * centrality_w * road_q) ** (1/3)
+        combined = round(combined, 3)
+
+        n["static_weight"] = {
+            "degree":      round(degree_w, 3),
+            "centrality":  round(centrality_w, 3),
+            "road_quality": round(road_q, 3),
+            "combined":    combined,
+        }
+        n["node_weight"] = combined   # campo plano para acceso rápido
+
+        logger.debug(
+            "%s → degree=%.2f centrality=%.2f road_q=%.2f combined=%.3f",
+            nid, degree_w, centrality_w, road_q, combined
+        )
+
+    logger.info(
+        "Pesos estáticos calculados: %d nodos | "
+        "combined min=%.3f max=%.3f",
+        len(tango_nodes),
+        min(n["node_weight"] for n in tango_nodes),
+        max(n["node_weight"] for n in tango_nodes),
+    )
+    return tango_nodes
 
 
 def merge_nearby_nodes(nodes: list[dict],
@@ -860,6 +977,7 @@ def json_to_traffic_graph(path: str | Path) -> "TrafficGraph":
             geometry          = geo_map.get(n.get("geometry", "cross"),
                                            IntersectionGeometry.CROSS),
             degree_weight     = float(n.get("degree_weight", 1.0)),
+            node_weight       = float(n.get("node_weight", 1.0)),
         ))
 
     # Registrar clusters de coordinación en el grafo
