@@ -121,6 +121,20 @@ MASTER_MIN_STREETS: int = int(
 BLIND_MAX_STREETS: int = int(
     _itype_rules.get("blind_max_street_count", 1)
 )
+# Combinaciones de tipos de vía que generan BLIND aunque haya 2+ calles
+# (cruces entre calles residenciales sin semáforo)
+BLIND_WAY_COMBOS: list = [
+    frozenset(pair)
+    for pair in _itype_rules.get("blind_way_combinations", [
+        ["residential", "residential"],
+        ["residential", "unclassified"],
+        ["unclassified", "unclassified"],
+        ["living_street", "living_street"],
+        ["living_street", "residential"],
+        ["service", "service"],
+        ["service", "residential"],
+    ])
+]
 
 _ov_cfg = _CFG.get("overpass", {})
 OVERPASS_TIMEOUT:  int = int(_ov_cfg.get("timeout_s",       60))
@@ -350,13 +364,42 @@ def process_graph(raw: dict, max_nodes: int = 200) -> dict:
         way_types  = node_way_types.get(osm_id, set())
         street_cnt = node_way_count.get(osm_id, 1)
 
-        # Inferir IntersectionType
-        if any(t in MASTER_HIGHWAY_TYPES for t in way_types) and street_cnt >= MASTER_MIN_STREETS:
+        # ── Inferir IntersectionType con lógica granular ─────────────────
+        # Regla 1: MASTER — cruza al menos una vía principal con 3+ ramas
+        is_master = (
+            any(t in MASTER_HIGHWAY_TYPES for t in way_types)
+            and street_cnt >= MASTER_MIN_STREETS
+        )
+
+        # Regla 2: BLIND — cruce entre solo calles residenciales/servicio
+        # (sin vías importantes), aunque tenga 2+ ramas
+        way_types_list = sorted(way_types)
+        is_blind_combo = any(
+            frozenset([a, b]) in BLIND_WAY_COMBOS
+            for i, a in enumerate(way_types_list)
+            for b in way_types_list[i:]
+        )
+        is_blind = (
+            street_cnt <= BLIND_MAX_STREETS
+            or (is_blind_combo and not any(
+                t in MASTER_HIGHWAY_TYPES
+                or t in ("secondary", "tertiary")
+                for t in way_types
+            ))
+        )
+
+        if is_master:
             itype = "MASTER"
-        elif street_cnt > BLIND_MAX_STREETS:
-            itype = "NORMAL"
-        else:
+        elif is_blind:
             itype = "BLIND"
+        else:
+            itype = "NORMAL"
+
+        # ── Peso por degree (conectividad del nodo) ───────────────────────
+        # Más conexiones = más peso = más prioridad en el algoritmo.
+        # Se normaliza sobre el máximo observado en el grafo.
+        # Se guarda como degree_weight para usarlo en WeightEngine.
+        degree_weight = round(1.0 + (street_cnt - 1) * 0.15, 2)
 
         # Inferir geometría desde OSM
         geometry = _infer_geometry(osm_id, way_types, street_cnt, osm_ways)
@@ -368,8 +411,11 @@ def process_graph(raw: dict, max_nodes: int = 200) -> dict:
             "longitude":         node_data["lon"],
             "intersection_type": itype,
             "geometry":          geometry,
+            "osm_ids":           [osm_id],
             "osm_id":            osm_id,
             "street_count":      street_cnt,
+            "degree_weight":     degree_weight,
+            "way_types":         sorted(way_types),
         })
 
     logger.info(f"  Nodos tanGo: {len(tango_nodes)}")
@@ -813,13 +859,20 @@ def json_to_traffic_graph(path: str | Path) -> "TrafficGraph":
                                               IntersectionType.NORMAL),
             geometry          = geo_map.get(n.get("geometry", "cross"),
                                            IntersectionGeometry.CROSS),
+            degree_weight     = float(n.get("degree_weight", 1.0)),
         ))
 
     # Registrar clusters de coordinación en el grafo
-    clusters = data.get("clusters", {})
+    # Filtrar miembros del cluster contra nodos realmente cargados
+    raw_clusters = data.get("clusters", {})
+    clusters = {
+        cid: [n for n in members if n in graph.intersections]
+        for cid, members in raw_clusters.items()
+    }
+    clusters = {cid: mems for cid, mems in clusters.items() if len(mems) >= 2}
+
     if clusters:
         graph.intersection_clusters = clusters
-        # Mapa inverso: node_id → cluster_id
         graph.node_to_cluster = {
             nid: cid
             for cid, members in clusters.items()

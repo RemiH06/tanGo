@@ -2,10 +2,10 @@
   "_doc": "Configuracion del grafo vial. Edita y corre: python graph/city_loader.py",
   "city": {
     "name": "Guadalajara ZMG",
-    "center_lat": 20.60831694920433,
-    "center_lon": -103.41458846733374,
-    "radius_m": 1500,
-    "max_nodes": 1000,
+    "center_lat": 20.60422540508558, 
+    "center_lon": -103.41221530446131,
+    "radius_m": 3000,
+    "max_nodes": 1500,
     "output": "graph/city_graph.json"
   },
   "highway_filter": [
@@ -37,14 +37,45 @@
     "ALLEY": 15.0
   },
   "intersection_type_rules": {
-    "_doc": "street_count = cuantas vias confluyen en el nodo OSM",
+    "_doc": "Determina el tipo de interseccion basado en las vias que confluyen",
     "master_min_street_count": 3,
     "master_highway_types": [
       "primary",
       "trunk",
       "motorway"
     ],
-    "blind_max_street_count": 1
+    "blind_max_street_count": 1,
+    "blind_way_combinations": [
+      [
+        "residential",
+        "residential"
+      ],
+      [
+        "residential",
+        "unclassified"
+      ],
+      [
+        "unclassified",
+        "unclassified"
+      ],
+      [
+        "living_street",
+        "living_street"
+      ],
+      [
+        "living_street",
+        "residential"
+      ],
+      [
+        "service",
+        "service"
+      ],
+      [
+        "service",
+        "residential"
+      ]
+    ],
+    "_doc_blind": "Si el cruce es SOLO entre estos tipos de via, es BLIND aunque tenga 2+ calles"
   },
   "geometry_rules": {
     "_doc": "Reglas para inferir geometria desde tags OSM",
@@ -80,8 +111,8 @@
     "_doc": "Agrupa intersecciones fisicamente cercanas del mismo cruce",
     "merge_radius_m": 15,
     "_doc_merge": "Nodos a menos de esta distancia se fusionan en uno solo",
-    "cluster_radius_m": 60,
-    "_doc_cluster": "Nodos entre merge y cluster forman un grupo coordinado",
+    "cluster_radius_m": 90,
+    "_doc_cluster": "Nodos entre merge_radius y cluster_radius forman un grupo coordinado. 90m cubre avenidas con camellon en ZMG (camellon ~15m + carriles ~3.5m c/u)",
     "cluster_coordination": true
   }
 }

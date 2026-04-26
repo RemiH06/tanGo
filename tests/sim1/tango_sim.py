@@ -367,15 +367,17 @@ def _tick_result_to_frame(result: TickResult, graph: TrafficGraph) -> dict:
             "cluster_id":   ns.cluster_id,
         }
 
+    clusters = getattr(graph, "intersection_clusters", {})
     return {
-        "tick":    result.tick_number,
-        "nodes":   nodes_frame,
-        "flows":   result.flows,
-        "total":   result.total_entities,
-        "greens":  result.green_count,
-        "yellows": result.yellow_count,
-        "reds":    result.red_count,
-        "blinks":  result.blink_count,
+        "tick":          result.tick_number,
+        "nodes":         nodes_frame,
+        "flows":         result.flows,
+        "total":         result.total_entities,
+        "greens":        result.green_count,
+        "yellows":       result.yellow_count,
+        "reds":          result.red_count,
+        "blinks":        result.blink_count,
+        "cluster_sizes": {cid: len(mems) for cid, mems in clusters.items()},
     }
 
 
@@ -845,12 +847,16 @@ def build_vis(graph: TrafficGraph, all_histories: list[tuple]) -> str:
                 for fl in snap["flows"]
             ]
             all_snaps_js.append({
-                "scenario": sc_label,
-                "tick":     snap["tick"],
-                "total":    snap["total"],
-                "greens":   snap["greens"],
-                "nodes":    nodes_js,
-                "flows":    flows_js,
+                "scenario":     sc_label,
+                "tick":         snap["tick"],
+                "total":        snap["total"],
+                "greens":       snap["greens"],
+                "yellows":      snap.get("yellows", 0),
+                "reds":         snap.get("reds",    0),
+                "blinks":       snap.get("blinks",  0),
+                "cluster_sizes": snap.get("cluster_sizes", {}),
+                "nodes":        nodes_js,
+                "flows":        flows_js,
             })
 
     # ── Serializar aristas estáticas ──────────────────────────────────────────
@@ -1127,7 +1133,10 @@ function applySnap(snap){{
     const st=NODES_STATIC[nid];
     const baseR = st.itype==='master'?13:st.itype==='normal'?10:7;
     m.setStyle({{
-      fillColor: nd.phase==='blink' ? (_blinkOn?'#f59e0b':'#1e293b') : (PHASE_C[nd.phase]||'#ef4444'),
+      fillColor:   !nd.has_light ? '#374151'
+                 : nd.phase==='blink' ? (_blinkOn?'#f59e0b':'#1e293b')
+                 : (PHASE_C[nd.phase]||'#ef4444'),
+      fillOpacity: !nd.has_light ? 0.45 : 0.88,
       radius: Math.min(22,baseR+nd.pressure*.06),
     }});
     const ns=nd.has_light?`NS:${{nd.phase_ns.toUpperCase()}} EW:${{nd.phase_ew.toUpperCase()}}`:'sin semaforo';
@@ -1224,7 +1233,20 @@ function renderNodePanel(nid,nd,st){{
     <div class="ir">Tipo<span>${{(nd.itype||'').toUpperCase()}}</span></div>
     <div class="ir">Geometria<span>${{st?st.geometry:''}}</span></div>
     <div class="ir">Semaforo<span>${{nd.has_light?'Si':'No'}}</span></div>
-    ${{nd.cluster_id?`<div class="ir">Cluster<span style="color:#f59e0b">${{nd.cluster_id}}</span></div>`:''}}
+    ${{nd.cluster_id?`
+    <div class="ir">Cluster
+      <span style="color:#f59e0b">${{nd.cluster_id.replace('cluster_','')}}</span>
+    </div>
+    <div style="font-size:10px;color:var(--muted);margin-top:2px">
+      Nodos en cluster: <b>${{(ALL_SNAPS[frameIdx]?.cluster_sizes||{{}})[nd.cluster_id]||'?'}}</b>
+    </div>
+    <div style="font-size:10px;margin-top:4px">
+      ${{Object.entries(nd.signals||{{}}).map(([dir,ph])=>{{
+        const col={{green:'var(--green)',yellow:'var(--yellow)',red:'var(--red)',blink:'#f59e0b',none:'var(--muted)'}};
+        return `<span style="color:${{col[ph]||'var(--muted)'}};margin-right:6px;font-weight:700">${{dir}}:${{ph.toUpperCase()}}</span>`;
+      }}).join('')}}
+    </div>
+    `:''}}
   </div>
   ${{nd.has_light?`
   <div class="ic">

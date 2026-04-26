@@ -161,10 +161,11 @@ class WeightEngine:
             if main_seg else _MIN_ROAD_WEIGHT
         )
 
-        # El weight_multiplier del tipo de intersección escala el denominador:
-        # MASTER × 1.5 → necesita más entidades para llegar al umbral
-        # BLIND  × 0.3 → acumula presión rápido pero nunca cambia fase (umbral 999)
-        road_weight *= intersection.weight_multiplier
+        # weight_multiplier: tipo × geometría (escala el denominador)
+        # degree_weight: nodos más conectados necesitan más demanda para cambiar
+        #   degree_weight=1.0 (default) → sin efecto
+        #   degree_weight=1.6 (nodo con 5 vías) → 60% más demanda requerida
+        road_weight *= intersection.weight_multiplier * intersection.degree_weight
 
         pressure = (total_entity_weight / road_weight) * 100.0
 

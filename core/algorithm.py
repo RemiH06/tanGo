@@ -70,9 +70,24 @@ logger = logging.getLogger(__name__)
 
 NEIGHBOR_WEIGHT:   float = 0.25   # peso de la señal vecinal sobre presión propia
 WAVE_BOOST_WEIGHT: float = 0.15   # peso del boost de green wave
-WAVE_URGENCY_S:    float = 20.0   # segundos de referencia para urgencia (offset < esto → alto boost)
-MASTER_AMPLIFIER:  float = 1.3    # nodos MASTER amplifican su señal × este factor
-CLUSTER_YIELD:     float = 0.3    # el nodo perdedor del cluster reduce su presión a este factor
+WAVE_URGENCY_S:    float = 20.0   # segundos de referencia para urgencia
+MASTER_AMPLIFIER:  float = 1.3    # nodos MASTER amplifican señal × este factor
+CLUSTER_YIELD:     float = 0.3    # nodo perdedor de cluster reduce presión a este factor
+
+# Duración de un tick en segundos simulados (documentado en sim_params.json)
+# Usado para convertir offsets de segundos a ticks en la coordinación temporal
+TICK_DURATION_S:   float = 30.0   # 1 tick ≈ 30 segundos simulados
+
+# ── Parámetros de coordinación temporal (offset real) ────────────────────────
+# 1 tick ≈ TICK_DURATION_S segundos de tiempo simulado.
+# Documentado en sim_params.json["simulation"]["tick_duration_seconds"].
+# Este valor convierte offsets en segundos a ticks para la coordinación.
+TICK_DURATION_S:   float = 30.0   # segundos reales que representa 1 tick
+
+# Si el flujo del vecino ya debería haber llegado (offset cumplido),
+# forzar verde en este nodo aunque la presión no alcance el umbral.
+# Esto implementa la ola verde garantizada independiente de la presión.
+GREEN_WAVE_FORCE:  bool  = True
 
 
 # ── TickResult ────────────────────────────────────────────────────────────────
@@ -94,6 +109,8 @@ class NodeState:
     pressure_ns:    float          # presión del eje N-S
     pressure_ew:    float          # presión del eje E-O
     wave_offset_s:  float          # segundos hasta que llegue la ola del vecino verde
+    wave_forced:    bool           # True si este tick fue forzado a verde por la ola
+    has_light:      bool           # True si tiene semáforo físico
     threshold:      float          # umbral de presión para cambiar de fase
     ticks_in_phase: int
     timeout_ticks:  int
@@ -165,13 +182,15 @@ class TrafficAlgorithm:
         """
         self._tick = 0
         for inter in self.graph.intersections.values():
-            inter.current_phase      = Phase.RED
-            inter._ticks_in_phase    = 0
-            inter._timeout_triggered = False
-            inter._ticks_empty       = 0
-            inter._pressure_ns       = 0.0
-            inter._pressure_ew       = 0.0
-            inter.pressure           = 0.0
+            inter.current_phase        = Phase.RED
+            inter._ticks_in_phase      = 0
+            inter._timeout_triggered   = False
+            inter._ticks_empty         = 0
+            inter._pressure_ns         = 0.0
+            inter._pressure_ew         = 0.0
+            inter.pressure             = 0.0
+            inter._green_started_tick  = -1
+            inter._current_tick        = 0
         logger.debug("TrafficAlgorithm reiniciado")
 
     # ── API principal ─────────────────────────────────────────────────────────
@@ -182,31 +201,46 @@ class TrafficAlgorithm:
         """
         Ejecuta un tick completo del algoritmo de coordinación.
 
-        Este es el único método que necesitas llamar desde la simulación
-        o desde el DAG de Airflow. Internamente ejecuta los tres pasos.
+        Cuatro pasos secuenciales:
 
-        Parameters
-        ----------
-        entities_by_node : Dict node_id → lista de entidades presentes.
-                           Puede venir del simulador o de VisionIngester.
-        ctx              : Contexto ambiental del ciclo (hora, clima, etc.)
+        Paso 1 — Presión propia
+            WeightEngine.aggregate_pressure() por nodo. Función pura.
 
-        Returns
-        -------
-        TickResult con el estado de todas las intersecciones y flujos.
+        Paso 2 — Mente colmena (boost de presión vecinal)
+            Influencia de vecinos upstream ponderada por proximidad.
+            Boost de urgencia si el vecino está en verde.
+
+        Paso 2b — Offset temporal real (green wave garantizada)
+            Si el flujo de un vecino upstream en verde ya debería haber
+            llegado (offset_ticks cumplidos desde que el vecino se puso
+            en verde), marcar este nodo como "wave_forced" para que
+            Paso 3 lo fuerce a verde independientemente de la presión.
+            Esto es lo que diferencia tanGo de un sistema de presión puro
+            y lo acerca a la coordinación temporal de SCOOT.
+
+        Paso 3 — Ajuste de fases con coordinación de cluster
+            Aplica fases con exclusión mutua NS/EW, BLINK sin tráfico,
+            timeout de equidad, y coordinación de cluster.
         """
         self._tick += 1
+
+        # Informar el tick actual a cada intersección (para _green_started_tick)
+        for inter in self.graph.intersections.values():
+            inter._current_tick = self._tick
 
         # Paso 1: presiones propias
         pressures_own = self._compute_own_pressures(entities_by_node, ctx)
 
-        # Paso 2: coordinación vecinal + green wave
+        # Paso 2: coordinación vecinal + green wave (boost anticipatorio + offset temporal)
+        # _propagate_neighbor_signals marca inter._wave_forced=True cuando el offset se cumple
         pressures_combined, wave_offsets = self._propagate_neighbor_signals(
             pressures_own, ctx
         )
 
-        # Paso 3: ajuste de fases con coordinación de cluster
-        self._adjust_phases(entities_by_node, pressures_combined, pressures_own, ctx)
+        # Paso 3: ajuste de fases — consume _wave_forced y registra _green_started_tick
+        self._adjust_phases(
+            entities_by_node, pressures_combined, pressures_own, ctx
+        )
 
         # Construir resultado
         return self._build_result(
@@ -233,6 +267,81 @@ class TrafficAlgorithm:
             inter.pressure = p
         return pressures
 
+    # ── Paso 2b: offset temporal real ────────────────────────────────────────
+
+    def _apply_green_wave_offset(
+            self,
+            wave_offsets: dict[str, float]) -> set[str]:
+        """
+        Implementa la coordinación temporal real de la ola verde.
+
+        Para cada nodo que tiene un vecino upstream en verde, calcula
+        cuántos ticks han pasado desde que el vecino se puso en verde.
+        Si ese número supera el offset_ticks calculado, el flujo ya
+        debería haber llegado — forzar verde en este nodo.
+
+        Esto garantiza la ola verde independientemente de la presión,
+        cerrando la diferencia con SCOOT en el componente de offset.
+
+        Parameters
+        ----------
+        wave_offsets : Dict node_id → offset en segundos desde el vecino
+                       upstream más cercano en verde (calculado en Paso 2).
+
+        Returns
+        -------
+        Set de node_ids que deben ser forzados a verde por la ola.
+        """
+        if not GREEN_WAVE_FORCE:
+            return set()
+
+        wave_forced: set[str] = set()
+
+        for node_id, inter in self.graph.intersections.items():
+            # Solo aplicar a nodos que actualmente están en RED
+            if inter.current_phase.value not in ("red", "blink"):
+                continue
+
+            for from_id, to_id, edge_data in self.graph.graph.edges(data=True):
+                if to_id != node_id:
+                    continue
+
+                upstream = self.graph.intersections.get(from_id)
+                if not upstream:
+                    continue
+
+                # El upstream debe estar en verde
+                if upstream.current_phase.value != "green":
+                    continue
+
+                # ¿Cuándo se puso en verde el upstream?
+                green_tick = getattr(upstream, "_green_started_tick", -1)
+                if green_tick < 0:
+                    continue
+
+                seg = edge_data["segment"]
+                try:
+                    offset_s    = self.engine.compute_green_wave_offset(
+                        distance_m      = seg.length_m,
+                        speed_limit_kmh = seg.speed_limit_kmh,
+                    )
+                    offset_ticks = max(1, round(offset_s / TICK_DURATION_S))
+                except (ValueError, ZeroDivisionError):
+                    continue
+
+                ticks_since_green = self._tick - green_tick
+
+                if ticks_since_green >= offset_ticks:
+                    wave_forced.add(node_id)
+                    logger.info(
+                        "[%s] GREEN WAVE — flujo de [%s] llegó "
+                        "(offset=%d ticks, transcurridos=%d)",
+                        node_id, from_id, offset_ticks, ticks_since_green
+                    )
+                    break   # un upstream es suficiente para forzar verde
+
+        return wave_forced
+
     # ── Paso 2: mente colmena ─────────────────────────────────────────────────
 
     def _propagate_neighbor_signals(
@@ -241,26 +350,36 @@ class TrafficAlgorithm:
             ctx: TrafficContext
     ) -> tuple[dict[str, float], dict[str, float]]:
         """
-        Implementa la coordinación tipo mente colmena:
+        Coordinación tipo SCOOT: señal vecinal + offset temporal real.
 
-        Cada nodo suma a su presión propia:
-          a) Influencia de vecinos upstream ponderada por proximidad.
-             Intersection.receive_neighbor_signal() calcula el factor
-             de decaimiento por distancia y tiempo de viaje.
-          b) Boost de green wave: si el vecino está en verde, el flujo
-             se aproxima — preparar el verde anticipadamente.
+        Para cada nodo B con vecino A upstream, calcula:
 
-        Los nodos MASTER amplifican su señal MASTER_AMPLIFIER veces
-        porque representan corredores de mayor capacidad.
+          a) Señal de presión vecinal — cuánto tráfico viene de A.
+             Decae con la distancia (Intersection.receive_neighbor_signal).
+
+          b) Offset temporal — si A cambió a verde hace exactamente
+             offset_ticks ticks, el flujo de A ya llegó a B.
+             En ese caso, B DEBE estar en verde — se marca _wave_forced=True.
+             Esto implementa la coordinación temporal de SCOOT.
+
+          c) Boost anticipatorio — si A está en verde pero el flujo
+             aún no llega (offset no cumplido), aumentar presión de B
+             para prepararlo. Factor inversamente proporcional al tiempo
+             de llegada restante.
+
+        _wave_forced es consumido por _adjust_phases para forzar verde
+        independientemente de la presión local.
 
         Returns
         -------
         (pressures_combined, wave_offsets)
-          pressures_combined : presión total por nodo (propia + vecinal + wave)
-          wave_offsets       : segundos hasta la ola verde por nodo
         """
         pressures_combined: dict[str, float] = {}
         wave_offsets:       dict[str, float] = {}
+
+        # Primero limpiar flags de ola forzada del tick anterior
+        for inter in self.graph.intersections.values():
+            inter._wave_forced = False
 
         for node_id, inter in self.graph.intersections.items():
             combined   = pressures_own[node_id]
@@ -276,7 +395,7 @@ class TrafficAlgorithm:
 
                 seg = edge_data["segment"]
 
-                # a) Señal vecinal ponderada por proximidad
+                # a) Señal vecinal de presión
                 influence = inter.receive_neighbor_signal(
                     neighbor_pressure = pressures_own[neighbor_id],
                     distance_m        = seg.length_m,
@@ -284,20 +403,45 @@ class TrafficAlgorithm:
                 )
                 if neighbor_inter.intersection_type.value == "master":
                     influence *= MASTER_AMPLIFIER
-
                 combined += influence * NEIGHBOR_WEIGHT
 
-                # b) Green wave boost
+                # b + c) Green wave: offset temporal + boost anticipatorio
                 if neighbor_inter.current_phase.value == "green":
                     try:
-                        offset_s = self.engine.compute_green_wave_offset(
+                        offset_s     = self.engine.compute_green_wave_offset(
                             distance_m      = seg.length_m,
                             speed_limit_kmh = seg.speed_limit_kmh,
                         )
-                        urgency    = 1.0 / (1.0 + offset_s / WAVE_URGENCY_S)
-                        wave_boost = pressures_own[neighbor_id] * urgency
-                        combined  += wave_boost * WAVE_BOOST_WEIGHT
-                        min_offset = min(min_offset, offset_s)
+                        offset_ticks = max(1, round(offset_s / TICK_DURATION_S))
+                        min_offset   = min(min_offset, offset_s)
+
+                        # Ticks desde que el vecino cambió a verde
+                        ticks_since_green = (
+                            self._tick - neighbor_inter._green_started_tick
+                            if neighbor_inter._green_started_tick >= 0
+                            else float("inf")
+                        )
+
+                        if ticks_since_green >= offset_ticks:
+                            # ── Offset cumplido: el flujo ya llegó ──────────
+                            # Forzar verde en B — coordinación temporal SCOOT
+                            if inter.has_traffic_light:
+                                inter._wave_forced = True
+                                logger.info(
+                                    "[%s] GREEN WAVE forzada desde [%s] "
+                                    "(offset=%.0fs=%d ticks, transcurridos=%d)",
+                                    node_id, neighbor_id,
+                                    offset_s, offset_ticks,
+                                    int(min(ticks_since_green, 9999))
+                                )
+                        else:
+                            # ── Offset pendiente: boost anticipatorio ────────
+                            ticks_remaining = offset_ticks - ticks_since_green
+                            urgency    = 1.0 / (1.0 + ticks_remaining * TICK_DURATION_S
+                                                / WAVE_URGENCY_S)
+                            wave_boost = pressures_own[neighbor_id] * urgency
+                            combined  += wave_boost * WAVE_BOOST_WEIGHT
+
                     except (ValueError, ZeroDivisionError):
                         pass
 
@@ -315,28 +459,32 @@ class TrafficAlgorithm:
             entities_by_node: dict[str, list[TrafficEntity]],
             pressures_combined: dict[str, float],
             pressures_own: dict[str, float],
-            ctx: TrafficContext) -> None:
+            ctx: TrafficContext,
+            ) -> None:
         """
         Aplica la presión combinada a cada intersección y determina la fase.
 
-        Coordinación de cluster:
-          Nodos del mismo cluster son interdependientes. El nodo de mayor
-          presión gana el verde; los demás reducen su presión efectiva
-          a CLUSTER_YIELD × presión si el ganador ya está en verde.
-          Esto evita que dos intersecciones adyacentes del mismo cruce
-          complejo estén verdes al mismo tiempo.
-
-        La máquina de estados final vive en Intersection.adjust_phase()
-        que garantiza la exclusión mutua NS/EW y activa BLINK sin tráfico.
+        Si inter._wave_forced=True (puesto por _propagate_neighbor_signals),
+        se fuerza el verde independientemente de la presión local —
+        la ola verde llegó temporalmente (SCOOT offset cumplido).
         """
-        # Determinar ganador por cluster
+        # Determinar ganador por cluster — _wave_forced también puede ganar
         cluster_winner: dict[str, str] = {}
         for cid, members in self._clusters.items():
-            valid = [n for n in members if n in pressures_combined]
-            if valid:
-                cluster_winner[cid] = max(
-                    valid, key=lambda n: pressures_combined[n]
-                )
+            # Filtrar solo los nodos que existen en el grafo actual
+            existing = [n for n in members if n in self.graph.intersections]
+            if not existing:
+                continue
+            wave_in_cluster = [n for n in existing
+                               if self.graph.intersections[n]._wave_forced]
+            if wave_in_cluster:
+                cluster_winner[cid] = wave_in_cluster[0]
+            else:
+                valid = [n for n in existing if n in pressures_combined]
+                if valid:
+                    cluster_winner[cid] = max(
+                        valid, key=lambda n: pressures_combined[n]
+                    )
 
         for node_id, inter in self.graph.intersections.items():
             ents = entities_by_node.get(node_id, [])
@@ -345,16 +493,22 @@ class TrafficAlgorithm:
             # Ceder el verde al ganador del cluster
             cid = self._node_to_cluster.get(node_id)
             if cid and cluster_winner.get(cid) != node_id:
-                winner_id    = cluster_winner[cid]
-                winner_phase = self.graph.intersections[winner_id].current_phase
-                if winner_phase == Phase.GREEN:
+                winner_inter = self.graph.intersections.get(cluster_winner[cid])
+                if winner_inter and winner_inter.current_phase == Phase.GREEN:
                     inter.pressure *= CLUSTER_YIELD
-                    logger.debug(
-                        "[%s] cluster %s — cediendo verde a %s",
-                        node_id, cid, winner_id
-                    )
+
+            prev_phase = inter.current_phase
+
+            # Ola verde temporal (offset SCOOT cumplido) — forzar presión
+            if inter._wave_forced and inter.has_traffic_light:
+                inter.pressure = max(inter.pressure,
+                                     inter.pressure_threshold + 50.0)
 
             inter.adjust_phase(self.engine, ctx, ents)
+
+            # Registrar tick de inicio de verde (para propagar la ola al siguiente)
+            if inter.current_phase == Phase.GREEN and prev_phase != Phase.GREEN:
+                inter._green_started_tick = self._tick
 
     # ── Construcción del resultado ────────────────────────────────────────────
 
@@ -363,7 +517,8 @@ class TrafficAlgorithm:
             entities_by_node: dict[str, list[TrafficEntity]],
             pressures_own: dict[str, float],
             pressures_combined: dict[str, float],
-            wave_offsets: dict[str, float]) -> TickResult:
+            wave_offsets: dict[str, float],
+            wave_forced: set[str] | None = None) -> TickResult:
         """
         Construye el TickResult con el estado actual de todas las
         intersecciones. Inmutable — puede guardarse en BD o enviarse
@@ -399,6 +554,8 @@ class TrafficAlgorithm:
                 pressure_ns    = round(inter._pressure_ns, 1),
                 pressure_ew    = round(inter._pressure_ew, 1),
                 wave_offset_s  = round(wave_offsets.get(node_id, 0.0), 1),
+                wave_forced    = node_id in (wave_forced or set()),
+                has_light      = inter.has_traffic_light,
                 threshold      = inter.pressure_threshold,
                 ticks_in_phase = inter._ticks_in_phase,
                 timeout_ticks  = inter.red_timeout_ticks,
