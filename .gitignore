@@ -56,3 +56,5 @@ tests/sim1/tango_sim.html
 tests/sim1/tango_vis.html
 tests/sim1/tango_map.html
 tests/sim1/c222/caso222_vis.html
+tests/sim0/tango_vis_sim0.html
+tests/sim2/tango_vis_sim2.html

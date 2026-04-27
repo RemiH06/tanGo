@@ -497,7 +497,7 @@ function apply(snap){{
   let greens=0,reds=0;
   Object.values(snap.nodes).forEach(nd=>{{
     if(nd.phase==='green')greens++;
-    if(nd.phase==='red')reds++;
+    if(nd.phase==='red'&&nd.has_light)reds++;  // BLINK no cuenta como rojo
   }});
   document.getElementById('sk').textContent=snap.tick;
   document.getElementById('sn').textContent=snap.current_node;

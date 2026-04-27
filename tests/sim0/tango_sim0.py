@@ -20,17 +20,23 @@ from core.road       import Phase
 from core.entities   import Vehicle, Pedestrian
 from graph.simulator import TrafficGraph
 from graph.city_loader import json_to_traffic_graph
-# Import robusto — funciona tanto desde la raíz como desde tests/sim0/
-import importlib.util as _ilu
-_ta_spec = _ilu.spec_from_file_location(
-    "timer_algorithm",
-    str(Path(__file__).parent / "timer_algorithm.py")
-)
-_ta_mod = _ilu.module_from_spec(_ta_spec)
-import sys as _sys; _sys.modules["timer_algorithm"] = _ta_mod
-_ta_spec.loader.exec_module(_ta_mod)
-TimerAlgorithm = _ta_mod.TimerAlgorithm
-from tango_sim import spawn_for_node, load_params, compute_center, build_folium_map
+# Import robusto — agrega el directorio de sim0 al path y luego importa normal
+import sys as _sys, os as _os
+_sim0_dir = _os.path.dirname(_os.path.abspath(__file__))
+if _sim0_dir not in _sys.path:
+    _sys.path.insert(0, _sim0_dir)
+from timer_algorithm import TimerAlgorithm
+# Import robusto de tango_sim — funciona desde cualquier directorio
+import importlib.util as _ilu2, sys as _sys2
+_ts_path = str(Path(__file__).parent.parent / "sim1" / "tango_sim.py")
+_ts_spec = _ilu2.spec_from_file_location("tango_sim_mod", _ts_path)
+_ts_mod  = _ilu2.module_from_spec(_ts_spec)
+_sys2.modules["tango_sim_mod"] = _ts_mod
+_ts_spec.loader.exec_module(_ts_mod)
+spawn_for_node   = _ts_mod.spawn_for_node
+load_params      = _ts_mod.load_params
+compute_center   = _ts_mod.compute_center
+build_folium_map = _ts_mod.build_folium_map
 
 logger     = logging.getLogger(__name__)
 OUTPUT_VIS = Path(__file__).parent / "tango_vis_sim0.html"
@@ -231,7 +237,11 @@ input[type=range]{{flex:1;accent-color:var(--yel)}}
   {btns}
 </div>
 <script>
-const S={sj},E={ej},N={nj},SI={scj},NS={ns};
+const S={sj};
+const E={ej};
+const N={nj};
+const SI={scj};
+const NS={ns};
 const PC={{green:'#22c55e',yellow:'#eab308',red:'#ef4444'}};
 const IR={{master:'#f59e0b',normal:'#eab308',blind:'#64748b'}};
 const CC={{MAIN_AVENUE:'#1d4ed8',SECONDARY_AVENUE:'#6d28d9',STREET:'#1e293b',HIGHWAY:'#0f172a',ALLEY:'#111827'}};
