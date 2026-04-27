@@ -969,7 +969,7 @@ def json_to_traffic_graph(path: str | Path) -> "TrafficGraph":
 
     # Nodos
     for n in data["nodes"]:
-        graph.add_intersection(Intersection(
+        inter = Intersection(
             node_id           = n["node_id"],
             name              = n["name"],
             latitude          = n["latitude"],
@@ -980,7 +980,10 @@ def json_to_traffic_graph(path: str | Path) -> "TrafficGraph":
                                            IntersectionGeometry.CROSS),
             degree_weight     = float(n.get("degree_weight", 1.0)),
             node_weight       = float(n.get("node_weight", 1.0)),
-        ))
+        )
+        # static_weight no es campo del dataclass — se agrega dinámicamente
+        inter.static_weight = n.get("static_weight", {})
+        graph.add_intersection(inter)
 
     # Registrar clusters de coordinación en el grafo
     # Filtrar miembros del cluster contra nodos realmente cargados

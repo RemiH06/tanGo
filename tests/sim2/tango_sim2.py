@@ -81,8 +81,8 @@ def simulate(scenario: dict, graph: TrafficGraph,
     mov_params = params.get("movement", {})
     movement = MovementEngine(
         graph,
-        spawn_rate   = mov_params.get("spawn_rate",   4),
-        max_entities = mov_params.get("max_entities", 60),
+        spawn_rate   = mov_params.get("spawn_rate",   15),
+        max_entities = mov_params.get("max_entities", 300),
     )
 
     algo = TrafficAlgorithm(graph)
@@ -373,6 +373,7 @@ input[type=range]{{flex:1;accent-color:var(--blue)}}
       <div class="st"><div class="sv" id="sg2" style="color:var(--grn)">0</div><div class="sl">Verde</div></div>
       <div class="st"><div class="sv" id="sy" style="color:var(--yel)">0</div><div class="sl">Amarillo</div></div>
       <div class="st"><div class="sv" id="sr" style="color:var(--red)">0</div><div class="sl">Rojo</div></div>
+      <div class="st"><div class="sv" id="sblink" style="color:#f59e0b">0</div><div class="sl">Blink</div></div>
       <div class="st"><div class="sv" id="sm" style="color:var(--blue)">0</div><div class="sl">En ruta</div></div>
       <div class="st"><div class="sv" id="sa" style="color:var(--tel)">0</div><div class="sl">Llegaron</div></div>
       <div class="st"><div class="sv" id="sn">{len(ns_js)}</div><div class="sl">Nodos</div></div>
@@ -488,14 +489,18 @@ function apply(snap){{
     }});
   }}
 
-  // Stats
+  // Stats — blink separado de rojo
   const pc={{green:0,yellow:0,red:0,blink:0}};
-  Object.values(snap.nodes).forEach(nd=>{{const p=nd.phase==='blink'&&!nd.has_light?'blind':nd.phase;if(pc[p]!==undefined)pc[p]++;}});// blink sin semaforo no cuenta como rojo;
+  Object.values(snap.nodes).forEach(nd=>{{
+    if(!nd.has_light||nd.phase==='blink') pc.blink++;
+    else if(pc[nd.phase]!==undefined) pc[nd.phase]++;
+  }});
   document.getElementById('sk').textContent=snap.tick;
   document.getElementById('se').textContent=snap.total;
   document.getElementById('sg2').textContent=pc.green;
   document.getElementById('sy').textContent=pc.yellow;
   document.getElementById('sr').textContent=pc.red;
+  document.getElementById('sblink').textContent=pc.blink;
   document.getElementById('sm').textContent=snap.active_moving||0;
   document.getElementById('sa').textContent=snap.arrived||0;
   document.getElementById('bt').textContent='tick #'+snap.tick;
