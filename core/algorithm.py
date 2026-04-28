@@ -486,6 +486,37 @@ class TrafficAlgorithm:
                         valid, key=lambda n: pressures_combined[n]
                     )
 
+        # Construir mapa de nodos con entidades para verificar adyacencia
+        nodes_with_entities = {
+            nid for nid, ents in entities_by_node.items() if ents
+        }
+
+        # Boost para nodos donde hay entidades esperando en rojo.
+        # Solo se activa si el nodo lleva al menos 2 ticks en rojo
+        # con entidades — así el algoritmo de presión natural tiene
+        # oportunidad de resolver conflictos antes de intervenir.
+        for nid, inter in self.graph.intersections.items():
+            if not inter.has_traffic_light:
+                continue
+            if inter.current_phase not in (Phase.RED, Phase.BLINK):
+                continue
+            ents_here = entities_by_node.get(nid, [])
+            if not ents_here:
+                continue
+            # Esperar al menos 1 tick antes de boostar — da tiempo al algoritmo
+            # natural de resolver si hay conflicto con otro carro adyacente
+            if inter._ticks_in_phase < 1:
+                continue
+            waiting_boost = inter.pressure_threshold * 1.1 * len(ents_here)
+            pressures_combined[nid] = pressures_combined.get(nid, 0) + waiting_boost
+            inter.pressure     = pressures_combined[nid]
+            inter._pressure_ns = max(inter._pressure_ns, inter.pressure_threshold * 1.1)
+            inter._pressure_ew = max(inter._pressure_ew, inter.pressure_threshold * 1.1)
+            if inter.current_phase == Phase.BLINK:
+                inter.current_phase   = Phase.RED
+                inter._ticks_in_phase = 0
+                inter._ticks_empty    = 0
+
         for node_id, inter in self.graph.intersections.items():
             ents = entities_by_node.get(node_id, [])
             inter.pressure = pressures_combined[node_id]
@@ -503,6 +534,39 @@ class TrafficAlgorithm:
             if inter._wave_forced and inter.has_traffic_light:
                 inter.pressure = max(inter.pressure,
                                      inter.pressure_threshold + 50.0)
+
+            # Verificación de adyacencia: si hay entidades en nodos
+            # inmediatamente upstream (a 1 hop) esperando llegar aquí,
+            # aumentar la presión para facilitar el verde anticipado.
+            # El carro está en upstream con ticks_to_next==0 — quiere cruzar
+            # a este nodo pero necesita que esté en verde primero.
+            if inter.has_traffic_light:
+                upstream_nodes = list(self.graph.graph.predecessors(node_id))
+                for upstream_id in upstream_nodes:
+                    if upstream_id not in nodes_with_entities:
+                        continue
+                    upstream_ents = entities_by_node.get(upstream_id, [])
+                    if not upstream_ents:
+                        continue
+                    n_waiting = len(upstream_ents)
+                    # Boost proporcional al threshold: con 1 entidad upstream
+                    # ya se supera el umbral del nodo destino.
+                    upstream_boost = inter.pressure_threshold * 1.1 * n_waiting
+                    inter.pressure += upstream_boost
+                    # Si el nodo está en BLINK (sin tráfico propio pero con
+                    # carro esperando upstream) — sacar de BLINK para que
+                    # el boost pueda activar el verde
+                    if inter.current_phase == Phase.BLINK:
+                        inter.current_phase  = Phase.RED
+                        inter._ticks_in_phase = 0
+                        inter._ticks_empty    = 0
+                        logger.debug("[%s] saliendo de BLINK por carro en upstream [%s]",
+                                     node_id, upstream_id)
+                    logger.debug(
+                        "[%s] boost upstream [%s]: %d ents → +%.1f (total=%.1f, thr=%.1f)",
+                        node_id, upstream_id, n_waiting,
+                        upstream_boost, inter.pressure, inter.pressure_threshold
+                    )
 
             inter.adjust_phase(self.engine, ctx, ents)
 

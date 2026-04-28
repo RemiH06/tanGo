@@ -63,81 +63,87 @@ def compute_center(graph: TrafficGraph) -> tuple[float, float]:
             sum(n.longitude for n in nodes) / len(nodes))
 
 
+
 def find_diverse_routes(graph: TrafficGraph,
                         n_cars: int) -> list[tuple[str, str, list[str]]]:
     """
-    Encuentra n_cars rutas con semáforos que se crucen en nodos centrales
-    pero que sean genuinamente distintas entre sí.
+    Encuentra n_cars rutas con spawn en nodos de mayor weight.
 
     Estrategia:
-      1. Calcular todas las rutas entre nodos semaforizados.
-      2. Primera ruta: la más larga.
-      3. Rutas siguientes: maximizar superposición con las ya elegidas
-         (garantiza cruce) pero con endpoints únicos (caminos distintos).
-         Penaliza rutas con >80% de solapamiento (demasiado similares).
+      1. Ordenar nodos semaforizados por node_weight descendente.
+      2. Orígenes: top N nodos (mayor centralidad → más tráfico real).
+      3. Destinos: bottom N nodos en orden inverso (lados opuestos).
+         Carro 1: nodo más central → nodo menos central
+         Carro 2: 2do más central → 2do menos central
+         Esto garantiza que los carros vengan de extremos distintos
+         y crucen por el centro de la red.
+      4. Rutas calculadas con Dijkstra sobre el grafo real.
     """
-    signaled = [nid for nid, inter in graph.intersections.items()
-                if inter.has_traffic_light]
+    signaled = sorted(
+        [nid for nid, inter in graph.intersections.items()
+         if inter.has_traffic_light],
+        key=lambda nid: -graph.intersections[nid].node_weight
+    )
     if not signaled:
         signaled = list(graph.intersections.keys())
-
-    # Todas las rutas posibles
-    all_routes: list[tuple[int, str, str, list[str]]] = []
-    for s in signaled:
-        for e in signaled:
-            if s == e: continue
-            try:
-                path = nx.shortest_path(graph.graph, s, e)
-                sig  = sum(1 for n in path
-                           if graph.intersections[n].has_traffic_light)
-                all_routes.append((sig, s, e, path))
-            except (nx.NetworkXNoPath, nx.NodeNotFound):
-                continue
-
-    if not all_routes:
+    if len(signaled) < 2:
         return []
 
-    all_routes.sort(key=lambda x: -x[0])
+    n = len(signaled)
+    # Orígenes: nodos con más peso (más centrales, más tráfico)
+    origins = signaled[:min(n_cars, n // 2 + 1)]
+    # Destinos: nodos con menos peso, en orden inverso
+    # (el de menor peso es el destino del carro que sale del de mayor peso)
+    dests   = list(reversed(signaled[-(min(n_cars, n // 2 + 1)):]))
 
     selected: list[tuple[str, str, list[str]]] = []
-    used_endpoints: set[str] = set()
-    covered_nodes:  set[str] = set()
+    used_pairs: set[tuple] = set()
 
-    # Primera ruta — la más larga
-    _, s, e, path = all_routes[0]
-    selected.append((s, e, path))
-    used_endpoints.update([s, e])
-    covered_nodes.update(path)
+    for i in range(n_cars):
+        origin = origins[i % len(origins)]
+        dest   = dests[i % len(dests)]
 
-    # Siguientes rutas — diversas pero con cruce garantizado
-    for _ in range(n_cars - 1):
-        best_score  = -1
-        best_route  = None
+        if origin == dest:
+            # Rotar destino si coincide con origen
+            dest = dests[(i + 1) % len(dests)]
 
-        for sig, s, e, path in all_routes:
-            if s in used_endpoints or e in used_endpoints:
-                continue
-            overlap_ratio = len(set(path) & covered_nodes) / len(path)
-            if overlap_ratio > 0.8:
-                continue   # demasiado similar
-            score = len(set(path) & covered_nodes) * sig
-            if score > best_score:
-                best_score = score
-                best_route = (s, e, path)
-
-        if best_route:
-            selected.append(best_route)
-            used_endpoints.update([best_route[0], best_route[1]])
-            covered_nodes.update(best_route[2])
-        else:
-            # Relajar — aceptar endpoints repetidos si no hay opción
-            for sig, s, e, path in all_routes:
-                if (s, e) not in [(x, y) for x, y, _ in selected]:
-                    selected.append((s, e, path))
-                    covered_nodes.update(path)
+        if (origin, dest) in used_pairs:
+            # Buscar par alternativo
+            found = False
+            for alt_dest in reversed(signaled):
+                if alt_dest == origin or (origin, alt_dest) in used_pairs:
+                    continue
+                try:
+                    path = nx.shortest_path(graph.graph, origin, alt_dest)
+                    selected.append((origin, alt_dest, path))
+                    used_pairs.add((origin, alt_dest))
+                    found = True
                     break
+                except (nx.NetworkXNoPath, nx.NodeNotFound):
+                    continue
+            if not found:
+                continue
+            continue
+
+        try:
+            path = nx.shortest_path(graph.graph, origin, dest)
+            selected.append((origin, dest, path))
+            used_pairs.add((origin, dest))
+        except (nx.NetworkXNoPath, nx.NodeNotFound):
+            # Fallback: cualquier ruta desde este origen
+            for candidate in reversed(signaled):
+                if candidate == origin or (origin, candidate) in used_pairs:
+                    continue
+                try:
+                    path = nx.shortest_path(graph.graph, origin, candidate)
+                    selected.append((origin, candidate, path))
+                    used_pairs.add((origin, candidate))
+                    break
+                except (nx.NetworkXNoPath, nx.NodeNotFound):
+                    continue
 
     return selected[:n_cars]
+
 
 
 # ── Simulación ────────────────────────────────────────────────────────────────
@@ -202,16 +208,54 @@ def run_caso(graph: TrafficGraph, n_cars: int,
         entities = movement.tick(ctx, phases)
         result   = algo.run_tick(entities, ctx)
 
-        # Override: carro detenido en rojo → forzar verde
-        for me in movement._active:
-            inter = graph.intersections[me.current_node]
-            if (me.ticks_to_next == 0
-                    and inter.has_traffic_light
-                    and inter.current_phase == Phase.RED):
-                inter.current_phase       = Phase.GREEN
-                inter._ticks_in_phase     = 0
-                inter._timeout_triggered  = False
-                inter._green_started_tick = algo._tick
+        # Override por distancia en ruta:
+        # Un carro solo fuerza verde cuando NO hay otro carro
+        # a ≤1 nodo de distancia EN SU PROPIA RUTA.
+        # Si hay alguien cerca en la ruta → el semáforo arbitra por presión.
+        # Si nadie en la ruta está cerca → es rojo innecesario, forzar.
+        # Anti-deadlock: si llevan 5+ ticks detenidos, el de mayor node_weight gana.
+
+        waiting = sorted(
+            [me for me in movement._active
+             if (me.ticks_to_next == 0
+                 and graph.intersections[me.current_node].has_traffic_light
+                 and graph.intersections[me.current_node].current_phase == Phase.RED)],
+            key=lambda me: -graph.intersections[me.current_node].node_weight
+        )
+
+        for me in waiting:
+            inter     = graph.intersections[me.current_node]
+            ticks_red = inter._ticks_in_phase
+
+            # Nodos en la ruta del carro a 1 salto adelante y atrás
+            route_neighbors = set()
+            idx = me.route_idx
+            if idx > 0:
+                route_neighbors.add(me.route[idx - 1])
+            if idx + 1 < len(me.route):
+                route_neighbors.add(me.route[idx + 1])
+
+            # Carros de otros en esos nodos de ruta
+            other_on_route = any(
+                other.current_node in route_neighbors
+                for other in movement._active
+                if other is not me
+            )
+
+            if other_on_route:
+                # Hay alguien en la ruta cerca → anti-deadlock solo si llevan mucho
+                if ticks_red >= 5:
+                    inter.current_phase       = Phase.GREEN
+                    inter._ticks_in_phase     = 0
+                    inter._timeout_triggered  = False
+                    inter._green_started_tick = algo._tick
+            else:
+                # Nadie cerca en la ruta → rojo innecesario, forzar rápido
+                if ticks_red >= 2:
+                    inter.current_phase       = Phase.GREEN
+                    inter._ticks_in_phase     = 0
+                    inter._timeout_triggered  = False
+                    inter._green_started_tick = algo._tick
 
         stats   = movement.get_stats(phases)
         heatmap = movement.get_heatmap()

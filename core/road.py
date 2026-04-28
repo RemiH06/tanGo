@@ -792,7 +792,10 @@ class Intersection:
             self._ticks_empty = 0
 
         # ── Presión global ────────────────────────────────────────────────
-        self.pressure = engine.aggregate_pressure(entities, self, ctx)
+        # Usar el max entre la presión ya seteada (con boost de adyacencia
+        # del algorithm.py) y la calculada desde entidades locales.
+        local_pressure = engine.aggregate_pressure(entities, self, ctx)
+        self.pressure  = max(self.pressure, local_pressure)
 
         # ── Presión por eje (exclusión mutua basada en demanda real) ──────
         # Si no se proporcionan entidades por eje, se divide por dirección
@@ -834,8 +837,6 @@ class Intersection:
         )
 
         # ── Decidir qué eje tiene mayor demanda ──────────────────────────
-        # El eje ganador es el de mayor presión.
-        # Si las presiones son iguales, mantener el eje actual para estabilidad.
         if self._pressure_ns > self._pressure_ew:
             winner_axis = TrafficAxis.NS
             winner_pressure = self._pressure_ns
@@ -843,7 +844,13 @@ class Intersection:
             winner_axis = TrafficAxis.EW
             winner_pressure = self._pressure_ew
         else:
-            winner_axis = self._active_axis   # empate → mantener
+            winner_axis = self._active_axis
+            winner_pressure = self.pressure
+
+        # Si la presión global (con boost de adyacencia) supera el threshold
+        # pero las presiones por eje no (porque el carro tiene dirección mixta),
+        # usar la presión global como winner para que el boost tenga efecto
+        if self.pressure > self.pressure_threshold and winner_pressure < self.pressure_threshold:
             winner_pressure = self.pressure
 
         # ── Timeout de rojo ───────────────────────────────────────────────

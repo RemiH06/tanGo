@@ -216,48 +216,52 @@ class MovementEngine:
             # Decrementar ticks hasta el siguiente nodo
             if me.ticks_to_next > 0:
                 me.ticks_to_next -= 1
-                continue
+                # Si llegó a 0 en este mismo tick, intentar cruzar ya
+                # (evita el patrón "avanza 1 tick, espera 1 tick vacío")
+                if me.ticks_to_next > 0:
+                    continue
 
-            # Ticks_to_next llegó a 0 — intentar cruzar al siguiente nodo
+            # ticks_to_next == 0 — intentar cruzar al siguiente nodo
             next_nid = me.next_node
             if next_nid is None:
                 newly_arrived.append(me)
                 continue
 
             cur_phase = phases.get(me.current_node, "green")
+            inter     = self.graph.intersections[me.current_node]
 
-            # Si el semáforo está en rojo, la entidad espera en el nodo actual
-            if cur_phase == "red" and self.graph.intersections[me.current_node].has_traffic_light:
-                # Esperar — ticks_to_next permanece en 0 hasta que cambie a verde
+            # Si el semáforo está en rojo, esperar
+            if cur_phase == "red" and inter.has_traffic_light:
                 continue
 
-            # Verde o sin semáforo — cruzar al siguiente nodo
+            # Verde, amarillo o sin semáforo — cruzar
             edge_key = f"{me.current_node}-{next_nid}"
             flow_this_tick[edge_key] = flow_this_tick.get(edge_key, 0) + 1
 
-            # Calcular tiempo de viaje al siguiente segmento
-            seg_data = self._get_segment(me.current_node, next_nid)
-            if seg_data:
-                seg       = seg_data["segment"]
-                travel_t  = me.entity.travel_time_ticks(
-                    distance_m    = seg.length_m,
-                    road_category = seg.category.name,
-                    ctx           = ctx,
-                )
-                # Máximo 2 ticks por segmento para que la simulación
-                # sea fluida y el semáforo pueda reaccionar a tiempo
-                me.ticks_to_next = max(1, min(2, round(travel_t)))
-            else:
-                me.ticks_to_next = 1
-
-            # Avanzar al siguiente nodo
-            me.route_idx        += 1
-            me.entity.current_node = me.current_node
-
-            # Actualizar heatmap
+            # Actualizar heatmap antes de avanzar
             self._heatmap[me.current_node] = (
                 self._heatmap.get(me.current_node, 0.0) + 1.0
             )
+
+            # Avanzar al siguiente nodo
+            me.route_idx           += 1
+            me.entity.current_node  = me.current_node
+
+            # Calcular tiempo al siguiente segmento desde el nuevo nodo
+            if not me.has_arrived:
+                next_next = me.next_node
+                seg_data  = self._get_segment(me.current_node, next_next)                             if next_next else None
+                if seg_data:
+                    travel_t = me.entity.travel_time_ticks(
+                        distance_m    = seg_data["segment"].length_m,
+                        road_category = seg_data["segment"].category.name,
+                        ctx           = ctx,
+                    )
+                    me.ticks_to_next = max(1, min(2, round(travel_t)))
+                else:
+                    me.ticks_to_next = 1
+            else:
+                me.ticks_to_next = 0
 
             if me.has_arrived:
                 newly_arrived.append(me)
