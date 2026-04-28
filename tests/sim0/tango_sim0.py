@@ -526,12 +526,19 @@ function showNodeInfo(nid, snap){{
   </div>
   ${{nd.has_light?`
   <div class="ic">
-    <h4>Fase (timer)</h4>
+    <h4>Fase (timer fijo)</h4>
     <div class="ir">Estado<span><span class="pill ${{pillCls(nd.phase)}}">${{nd.phase.toUpperCase()}}</span></span></div>
-    <div class="ir">Ticks en fase<span>${{nd.ticks_red||0}}</span></div>
-    <div class="ir">Presion<span style="color:var(--muted)">N/A — timer</span></div>
-    <div class="ir">Green wave<span style="color:var(--muted)">N/A — timer</span></div>
-  </div>`:'<div class="ic" style="color:var(--muted);font-size:11px">Sin semaforo fisico</div>'}}
+    <div class="ir">Ticks en fase<span>${{nd.ticks_in||0}} / ${{nd.phase==='green'?nd.green_ticks:nd.phase==='yellow'?nd.yellow_ticks:nd.red_ticks}}</span></div>
+    <div class="ir">Ciclo total<span>${{nd.cycle_s||'?'}}s (${{nd.timeout||'?'}} ticks)</span></div>
+  </div>
+  <div class="ic">
+    <h4>Programa del timer</h4>
+    <div class="ir" style="color:var(--green)">Verde<span>${{(nd.green_ticks||0)*30}}s (${{nd.green_ticks}} ticks)</span></div>
+    <div class="ir" style="color:var(--yellow)">Amarillo<span>${{(nd.yellow_ticks||0)*30}}s (${{nd.yellow_ticks}} ticks)</span></div>
+    <div class="ir" style="color:var(--red)">Rojo<span>${{(nd.red_ticks||0)*30}}s (${{nd.red_ticks}} ticks)</span></div>
+    <div class="ir">Presion<span style="color:var(--muted)">N/A — timer ignora trafico</span></div>
+    <div class="ir">Green wave<span style="color:var(--muted)">N/A — sin coordinacion</span></div>
+  </div>`:'<div class="ic" style="color:var(--muted);font-size:11px">Sin semaforo — ceda el paso</div>'}}
   <div class="ic">
     <h4>Entidades (ignoradas por timer)</h4>
     <div class="ir">Autos<span>${{c.CAR||0}}</span></div>

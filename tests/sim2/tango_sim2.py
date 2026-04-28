@@ -106,7 +106,7 @@ def simulate(scenario: dict, graph: TrafficGraph,
         result = algo.run_tick(entities_by_node, ctx)
 
         # Estadísticas de movimiento
-        stats  = movement.get_stats()
+        stats  = movement.get_stats(current_phases)
         particles = movement.get_particles()
         heatmap   = movement.get_heatmap()
 
@@ -159,6 +159,8 @@ def simulate(scenario: dict, graph: TrafficGraph,
             "reds":          result.red_count,
             "blinks":        result.blink_count,
             "active_moving": stats.active_entities,
+            "stopped":       stats.stopped,
+            "moving":        stats.moving,
             "arrived":       arrived_total,
             "cluster_sizes": {cid: len(mems)
                               for cid, mems in getattr(graph, "intersection_clusters", {}).items()},
@@ -232,6 +234,8 @@ def build_vis(graph: TrafficGraph, all_histories: list[tuple],
                 "reds":          snap.get("reds", 0),
                 "blinks":        snap.get("blinks", 0),
                 "active_moving": snap.get("active_moving", 0),
+                "stopped":      snap.get("stopped", 0),
+                "moving":       snap.get("moving", 0),
                 "arrived":       snap.get("arrived", 0),
                 "cluster_sizes": snap.get("cluster_sizes", {}),
                 "particles":     snap.get("particles", []),
@@ -370,13 +374,15 @@ input[type=range]{{flex:1;accent-color:var(--blue)}}
     <div class="sg">
       <div class="st"><div class="sv" id="sk">0</div><div class="sl">Tick</div></div>
       <div class="st"><div class="sv" id="se">0</div><div class="sl">Entidades</div></div>
+      <div class="st"><div class="sv" id="sm" style="color:var(--blue)">0</div><div class="sl">En ruta</div></div>
+      <div class="st"><div class="sv" id="smoving" style="color:var(--tel)">0</div><div class="sl">Moviendose</div></div>
+      <div class="st"><div class="sv" id="sstopped" style="color:var(--red)">0</div><div class="sl">Detenidas</div></div>
+      <div class="st"><div class="sv" id="sa" style="color:#a78bfa">0</div><div class="sl">Llegaron</div></div>
+      <div class="st"><div class="sv" id="sn">{len(ns_js)}</div><div class="sl">Total nodos</div></div>
       <div class="st"><div class="sv" id="sg2" style="color:var(--grn)">0</div><div class="sl">Verde</div></div>
-      <div class="st"><div class="sv" id="sy" style="color:var(--yel)">0</div><div class="sl">Amarillo</div></div>
       <div class="st"><div class="sv" id="sr" style="color:var(--red)">0</div><div class="sl">Rojo</div></div>
       <div class="st"><div class="sv" id="sblink" style="color:#f59e0b">0</div><div class="sl">Blink</div></div>
-      <div class="st"><div class="sv" id="sm" style="color:var(--blue)">0</div><div class="sl">En ruta</div></div>
-      <div class="st"><div class="sv" id="sa" style="color:var(--tel)">0</div><div class="sl">Llegaron</div></div>
-      <div class="st"><div class="sv" id="sn">{len(ns_js)}</div><div class="sl">Nodos</div></div>
+      <div class="st"><div class="sv" id="sblind" style="color:var(--mut)">0</div><div class="sl">Sin semaf.</div></div>
     </div>
   </div>
   <div id="ni"><div style="color:var(--mut);font-size:11px;text-align:center;margin-top:20px">
@@ -489,20 +495,25 @@ function apply(snap){{
     }});
   }}
 
-  // Stats — blink separado de rojo
-  const pc={{green:0,yellow:0,red:0,blink:0}};
+  // Stats — sin amarillo (transitorio), blind separado de blink
+  const pc={{green:0,red:0,blink:0,blind:0}};
   Object.values(snap.nodes).forEach(nd=>{{
-    if(!nd.has_light||nd.phase==='blink') pc.blink++;
-    else if(pc[nd.phase]!==undefined) pc[nd.phase]++;
+    if(!nd.has_light)        pc.blind++;
+    else if(nd.phase==='blink') pc.blink++;
+    else if(nd.phase==='green') pc.green++;
+    else if(nd.phase==='red')   pc.red++;
+    // amarillo: transitorio — no se cuenta
   }});
   document.getElementById('sk').textContent=snap.tick;
   document.getElementById('se').textContent=snap.total;
+  document.getElementById('sm').textContent=snap.active_moving||0;
+  document.getElementById('smoving').textContent=snap.moving||0;
+  document.getElementById('sstopped').textContent=snap.stopped||0;
+  document.getElementById('sa').textContent=snap.arrived||0;
   document.getElementById('sg2').textContent=pc.green;
-  document.getElementById('sy').textContent=pc.yellow;
   document.getElementById('sr').textContent=pc.red;
   document.getElementById('sblink').textContent=pc.blink;
-  document.getElementById('sm').textContent=snap.active_moving||0;
-  document.getElementById('sa').textContent=snap.arrived||0;
+  document.getElementById('sblind').textContent=pc.blind;
   document.getElementById('bt').textContent='tick #'+snap.tick;
   document.getElementById('bsc').textContent=(snap.scenario||'').substring(0,18);
   document.getElementById('bm').textContent=(snap.active_moving||0)+' en movimiento';

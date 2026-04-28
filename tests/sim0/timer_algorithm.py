@@ -3,104 +3,156 @@ tests/sim0/timer_algorithm.py
 ------------------------------
 Algoritmo de semáforos con timers fijos — sim0.
 
-Modela cómo funcionan la mayoría de semáforos actualmente:
-  - Cada semáforo tiene un ciclo fijo independiente de la demanda.
-  - El ciclo no varía por contexto (hora, lluvia, etc.).
-  - No hay coordinación entre semáforos vecinos.
-  - No hay green wave.
-  - No hay prioridad para peatones, emergencias o vulnerables.
+Modela cómo funcionan los semáforos actualmente en Guadalajara:
+  - Ciclo fijo predefinido por tipo de intersección y hora del día.
+  - Sin coordinación entre semáforos vecinos.
+  - Sin green wave.
+  - Sin prioridad para peatones, emergencias o vulnerabilidades.
 
-Se usa como baseline comparativo contra sim1 (tanGo).
+Calibrado según HCM 7th Edition + estimados SEMOVI GDL:
+  - MASTER hora pico:  verde 60s, amarillo 30s, rojo 60s  (ciclo 90s)
+  - MASTER normal:     verde 60s, amarillo 30s, rojo 90s  (ciclo 120s)
+  - NORMAL hora pico:  verde 30s, amarillo 30s, rojo 60s  (ciclo 60s)
+  - NORMAL normal:     verde 30s, amarillo 30s, rojo 90s  (ciclo 75s)
 
-Parámetros típicos en Guadalajara (fuente: SIOP Jalisco):
-  - Verde: 30s en calles, 45s en avenidas
-  - Amarillo: 3s
-  - Rojo: duración del verde del eje contrario + amarillo
+En ticks (1 tick = 30s simulados).
 
-En ticks (1 tick ≈ 30s):
-  - Verde: 1 tick calles, 1-2 ticks avenidas
-  - Amarillo: 1 tick
-  - Rojo: espera hasta que le toca
+Los parámetros son editables en timer_config.json sin tocar este archivo.
 """
 
 from __future__ import annotations
-import logging
+import json
+from pathlib import Path
 from dataclasses import dataclass, field
 from collections import defaultdict
 
 from core.road       import Phase, IntersectionType
 from core.entities   import Vehicle, Pedestrian
 from graph.simulator import TrafficGraph
+from core.context    import TrafficContext
 
-logger = logging.getLogger(__name__)
+# ── Cargar timer_config.json ──────────────────────────────────────────────────
 
-# ── Duración de fases en ticks (timers fijos) ─────────────────────────────────
-TIMER_GREEN = {
-    "master": 2,   # avenidas principales: ~60s (2 ticks)
-    "normal": 1,   # calles secundarias:   ~30s (1 tick)
-    "blind":  0,   # sin semáforo
-}
-TIMER_YELLOW = 1   # amarillo siempre 1 tick
-TIMER_RED    = 2   # rojo fijo — no depende de demanda
+_CFG_PATH = Path(__file__).parent / "timer_config.json"
 
+def _load_timer_cfg() -> dict:
+    if _CFG_PATH.exists():
+        with open(_CFG_PATH, encoding="utf-8") as f:
+            return json.load(f)
+    # Defaults si no existe el JSON
+    return {
+        "MASTER": {
+            "rush_hour":  {"green_ticks": 2, "yellow_ticks": 1, "red_ticks": 2},
+            "normal":     {"green_ticks": 2, "yellow_ticks": 1, "red_ticks": 3},
+            "late_night": {"green_ticks": 1, "yellow_ticks": 1, "red_ticks": 2},
+        },
+        "NORMAL": {
+            "rush_hour":  {"green_ticks": 1, "yellow_ticks": 1, "red_ticks": 2},
+            "normal":     {"green_ticks": 1, "yellow_ticks": 1, "red_ticks": 3},
+            "late_night": {"green_ticks": 1, "yellow_ticks": 1, "red_ticks": 4},
+        },
+        "phase_offsets": {"pattern": [0, 1, 2, 3, 0, 1, 2, 3, 0, 1, 2, 3]},
+    }
+
+_CFG = _load_timer_cfg()
+
+
+def _get_timing(itype_str: str, ctx: TrafficContext) -> dict:
+    """Retorna los tiempos de fase según tipo e intersección y contexto."""
+    itype_cfg = _CFG.get(itype_str, _CFG.get("NORMAL", {}))
+    if ctx.is_rush_hour:
+        return itype_cfg.get("rush_hour",  {"green_ticks": 1, "yellow_ticks": 1, "red_ticks": 2})
+    if ctx.is_late_night:
+        return itype_cfg.get("late_night", {"green_ticks": 1, "yellow_ticks": 1, "red_ticks": 4})
+    return itype_cfg.get("normal",         {"green_ticks": 1, "yellow_ticks": 1, "red_ticks": 3})
+
+
+# ── Estado de semáforo ────────────────────────────────────────────────────────
 
 @dataclass
 class TimerState:
     """Estado de un semáforo de timer fijo."""
-    node_id:       str
-    itype:         str
-    phase:         str = "red"
-    ticks_in:      int = 0
-    # Desfase inicial — en timers reales se configura manualmente
-    # para intentar evitar que todos cambien al mismo tiempo
-    phase_offset:  int = 0
+    node_id:      str
+    itype:        str          # "master" | "normal" | "blind"
+    phase:        str = "red"
+    ticks_in:     int = 0
+    phase_offset: int = 0      # desfase inicial en ticks
 
-    def tick(self) -> None:
+    # Tiempos actuales (se actualizan según contexto)
+    green_ticks:  int = 2
+    yellow_ticks: int = 1
+    red_ticks:    int = 3
+
+    def update_timing(self, ctx: TrafficContext) -> None:
+        """Actualiza los tiempos según el contexto actual."""
+        itype_key = self.itype.upper()
+        timing = _get_timing(itype_key, ctx)
+        self.green_ticks  = timing["green_ticks"]
+        self.yellow_ticks = timing["yellow_ticks"]
+        self.red_ticks    = timing["red_ticks"]
+
+    @property
+    def cycle_ticks(self) -> int:
+        return self.green_ticks + self.yellow_ticks + self.red_ticks
+
+    def tick(self, ctx: TrafficContext | None = None) -> None:
         """Avanza un tick con timer fijo — sin considerar demanda."""
         if self.itype == "blind":
-            return   # sin semáforo, sin cambio
+            self.phase = "blink"
+            return
+
+        if ctx:
+            self.update_timing(ctx)
 
         self.ticks_in += 1
-        green_dur = TIMER_GREEN[self.itype]
 
         if self.phase == "red":
-            if self.ticks_in >= TIMER_RED:
-                self.phase    = "green"
+            if self.ticks_in >= self.red_ticks:
+                self.phase   = "green"
                 self.ticks_in = 0
 
         elif self.phase == "green":
-            if self.ticks_in >= green_dur:
-                self.phase    = "yellow"
+            if self.ticks_in >= self.green_ticks:
+                self.phase   = "yellow"
                 self.ticks_in = 0
 
         elif self.phase == "yellow":
-            if self.ticks_in >= TIMER_YELLOW:
-                self.phase    = "red"
+            if self.ticks_in >= self.yellow_ticks:
+                self.phase   = "red"
                 self.ticks_in = 0
+
+        elif self.phase == "blink":
+            # BLINK solo en nodos BLIND — no cambia
+            pass
 
 
 @dataclass
 class TimerTickResult:
     """Resultado de un tick del algoritmo de timers."""
     tick_number:    int
-    nodes:          dict[str, dict]
-    flows:          list[dict]
+    nodes:          dict
+    flows:          list
     total_entities: int
     green_count:    int
     yellow_count:   int
     red_count:      int
-    blink_count:    int = 0   # no existe en timers fijos
+    blink_count:    int = 0
 
+
+# ── Algoritmo ─────────────────────────────────────────────────────────────────
 
 class TimerAlgorithm:
     """
-    Algoritmo de semáforos con timers fijos.
-    Baseline para comparar contra TrafficAlgorithm (tanGo).
+    Algoritmo de semáforos con timers fijos calibrados según HCM.
 
-    No importa cuántas entidades haya — el semáforo sigue su ciclo.
-    No hay coordinación entre nodos.
-    No hay green wave.
-    No hay BLINK — en timers fijos todo sigue aunque no haya nadie.
+    Los tiempos varían por:
+      - Tipo de intersección (MASTER / NORMAL / BLIND)
+      - Contexto (hora pico / normal / madrugada)
+
+    Lo que NO varía:
+      - La demanda actual de vehículos — el timer la ignora completamente.
+      - La coordinación con vecinos — cada semáforo es independiente.
+      - Las emergencias — no tienen prioridad.
     """
 
     def __init__(self, graph: TrafficGraph) -> None:
@@ -110,51 +162,102 @@ class TimerAlgorithm:
         self._init_states()
 
     def _init_states(self) -> None:
-        """
-        Inicializa los timers con desfases manuales.
-        En la realidad estos desfases los configura un técnico de tránsito
-        una vez al año — no cambian con el tráfico.
-        """
-        offsets = [0, 1, 2, 0, 1, 2, 0, 1, 2]  # desfases rotativos
+        offsets = _CFG.get("phase_offsets", {}).get(
+            "pattern", [0, 1, 2, 3, 0, 1, 2, 3, 0, 1, 2, 3]
+        )
         for i, (node_id, inter) in enumerate(self.graph.intersections.items()):
-            itype = inter.intersection_type.value
+            itype = inter.intersection_type.value   # "master"|"normal"|"blind"
+            offset = offsets[i % len(offsets)]
             state = TimerState(
                 node_id      = node_id,
                 itype        = itype,
                 phase        = "red",
-                ticks_in     = offsets[i % len(offsets)],
-                phase_offset = offsets[i % len(offsets)],
+                ticks_in     = offset,
+                phase_offset = offset,
             )
+            # Aplicar timing inicial (sin contexto — usará "normal")
+            state.green_ticks  = _get_timing(itype.upper(), _mock_normal_ctx()).get("green_ticks",  2)
+            state.yellow_ticks = _get_timing(itype.upper(), _mock_normal_ctx()).get("yellow_ticks", 1)
+            state.red_ticks    = _get_timing(itype.upper(), _mock_normal_ctx()).get("red_ticks",    3)
             self._states[node_id] = state
 
     def reset(self) -> None:
         self._tick = 0
         self._init_states()
 
-    def run_tick(self, entities_by_node: dict, ctx=None) -> TimerTickResult:
+    def run_tick(self, entities_by_node: dict,
+                 ctx: TrafficContext | None = None) -> TimerTickResult:
         """
-        Avanza un tick — ignora entidades y contexto.
-        El ciclo es fijo independientemente de la demanda.
+        Avanza un tick — ignora entidades, respeta el contexto solo
+        para ajustar la duración de las fases.
+
+        Después de avanzar todos los timers, aplica las garantías
+        mínimas de verdes y rojos definidas en timer_config.json:
+          - Si hay menos de min_green_count verdes → fuerza verde
+            en los nodos que llevan más tiempo en rojo.
+          - Si hay menos de min_red_count rojos → fuerza rojo
+            en los nodos que llevan más tiempo en verde.
         """
+        coord = _CFG.get("coordination", {})
+        min_green = int(coord.get("min_green_count", 2))
+        min_red   = int(coord.get("min_red_count",   2))
+
         self._tick += 1
-
-        green_count = yellow_count = red_count = 0
+        green_count = yellow_count = red_count = blink_count = 0
         total_entities = 0
-        nodes: dict[str, dict] = {}
+        nodes: dict = {}
 
+        # Paso 1: avanzar todos los timers normalmente
         for node_id, state in self._states.items():
-            state.tick()
+            state.tick(ctx)
+
+        # Paso 2: contar fases actuales (solo semaforizados)
+        signaled = {nid: s for nid, s in self._states.items()
+                    if s.itype != "blind"}
+        cur_greens = [nid for nid, s in signaled.items() if s.phase == "green"]
+        cur_reds   = [nid for nid, s in signaled.items() if s.phase == "red"]
+
+        # Paso 3: aplicar mínimo de verdes
+        # Si faltan verdes, forzar verde en los nodos con más ticks en rojo
+        if len(cur_greens) < min_green:
+            needed = min_green - len(cur_greens)
+            # Ordenar rojos por ticks_in descendente (más tiempo esperando → prioridad)
+            candidates = sorted(
+                [(nid, s) for nid, s in signaled.items()
+                 if s.phase == "red"],
+                key=lambda x: -x[1].ticks_in
+            )
+            for nid, state in candidates[:needed]:
+                state.phase    = "green"
+                state.ticks_in = 0
+
+        # Paso 4: aplicar mínimo de rojos
+        # Si faltan rojos, forzar rojo en los nodos con más ticks en verde
+        cur_greens = [nid for nid, s in signaled.items() if s.phase == "green"]
+        if len(cur_greens) > len(signaled) - min_red:
+            # Cuántos verdes hay de más
+            excess = len(cur_greens) - (len(signaled) - min_red)
+            candidates = sorted(
+                [(nid, s) for nid, s in signaled.items()
+                 if s.phase == "green"],
+                key=lambda x: -x[1].ticks_in   # más tiempo en verde → primero en ceder
+            )
+            for nid, state in candidates[:excess]:
+                state.phase    = "yellow"
+                state.ticks_in = 0
+
+        # Paso 5: construir resultado
+        for node_id, state in self._states.items():
             inter = self.graph.intersections[node_id]
             ents  = entities_by_node.get(node_id, [])
             total_entities += len(ents)
 
-            # Contar fases
             if   state.phase == "green":  green_count  += 1
             elif state.phase == "yellow": yellow_count += 1
             elif state.phase == "red":    red_count    += 1
+            else:                         blink_count  += 1
 
-            # Contar entidades para el panel
-            counts: dict[str, int] = defaultdict(int)
+            counts: dict = defaultdict(int)
             for e in ents:
                 if isinstance(e, Vehicle):
                     counts[e.vehicle_type.name] += 1
@@ -163,22 +266,23 @@ class TimerAlgorithm:
                     if e.is_wheelchair:
                         counts["WHEELCHAIR"] += 1
 
+            # Timing actual para mostrar en el panel
+            timing = _get_timing(state.itype.upper(), ctx) if ctx else {}
+
             nodes[node_id] = {
                 "phase":     state.phase,
-                "phase_ns":  state.phase,    # sin distinción de eje
+                "phase_ns":  state.phase,
                 "phase_ew":  "red" if state.phase == "green" else state.phase,
                 "active_axis": "ns",
                 "signals":   {"N": state.phase, "S": state.phase,
-                              "E": "red", "W": "red"},
-                "pressure":      0.0,   # timers no calculan presión
+                              "E": "red" if state.phase == "green" else state.phase,
+                              "W": "red" if state.phase == "green" else state.phase},
+                "pressure":      0.0,
                 "pressure_own":  0.0,
                 "pressure_ns":   0.0,
                 "pressure_ew":   0.0,
-                "wave_offset_s": 0.0,   # sin green wave
+                "wave_offset_s": 0.0,
                 "threshold":     100.0,
-                "ticks_in":      state.ticks_in,
-                "timeout":       TIMER_GREEN[state.itype] + TIMER_YELLOW + TIMER_RED,
-                "ticks_red":     state.ticks_in if state.phase == "red" else 0,
                 "has_light":     state.itype != "blind",
                 "itype":         inter.intersection_type,
                 "geometry":      inter.geometry,
@@ -188,26 +292,36 @@ class TimerAlgorithm:
                 "lon":           inter.longitude,
                 "counts":        dict(counts),
                 "cluster_id":    None,
+                # Info del timer para el panel
+                "ticks_red":     state.ticks_in if state.phase == "red"    else 0,
+                "ticks_in":      state.ticks_in,
+                "timeout":       state.cycle_ticks,
+                "green_ticks":   state.green_ticks,
+                "yellow_ticks":  state.yellow_ticks,
+                "red_ticks":     state.red_ticks,
+                "cycle_s":       state.cycle_ticks * 30,
             }
-
-        # Flujos (igual que en sim1 — solo para visualización)
-        flows = []
-        drawn = set()
-        for from_id, to_id, _ in self.graph.graph.edges(data=True):
-            pair = tuple(sorted([from_id, to_id]))
-            if pair in drawn: continue
-            drawn.add(pair)
-            n_veh = sum(1 for e in entities_by_node.get(from_id, [])
-                        if isinstance(e, Vehicle))
-            flows.append({"from": pair[0], "to": pair[1],
-                          "fwd": n_veh, "bwd": 0})
 
         return TimerTickResult(
             tick_number    = self._tick,
             nodes          = nodes,
-            flows          = flows,
+            flows          = [],
             total_entities = total_entities,
             green_count    = green_count,
             yellow_count   = yellow_count,
             red_count      = red_count,
+            blink_count    = blink_count,
         )
+
+
+def _mock_normal_ctx():
+    """Contexto 'normal' para inicialización sin contexto real."""
+    from datetime import datetime
+    from core.context import TrafficContext
+    return TrafficContext.build(
+        timestamp      = datetime(2024, 3, 6, 14, 0),
+        temperature_c  = 22.0,
+        is_raining     = False,
+        wind_speed_kmh = 10.0,
+        visibility_m   = 10000.0,
+    )

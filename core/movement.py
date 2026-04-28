@@ -117,6 +117,8 @@ class MovementStats:
     flow_by_edge:      dict[str, int]  # "from-to" → entidades que pasaron
     avg_travel_ticks:  float           # tiempo promedio de viaje
     heatmap:           dict[str, float] # node_id → calor acumulado
+    stopped:           int = 0         # detenidas esperando semáforo rojo
+    moving:            int = 0         # en movimiento activo
 
 
 class MovementEngine:
@@ -242,7 +244,9 @@ class MovementEngine:
                     road_category = seg.category.name,
                     ctx           = ctx,
                 )
-                me.ticks_to_next = max(1, round(travel_t))
+                # Máximo 2 ticks por segmento para que la simulación
+                # sea fluida y el semáforo pueda reaccionar a tiempo
+                me.ticks_to_next = max(1, min(2, round(travel_t)))
             else:
                 me.ticks_to_next = 1
 
@@ -270,11 +274,11 @@ class MovementEngine:
         # 4. Construir entities_by_node
         return self._build_entities_by_node()
 
-    def get_stats(self) -> MovementStats:
+    def get_stats(self, current_phases: dict | None = None) -> MovementStats:
         """Estadísticas del tick actual para el dashboard."""
+        phases = current_phases or {}
         arrived_this_tick = [
-            me for me in self._arrived
-            if me.total_ticks > 0
+            me for me in self._arrived if me.total_ticks > 0
         ]
         avg_travel = (
             sum(me.total_ticks for me in arrived_this_tick) / len(arrived_this_tick)
@@ -282,15 +286,29 @@ class MovementEngine:
         )
         flow = self._flow_history[-1] if self._flow_history else {}
 
+        # Detenida: esperando en rojo (ticks_to_next==0 y semáforo rojo)
+        # En movimiento: viajando entre nodos o en nodo con verde/blink
+        stopped = moving = 0
+        for me in self._active:
+            phase = phases.get(me.current_node, "green")
+            inter = self.graph.intersections.get(me.current_node)
+            has_light = inter.has_traffic_light if inter else False
+            if me.ticks_to_next == 0 and phase == "red" and has_light:
+                stopped += 1
+            else:
+                moving  += 1
+
         return MovementStats(
             tick             = self._tick,
             active_entities  = len(self._active),
             arrived          = len([me for me in self._arrived
                                     if me.total_ticks == self._tick]),
-            spawned          = 0,   # se actualiza en _spawn
+            spawned          = 0,
             flow_by_edge     = flow,
             avg_travel_ticks = round(avg_travel, 1),
             heatmap          = dict(self._heatmap),
+            stopped          = stopped,
+            moving           = moving,
         )
 
     def get_heatmap(self) -> dict[str, float]:
@@ -398,9 +416,9 @@ class MovementEngine:
             seg_data = self._get_segment(route[0], route[1])
             if seg_data:
                 seg = seg_data["segment"]
-                ticks = max(1, round(entity.travel_time_ticks(
+                ticks = max(1, min(2, round(entity.travel_time_ticks(
                     seg.length_m, seg.category.name, ctx
-                )))
+                ))))
             else:
                 ticks = 1
 

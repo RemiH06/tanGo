@@ -30,8 +30,8 @@
   ],
   "movement": {
     "_doc": "Mas entidades para visualizar mejor el trafico",
-    "spawn_rate": 15,
-    "max_entities": 200,
+    "spawn_rate": 1000,
+    "max_entities": 10000,
     "directed_ratio": 0.65
   },
   "spawn": {
