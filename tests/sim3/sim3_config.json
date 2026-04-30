@@ -1,0 +1,96 @@
+{
+  "_doc": "Configuracion de sim3 — RL con RLlib + PPO",
+  "_nota": "Instalar dependencias: pip install 'ray[rllib]' torch gymnasium",
+  "environment": {
+    "n_ticks_per_episode": 60,
+    "_doc_ticks": "Ticks por episodio de entrenamiento (1 tick = 30s simulados)",
+    "tick_duration_s": 30,
+    "max_entities": 200,
+    "spawn_rate": 15,
+    "scenarios": [
+      {
+        "label": "rush_hour",
+        "timestamp": "2024-03-04T08:00:00",
+        "temperature_c": 22.0,
+        "is_raining": false,
+        "wind_speed_kmh": 10.0,
+        "visibility_m": 10000.0,
+        "weight": 0.5
+      },
+      {
+        "label": "normal",
+        "timestamp": "2024-03-06T14:00:00",
+        "temperature_c": 24.0,
+        "is_raining": false,
+        "wind_speed_kmh": 8.0,
+        "visibility_m": 10000.0,
+        "weight": 0.3
+      },
+      {
+        "label": "rain",
+        "timestamp": "2024-03-09T15:00:00",
+        "temperature_c": 17.0,
+        "is_raining": true,
+        "wind_speed_kmh": 20.0,
+        "visibility_m": 3000.0,
+        "weight": 0.2
+      }
+    ],
+    "_doc_weight": "Probabilidad de cada escenario en cada episodio"
+  },
+  "observation": {
+    "_doc": "Features por nodo semaforizado — vector de 10 × N_semaforos",
+    "features": [
+      "pressure_normalized",
+      "phase_encoded",
+      "ticks_in_phase_norm",
+      "entities_count_norm",
+      "has_emergency",
+      "node_weight",
+      "sin_hora",
+      "cos_hora",
+      "neighbor_pressure_avg",
+      "wave_offset_norm"
+    ],
+    "n_features_per_node": 10
+  },
+  "action": {
+    "_doc": "0 = mantener fase actual | 1 = cambiar fase",
+    "type": "MultiDiscrete",
+    "n_actions_per_node": 2
+  },
+  "reward": {
+    "_doc": "Pesos de la función de recompensa — ajustables sin reentrenar",
+    "w_flow": 1.0,
+    "w_wait": 0.5,
+    "w_emergency": 5.0,
+    "w_arrived": 2.0,
+    "_nota": "reward = w_flow×flujo - w_wait×espera - w_emergency×emergencias_detenidas + w_arrived×llegadas"
+  },
+  "training": {
+    "algorithm": "PPO",
+    "n_episodes": 1000,
+    "n_workers": 2,
+    "rollout_fragment": 60,
+    "train_batch_size": 1200,
+    "sgd_minibatch_size": 128,
+    "lr": 0.0003,
+    "gamma": 0.99,
+    "lambda_gae": 0.95,
+    "clip_param": 0.2,
+    "checkpoint_freq": 50,
+    "_doc": "Hiperparametros de PPO — los defaults son buenos para empezar",
+    "num_sgd_iter": 10
+  },
+  "paths": {
+    "checkpoint_dir": "tests/sim3/checkpoints",
+    "results_dir": "tests/sim3/results",
+    "model_name": "tango_ppo_v1"
+  },
+  "multimagen": {
+    "_doc": "Configuracion futura para multi-agente (sim3b)",
+    "enabled": false,
+    "obs_radius_hops": 1,
+    "_nota": "Cuando enabled=true, cada semaforo observa solo sus vecinos a 1 hop"
+  }
+}
