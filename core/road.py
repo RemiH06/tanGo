@@ -494,14 +494,15 @@ GEOMETRY_SIGNALS: dict = {
 }
 
 
-# Duración de fase amarilla — fija por seguridad vial
-_YELLOW_DURATION_S: int = 3
-
-# Rangos de duración de ciclo verde según condición
-_GREEN_RUSH_HOUR_S:  int = 45
-_GREEN_NORMAL_S:     int = 30
-_GREEN_LATE_NIGHT_S: int = 20
-_GREEN_MIN_S:        int = 7    # nunca menos de esto por seguridad
+# Duración de fases en TICKS (1 tick ≈ 30-60s de tiempo simulado)
+# Nota: NO usar datetime.now() para medir tiempo — usar _ticks_in_phase
+# Ver documentación de tick_duration_seconds en sim_params.json
+_YELLOW_TICKS: int = 2    # amarillo dura 2 ticks antes de pasar a rojo
+_GREEN_RUSH_TICKS:  int = 6   # verde en hora pico
+_GREEN_NORMAL_TICKS: int = 4  # verde en condición normal
+_GREEN_NIGHT_TICKS:  int = 3  # verde de madrugada
+_GREEN_MIN_TICKS:    int = 1  # mínimo absoluto antes de poder salir del verde
+_GREEN_MIN_S: int = _GREEN_MIN_TICKS  # alias para compatibilidad
 
 # ── Timeout de semáforo ───────────────────────────────────────────────────────
 # Si la presión no alcanza el umbral en este tiempo, el semáforo cambia de
@@ -563,6 +564,8 @@ class Intersection:
     longitude:         float
     intersection_type: IntersectionType     = IntersectionType.NORMAL
     geometry:          IntersectionGeometry = IntersectionGeometry.CROSS
+    degree_weight:     float                = 1.0  # peso por conectividad del nodo
+    node_weight:       float                = 1.0  # peso estático combinado (centralidad+degree+road_quality)
     incoming_segments: List[RoadSegment]    = field(default_factory=list)
     current_phase:     Phase                = Phase.RED
     pressure:          float                = 0.0
@@ -578,6 +581,12 @@ class Intersection:
     _pressure_ew: float = field(default=0.0, init=False, repr=False)
     # Ticks consecutivos sin entidades → activa BLINK
     _ticks_empty: int   = field(default=0,   init=False, repr=False)
+    # Tick global en que este nodo cambió a verde — para offset temporal
+    _green_started_tick: int  = field(default=-1, init=False, repr=False)
+    # Si True, este nodo debe ponerse en verde por ola verde (offset forzado)
+    _wave_forced: bool        = field(default=False, init=False, repr=False)
+    # Tick en que este nodo cambió a verde — para coordinación de offset
+    _green_started_tick: int = field(default=-1, init=False, repr=False)
 
     def __post_init__(self) -> None:
         if not (-90.0 <= self.latitude <= 90.0):
@@ -783,7 +792,10 @@ class Intersection:
             self._ticks_empty = 0
 
         # ── Presión global ────────────────────────────────────────────────
-        self.pressure = engine.aggregate_pressure(entities, self, ctx)
+        # Usar el max entre la presión ya seteada (con boost de adyacencia
+        # del algorithm.py) y la calculada desde entidades locales.
+        local_pressure = engine.aggregate_pressure(entities, self, ctx)
+        self.pressure  = max(self.pressure, local_pressure)
 
         # ── Presión por eje (exclusión mutua basada en demanda real) ──────
         # Si no se proporcionan entidades por eje, se divide por dirección
@@ -825,8 +837,6 @@ class Intersection:
         )
 
         # ── Decidir qué eje tiene mayor demanda ──────────────────────────
-        # El eje ganador es el de mayor presión.
-        # Si las presiones son iguales, mantener el eje actual para estabilidad.
         if self._pressure_ns > self._pressure_ew:
             winner_axis = TrafficAxis.NS
             winner_pressure = self._pressure_ns
@@ -834,7 +844,13 @@ class Intersection:
             winner_axis = TrafficAxis.EW
             winner_pressure = self._pressure_ew
         else:
-            winner_axis = self._active_axis   # empate → mantener
+            winner_axis = self._active_axis
+            winner_pressure = self.pressure
+
+        # Si la presión global (con boost de adyacencia) supera el threshold
+        # pero las presiones por eje no (porque el carro tiene dirección mixta),
+        # usar la presión global como winner para que el boost tenga efecto
+        if self.pressure > self.pressure_threshold and winner_pressure < self.pressure_threshold:
             winner_pressure = self.pressure
 
         # ── Timeout de rojo ───────────────────────────────────────────────
@@ -895,7 +911,8 @@ class Intersection:
 
             # Al pasar a verde, activar el eje ganador (exclusión mutua)
             if new_phase == Phase.GREEN:
-                self._active_axis = winner_axis
+                self._active_axis        = winner_axis
+                self._green_started_tick = getattr(self, "_current_tick", 0)
 
             # Al pasar a rojo, preparar el eje opuesto para el próximo ciclo
             elif new_phase == Phase.RED:
@@ -941,57 +958,60 @@ class Intersection:
         proximity_factor = 1.0 / (1.0 + travel_time_s / 30.0)
         influence = neighbor_pressure * proximity_factor
         logger.debug(
-            "[%s] señal vecinal: presión=%.1f dist=%.0fm t=%.0fs influencia=%.1f",
-            self.name, neighbor_pressure, distance_m, travel_time_s, influence
+            "[%s] señal vecinal: presión=%.1f dist=%.0fm t=%.1fs influencia=%.1f",
+            self.name, neighbor_pressure, distance_m,
+            min(travel_time_s, 9999.9), influence
         )
         return influence
 
     def _next_phase(self, should_change: bool,
-                    seconds_in_phase: float,
+                    seconds_in_phase: float,   # mantenido por compatibilidad, NO SE USA
                     ctx: TrafficContext,
                     force_yellow: bool = False) -> Phase:
         """
-        Determina la siguiente fase según la fase actual y las condiciones.
+        Máquina de estados del semáforo — usa TICKS, no segundos reales.
 
-        Máquina de estados:
-          RED    → GREEN  : si should_change y tiempo mínimo cumplido
-          GREEN  → YELLOW : si NOT should_change y tiempo mínimo cumplido
-          YELLOW → RED    : siempre después de _YELLOW_DURATION_S segundos
+        Un tick es la unidad de tiempo de la simulación (≈30-60s reales).
+        Usar _ticks_in_phase garantiza comportamiento determinista
+        independientemente del tiempo de ejecución del script.
 
-        Parameters
-        ----------
-        should_change    : Si la presión supera el umbral.
-        seconds_in_phase : Segundos transcurridos en la fase actual.
-        ctx              : Contexto para calcular duración de ciclo.
+        Transiciones:
+          RED    → GREEN  : presión >= umbral (should_change=True)
+          GREEN  → YELLOW : presión baja O tiempo máximo de verde cumplido
+                            O eje contrario tiene más presión (force_yellow)
+          YELLOW → RED    : siempre tras _YELLOW_TICKS ticks
+          BLINK  → RED    : solo cuando llegan entidades (manejado en adjust_phase)
 
-        Returns
-        -------
-        La siguiente fase.
+        El parámetro seconds_in_phase se conserva por compatibilidad
+        con la firma original pero no influye en la decisión.
         """
-        green_duration = self.get_cycle_duration(ctx)
+        green_max = self.get_cycle_duration(ctx)   # ahora en ticks
+        ticks     = self._ticks_in_phase
 
         if self.current_phase == Phase.RED:
             if should_change:
                 return Phase.GREEN
 
         elif self.current_phase == Phase.GREEN:
-            # Ceder el paso al eje de mayor presión
             if force_yellow:
                 return Phase.YELLOW
-            if not should_change and seconds_in_phase >= green_duration:
+            # Verde terminó: presión bajó y ya se cumplió el mínimo
+            if not should_change and ticks >= _GREEN_MIN_TICKS:
                 return Phase.YELLOW
-            if seconds_in_phase >= green_duration * 1.5:
+            # Verde máximo superado — ceder aunque haya presión
+            if ticks >= green_max:
                 return Phase.YELLOW
 
         elif self.current_phase == Phase.YELLOW:
-            if seconds_in_phase >= _YELLOW_DURATION_S:
+            if ticks >= _YELLOW_TICKS:
                 return Phase.RED
 
         return self.current_phase
 
     def get_cycle_duration(self, ctx: TrafficContext) -> int:
         """
-        Duración del verde en segundos según el contexto.
+        Duración máxima del verde en TICKS según el contexto.
+        (1 tick ≈ 30-60 segundos de tiempo simulado)
 
         Reglas:
           - Hora pico    → verde más largo (más flujo vehicular)
@@ -1007,10 +1027,10 @@ class Intersection:
         Duración del verde en segundos.
         """
         if ctx.is_late_night:
-            return _GREEN_LATE_NIGHT_S
+            return _GREEN_NIGHT_TICKS
         if ctx.is_rush_hour:
-            return _GREEN_RUSH_HOUR_S
-        return _GREEN_NORMAL_S
+            return _GREEN_RUSH_TICKS
+        return _GREEN_NORMAL_TICKS
 
     def seconds_in_current_phase(self) -> float:
         """Segundos transcurridos en la fase actual."""

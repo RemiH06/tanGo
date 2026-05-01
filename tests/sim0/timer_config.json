@@ -1,0 +1,80 @@
+{
+  "_doc": "Configuracion de timers fijos para sim0. Edita y corre tango_sim0.py.",
+  "_referencia": "HCM 7th Edition + estimados SEMOVI GDL para avenidas principales",
+  "_tick_duration_s": 30,
+  "_tabla_referencia": {
+    "Vallarta-LopezMateos (MASTER)": "ciclo ~90s hora pico, verde ~45s",
+    "Patria-Americas (MASTER)": "ciclo ~100s hora pico, verde ~50s",
+    "Calle residencial (NORMAL)": "ciclo ~60s, verde ~25s",
+    "Calle colonia (BLIND)": "sin semaforo — ceda el paso"
+  },
+  "MASTER": {
+    "_doc": "Avenidas principales — Vallarta, Americas, Patria, Lopez Mateos",
+    "rush_hour": {
+      "green_ticks": 2,
+      "yellow_ticks": 1,
+      "red_ticks": 2,
+      "_nota": "Ciclo de 90s: verde 60s, amarillo 30s, rojo 60s"
+    },
+    "normal": {
+      "green_ticks": 2,
+      "yellow_ticks": 1,
+      "red_ticks": 3,
+      "_nota": "Ciclo de 120s: verde 60s, amarillo 30s, rojo 90s"
+    },
+    "late_night": {
+      "green_ticks": 1,
+      "yellow_ticks": 1,
+      "red_ticks": 2,
+      "_nota": "Ciclo reducido — menos trafico nocturno"
+    }
+  },
+  "NORMAL": {
+    "_doc": "Calles secundarias y terciarias con semaforo",
+    "rush_hour": {
+      "green_ticks": 1,
+      "yellow_ticks": 1,
+      "red_ticks": 2,
+      "_nota": "Ciclo de 60s: verde 30s, amarillo 30s, rojo 60s"
+    },
+    "normal": {
+      "green_ticks": 1,
+      "yellow_ticks": 1,
+      "red_ticks": 3,
+      "_nota": "Ciclo de 75s: verde 30s, amarillo 30s, rojo 90s"
+    },
+    "late_night": {
+      "green_ticks": 1,
+      "yellow_ticks": 1,
+      "red_ticks": 4,
+      "_nota": "Ciclo largo — madrugada, casi sin trafico"
+    }
+  },
+  "phase_offsets": {
+    "_doc": "Desfases iniciales por indice de nodo para evitar que todos cambien al mismo tiempo",
+    "_nota": "Se aplica modulo del ciclo total. 0=sincronizados, 1+ = desfasados",
+    "pattern": [
+      0,
+      1,
+      2,
+      3,
+      0,
+      1,
+      2,
+      3,
+      0,
+      1,
+      2,
+      3
+    ]
+  },
+  "coordination": {
+    "_doc": "Garantias minimas de verdes y rojos simultaneos en toda la red",
+    "min_green_count": 2,
+    "_doc_green": "Al menos este numero de semaforos siempre en verde — evita que todos esten en rojo",
+    "min_red_count": 2,
+    "_doc_red": "Al menos este numero de semaforos siempre en rojo — evita que todos esten en verde",
+    "enforce_alternation": true,
+    "_doc_alt": "Si true, cuando un nodo pasa a verde, fuerza a rojo su vecino mas cercano"
+  }
+}

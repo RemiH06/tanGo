@@ -121,6 +121,20 @@ MASTER_MIN_STREETS: int = int(
 BLIND_MAX_STREETS: int = int(
     _itype_rules.get("blind_max_street_count", 1)
 )
+# Combinaciones de tipos de vía que generan BLIND aunque haya 2+ calles
+# (cruces entre calles residenciales sin semáforo)
+BLIND_WAY_COMBOS: list = [
+    frozenset(pair)
+    for pair in _itype_rules.get("blind_way_combinations", [
+        ["residential", "residential"],
+        ["residential", "unclassified"],
+        ["unclassified", "unclassified"],
+        ["living_street", "living_street"],
+        ["living_street", "residential"],
+        ["service", "service"],
+        ["service", "residential"],
+    ])
+]
 
 _ov_cfg = _CFG.get("overpass", {})
 OVERPASS_TIMEOUT:  int = int(_ov_cfg.get("timeout_s",       60))
@@ -350,13 +364,42 @@ def process_graph(raw: dict, max_nodes: int = 200) -> dict:
         way_types  = node_way_types.get(osm_id, set())
         street_cnt = node_way_count.get(osm_id, 1)
 
-        # Inferir IntersectionType
-        if any(t in MASTER_HIGHWAY_TYPES for t in way_types) and street_cnt >= MASTER_MIN_STREETS:
+        # ── Inferir IntersectionType con lógica granular ─────────────────
+        # Regla 1: MASTER — cruza al menos una vía principal con 3+ ramas
+        is_master = (
+            any(t in MASTER_HIGHWAY_TYPES for t in way_types)
+            and street_cnt >= MASTER_MIN_STREETS
+        )
+
+        # Regla 2: BLIND — cruce entre solo calles residenciales/servicio
+        # (sin vías importantes), aunque tenga 2+ ramas
+        way_types_list = sorted(way_types)
+        is_blind_combo = any(
+            frozenset([a, b]) in BLIND_WAY_COMBOS
+            for i, a in enumerate(way_types_list)
+            for b in way_types_list[i:]
+        )
+        is_blind = (
+            street_cnt <= BLIND_MAX_STREETS
+            or (is_blind_combo and not any(
+                t in MASTER_HIGHWAY_TYPES
+                or t in ("secondary", "tertiary")
+                for t in way_types
+            ))
+        )
+
+        if is_master:
             itype = "MASTER"
-        elif street_cnt > BLIND_MAX_STREETS:
-            itype = "NORMAL"
-        else:
+        elif is_blind:
             itype = "BLIND"
+        else:
+            itype = "NORMAL"
+
+        # ── Peso por degree (conectividad del nodo) ───────────────────────
+        # Más conexiones = más peso = más prioridad en el algoritmo.
+        # Se normaliza sobre el máximo observado en el grafo.
+        # Se guarda como degree_weight para usarlo en WeightEngine.
+        degree_weight = round(1.0 + (street_cnt - 1) * 0.15, 2)
 
         # Inferir geometría desde OSM
         geometry = _infer_geometry(osm_id, way_types, street_cnt, osm_ways)
@@ -368,8 +411,11 @@ def process_graph(raw: dict, max_nodes: int = 200) -> dict:
             "longitude":         node_data["lon"],
             "intersection_type": itype,
             "geometry":          geometry,
+            "osm_ids":           [osm_id],
             "osm_id":            osm_id,
             "street_count":      street_cnt,
+            "degree_weight":     degree_weight,
+            "way_types":         sorted(way_types),
         })
 
     logger.info(f"  Nodos tanGo: {len(tango_nodes)}")
@@ -474,6 +520,9 @@ def process_graph(raw: dict, max_nodes: int = 200) -> dict:
         len(tango_nodes), len(isolated)
     )
 
+    # ── Calcular pesos estáticos (centralidad + degree + road_quality) ──
+    tango_nodes = compute_static_weights(tango_nodes, tango_edges)
+
     # ── Fusionar nodos duplicados del mismo cruce físico ──────────────────
     tango_nodes = merge_nearby_nodes(tango_nodes, MERGE_RADIUS_M)
 
@@ -558,6 +607,122 @@ def _haversine(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
     dlam = math.radians(lon2 - lon1)
     a = math.sin(dphi/2)**2 + math.cos(phi1)*math.cos(phi2)*math.sin(dlam/2)**2
     return R * 2 * math.atan2(math.sqrt(a), math.sqrt(1-a))
+
+
+def _scale_to(values: dict, lo: float = 0.5, hi: float = 1.5) -> dict:
+    """Escala un dict de valores al rango [lo, hi]."""
+    v_min = min(values.values())
+    v_max = max(values.values())
+    v_range = v_max - v_min if v_max > v_min else 1.0
+    return {k: lo + (v - v_min) / v_range * (hi - lo)
+            for k, v in values.items()}
+
+
+def compute_static_weights(tango_nodes: list[dict],
+                            tango_edges: list[dict]) -> list[dict]:
+    """
+    Calcula los pesos estáticos de cada nodo usando cinco dimensiones:
+
+    1. degree_weight   : conectividad directa — 1 + (street_count-1)×0.15
+    2. betweenness     : cuántas rutas cortas pasan por este nodo
+                         Nodos "puente" tienen betweenness alto.
+    3. pagerank        : importancia basada en la importancia de los vecinos
+                         Similar al ranking de Google — un nodo es importante
+                         si sus vecinos también lo son.
+    4. road_quality    : calidad promedio de vías entrantes
+    5. itype_bonus     : bonus por tipo de intersección
+                         MASTER=1.3, NORMAL=1.0, BLIND=0.5
+
+    Peso combinado (media geométrica ponderada — knobs α, β, γ, δ, ε):
+        combined = (degree^α × betweenness^β × pagerank^γ
+                    × road_quality^δ × itype_bonus^ε) ^ (1/5)
+
+    Los exponentes α-ε son los knobs que el RL de sim3 optimizará.
+    Por ahora todos = 1 (igual peso a cada dimensión).
+
+    Returns
+    -------
+    Lista de nodos con "static_weight" dict y "node_weight" float.
+    """
+    import networkx as nx
+
+    # Construir grafo NetworkX
+    G = nx.DiGraph()
+    node_ids = {n["node_id"] for n in tango_nodes}
+    for n in tango_nodes:
+        G.add_node(n["node_id"])
+    for e in tango_edges:
+        if e["from_node_id"] in node_ids and e["to_node_id"] in node_ids:
+            G.add_edge(e["from_node_id"], e["to_node_id"],
+                       weight=float(e.get("length_m", 300)))
+
+    n_nodes = G.number_of_nodes()
+    logger.info("Calculando métricas de grafo para %d nodos...", n_nodes)
+
+    # 1. Betweenness centrality
+    betweenness = nx.betweenness_centrality(
+        G, normalized=True, weight="weight"
+    ) if n_nodes > 1 else {n["node_id"]: 0.5 for n in tango_nodes}
+
+    # 2. PageRank
+    try:
+        pagerank = nx.pagerank(G, alpha=0.85, weight="weight", max_iter=200)
+    except nx.PowerIterationFailedConvergence:
+        pagerank = {nid: 1/n_nodes for nid in G.nodes()}
+
+    # Escalar betweenness y pagerank a [0.5, 1.5]
+    btw_scaled = _scale_to(betweenness)
+    pr_scaled  = _scale_to(pagerank)
+
+    # 3. Road quality — calidad promedio de vías entrantes
+    ROAD_QUALITY = {
+        "HIGHWAY":          1.0,
+        "MAIN_AVENUE":      0.8,
+        "SECONDARY_AVENUE": 0.5,
+        "STREET":           0.2,
+        "ALLEY":            0.1,
+    }
+    node_road_q: dict[str, float] = {}
+    for n in tango_nodes:
+        incoming = [e for e in tango_edges if e["to_node_id"] == n["node_id"]]
+        node_road_q[n["node_id"]] = (
+            sum(ROAD_QUALITY.get(e.get("category","STREET"), 0.2)
+                for e in incoming) / len(incoming)
+            if incoming else 0.2
+        )
+
+    # 4. Bonus por tipo de intersección
+    ITYPE_BONUS = {"MASTER": 1.3, "NORMAL": 1.0, "BLIND": 0.5}
+
+    # Combinar — media geométrica de 5 dimensiones (α=β=γ=δ=ε=1)
+    for n in tango_nodes:
+        nid      = n["node_id"]
+        degree_w = float(n.get("degree_weight", 1.0))
+        btw_w    = btw_scaled.get(nid, 1.0)
+        pr_w     = pr_scaled.get(nid, 1.0)
+        road_q   = node_road_q.get(nid, 0.2)
+        itype_b  = ITYPE_BONUS.get(n.get("intersection_type","NORMAL"), 1.0)
+
+        combined = (degree_w * btw_w * pr_w * road_q * itype_b) ** (1/5)
+        combined = round(combined, 4)
+
+        n["static_weight"] = {
+            "degree":       round(degree_w, 4),
+            "betweenness":  round(btw_w, 4),
+            "pagerank":     round(pr_w, 4),
+            "road_quality": round(road_q, 4),
+            "itype_bonus":  round(itype_b, 4),
+            "combined":     combined,
+        }
+        n["node_weight"] = combined
+
+    logger.info(
+        "Pesos estáticos: %d nodos | min=%.3f max=%.3f",
+        len(tango_nodes),
+        min(n["node_weight"] for n in tango_nodes),
+        max(n["node_weight"] for n in tango_nodes),
+    )
+    return tango_nodes
 
 
 def merge_nearby_nodes(nodes: list[dict],
@@ -804,7 +969,7 @@ def json_to_traffic_graph(path: str | Path) -> "TrafficGraph":
 
     # Nodos
     for n in data["nodes"]:
-        graph.add_intersection(Intersection(
+        inter = Intersection(
             node_id           = n["node_id"],
             name              = n["name"],
             latitude          = n["latitude"],
@@ -813,13 +978,24 @@ def json_to_traffic_graph(path: str | Path) -> "TrafficGraph":
                                               IntersectionType.NORMAL),
             geometry          = geo_map.get(n.get("geometry", "cross"),
                                            IntersectionGeometry.CROSS),
-        ))
+            degree_weight     = float(n.get("degree_weight", 1.0)),
+            node_weight       = float(n.get("node_weight", 1.0)),
+        )
+        # static_weight no es campo del dataclass — se agrega dinámicamente
+        inter.static_weight = n.get("static_weight", {})
+        graph.add_intersection(inter)
 
     # Registrar clusters de coordinación en el grafo
-    clusters = data.get("clusters", {})
+    # Filtrar miembros del cluster contra nodos realmente cargados
+    raw_clusters = data.get("clusters", {})
+    clusters = {
+        cid: [n for n in members if n in graph.intersections]
+        for cid, members in raw_clusters.items()
+    }
+    clusters = {cid: mems for cid, mems in clusters.items() if len(mems) >= 2}
+
     if clusters:
         graph.intersection_clusters = clusters
-        # Mapa inverso: node_id → cluster_id
         graph.node_to_cluster = {
             nid: cid
             for cid, members in clusters.items()

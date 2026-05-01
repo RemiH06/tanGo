@@ -31,7 +31,7 @@ import folium
 from folium.plugins import MarkerCluster
 
 from core.context       import TrafficContext
-from core.weight_engine import WeightEngine
+from core.algorithm     import TrafficAlgorithm, TickResult, NodeState
 from core.road          import (Intersection, IntersectionType,
                                 IntersectionGeometry, RoadSegment,
                                 RoadCategory, Phase, Turn, TrafficAxis)
@@ -284,9 +284,22 @@ def spawn_for_node(node_id: str, itype: IntersectionType,
 
 def simulate(scenario: dict, graph: TrafficGraph, n_ticks: int,
              spawn_params: dict | None = None) -> list[dict]:
-    engine = WeightEngine()
+    """
+    Corre n_ticks del algoritmo para un escenario dado.
+    Usa TrafficAlgorithm del core — sin lógica duplicada aquí.
 
-    # Parsear timestamp si viene como string desde JSON
+    Parameters
+    ----------
+    scenario     : Dict con timestamp, temperatura, lluvia, etc.
+    graph        : Grafo vial ya construido.
+    n_ticks      : Número de ticks a simular.
+    spawn_params : Multiplicadores de spawn del sim_params.json.
+
+    Returns
+    -------
+    Lista de frames serializables para la visualización.
+    """
+    # Parsear timestamp si viene como string
     sc_clean = {}
     for k, v in scenario.items():
         if k == "label": continue
@@ -295,191 +308,77 @@ def simulate(scenario: dict, graph: TrafficGraph, n_ticks: int,
         else:
             sc_clean[k] = v
 
-    ctx = TrafficContext.build(**sc_clean)
+    ctx  = TrafficContext.build(**sc_clean)
+    algo = TrafficAlgorithm(graph)
+    algo.reset()
+
     history = []
 
-    # Reset fases
-    for inter in graph.intersections.values():
-        inter.current_phase      = Phase.RED
-        inter._ticks_in_phase    = 0
-        inter._timeout_triggered = False
-        inter._ticks_empty       = 0
-        inter._pressure_ns       = 0.0
-        inter._pressure_ew       = 0.0
-        inter.pressure           = 0.0
-
     for _ in range(n_ticks):
-        frame = {"tick":0, "nodes":{}, "flows":[], "total":0, "greens":0}
-
-        # Generar entidades por nodo (con parámetros del JSON)
-        all_entities = {}
-        for node_id, inter in graph.intersections.items():
-            ents = spawn_for_node(node_id, inter.intersection_type, ctx,
-                                  spawn_params=spawn_params)
-            all_entities[node_id] = ents
-
-        # Calcular flujos bidireccionales
-        flow_map: dict = defaultdict(lambda: {"fwd":0,"bwd":0})
-        for from_id, to_id, data in graph.graph.edges(data=True):
-            n_veh = sum(1 for e in all_entities.get(from_id,[])
-                        if isinstance(e, Vehicle))
-            key = tuple(sorted([from_id,to_id]))
-            if from_id <= to_id:
-                flow_map[key]["fwd"] += n_veh
-            else:
-                flow_map[key]["bwd"] += n_veh
-
-        frame["flows"] = [
-            {"from":k[0],"to":k[1],"fwd":v["fwd"],"bwd":v["bwd"]}
-            for k,v in flow_map.items()
-        ]
-
-        # ── Paso 1: calcular presiones propias ───────────────────────────────
-        pressures_own = {}
-        for node_id, inter in graph.intersections.items():
-            ents = all_entities[node_id]
-            pressures_own[node_id] = engine.aggregate_pressure(ents, inter, ctx)
-            inter.pressure = pressures_own[node_id]
-
-        # ── Paso 2: mente colmena — señal vecinal + green wave offset ─────────
-        # Cada nodo recibe:
-        #   a) Influencia de vecinos upstream (cuánto tráfico se aproxima)
-        #   b) Green wave offset: si el upstream está en verde y los vehículos
-        #      llegarán pronto, este nodo debe prepararse para recibirlos.
-        #
-        # El green_wave_offset se calcula con WeightEngine.compute_green_wave_offset
-        # que ya existe en core/weight_engine.py.
-        pressures_combined = {}
-        green_wave_offsets: dict[str, float] = {}  # node_id → segundos hasta que llegue la ola
-
-        for node_id, inter in graph.intersections.items():
-            combined = pressures_own[node_id]
-            min_offset = float("inf")
-
-            for from_id, to_id, data in graph.graph.edges(data=True):
-                if to_id != node_id:
-                    continue
-                neighbor_id  = from_id
-                neighbor_inter = graph.intersections.get(neighbor_id)
-                if not neighbor_inter or neighbor_id not in pressures_own:
-                    continue
-
-                seg = data["segment"]
-
-                # Señal de influencia de presión vecinal
-                influence = inter.receive_neighbor_signal(
-                    neighbor_pressure = pressures_own[neighbor_id],
-                    distance_m        = seg.length_m,
-                    speed_kmh         = seg.speed_limit_kmh,
-                )
-                # Nodos MASTER propagan señal más fuerte
-                if neighbor_inter.intersection_type.value == "master":
-                    influence *= 1.3
-                combined += influence * 0.25
-
-                # Green wave offset: si el vecino está en VERDE,
-                # calcular cuándo llegará su flujo a este nodo.
-                # Si el offset es corto, aumentar presión adicional para
-                # preparar el verde a tiempo.
-                if neighbor_inter.current_phase.value == "green":
-                    try:
-                        offset_s = engine.compute_green_wave_offset(
-                            distance_m      = seg.length_m,
-                            speed_limit_kmh = seg.speed_limit_kmh,
-                        )
-                        # Boost de presión inversamente proporcional al offset:
-                        # offset pequeño → más urgente → más boost
-                        wave_boost = pressures_own[neighbor_id] * (1.0 / (1.0 + offset_s / 20.0))
-                        combined  += wave_boost * 0.15
-                        min_offset = min(min_offset, offset_s)
-                    except (ValueError, ZeroDivisionError):
-                        pass
-
-            pressures_combined[node_id] = combined
-            green_wave_offsets[node_id] = (
-                min_offset if min_offset < float("inf") else 0.0
+        # Generar entidades (única responsabilidad que queda en sim)
+        entities_by_node = {
+            node_id: spawn_for_node(
+                node_id, inter.intersection_type, ctx,
+                spawn_params=spawn_params
             )
+            for node_id, inter in graph.intersections.items()
+        }
 
-        # ── Paso 3: ajustar fases con coordinación de cluster ────────────────
-        # Nodos del mismo cluster son interdependientes:
-        # si uno está en verde, los demás deben estar en rojo.
-        # Se determina el nodo de mayor presión en el cluster → gana el verde.
-        clusters = getattr(graph, "intersection_clusters", {})
-        node_to_cluster = getattr(graph, "node_to_cluster", {})
+        # Ejecutar el algoritmo — todo lo complejo está en TrafficAlgorithm
+        result: TickResult = algo.run_tick(entities_by_node, ctx)
 
-        # Para cada cluster, determinar qué nodo tiene la mayor presión
-        cluster_winner: dict[str, str] = {}  # cluster_id → node_id ganador
-        for cid, members in clusters.items():
-            valid = [nid for nid in members if nid in pressures_combined]
-            if not valid:
-                continue
-            winner = max(valid, key=lambda n: pressures_combined[n])
-            cluster_winner[cid] = winner
-
-        for node_id, inter in graph.intersections.items():
-            ents = all_entities[node_id]
-            inter.pressure = pressures_combined[node_id]
-
-            # Si este nodo pertenece a un cluster y NO es el ganador,
-            # reducir su presión efectiva para que ceda el verde al ganador.
-            cid = node_to_cluster.get(node_id)
-            if cid and cluster_winner.get(cid) != node_id:
-                winner_id = cluster_winner.get(cid)
-                winner_phase = (graph.intersections[winner_id].current_phase
-                                if winner_id else None)
-                # Si el ganador del cluster está en verde, este nodo
-                # debe esperar — reducir presión efectiva temporalmente
-                if winner_phase and winner_phase.value == "green":
-                    inter.pressure = inter.pressure * 0.3
-                    logger.debug(
-                        "[%s] en cluster %s — cediendo verde a %s",
-                        node_id, cid, winner_id
-                    )
-
-            inter.adjust_phase(engine, ctx, ents)
-
-            counts = defaultdict(int)
-            for e in ents:
-                if isinstance(e, Vehicle):
-                    counts[e.vehicle_type.name] += 1
-                elif isinstance(e, Pedestrian):
-                    counts["PEDESTRIAN"] += 1
-                    if e.is_wheelchair: counts["WHEELCHAIR"] += 1
-
-            frame["nodes"][node_id] = {
-                "phase":           inter.current_phase.value,
-                "phase_ns":        inter.phase_ns.value,
-                "phase_ew":        inter.phase_ew.value,
-                "active_axis":     getattr(inter._active_axis, "value", "ns"),
-                "signals":         inter.signal_summary,
-                "pressure":        round(inter.pressure, 1),
-                "pressure_own":    round(pressures_own.get(node_id, inter.pressure), 1),
-                "pressure_ns":     round(inter._pressure_ns, 1),
-                "pressure_ew":     round(inter._pressure_ew, 1),
-                "wave_offset_s":   round(green_wave_offsets.get(node_id, 0.0), 1),
-                "itype":           inter.intersection_type,
-                "geometry":        inter.geometry,
-                "geo_label":       inter.geometry_label,
-                "has_light":       inter.has_traffic_light,
-                "threshold":       inter.pressure_threshold,
-                "timeout":         inter.red_timeout_ticks,
-                "ticks_red":       inter._ticks_in_phase,
-                "name":            inter.name,
-                "lat":             inter.latitude,
-                "lon":             inter.longitude,
-                "counts":    dict(counts),
-                "cluster_id": getattr(graph, "node_to_cluster", {}).get(node_id),
-            }
-            frame["total"] += len(ents)
-            if inter.current_phase == Phase.GREEN:
-                frame["greens"] += 1
-
-        # Usar coordenadas reales para Plotly (lon→x, lat→y)
-        tick_val = list(graph.intersections.values())[0]._ticks_in_phase
-        frame["tick"] = _ + 1
+        # Convertir TickResult al formato que espera la visualización
+        frame = _tick_result_to_frame(result, graph)
         history.append(frame)
 
     return history
+
+
+def _tick_result_to_frame(result: TickResult, graph: TrafficGraph) -> dict:
+    """
+    Convierte un TickResult en el dict que usa la visualización.
+    Separa el formato de visualización del resultado del algoritmo.
+    """
+    nodes_frame = {}
+    for node_id, ns in result.nodes.items():
+        inter = graph.intersections[node_id]
+        nodes_frame[node_id] = {
+            "phase":        ns.phase,
+            "phase_ns":     ns.phase_ns,
+            "phase_ew":     ns.phase_ew,
+            "active_axis":  ns.active_axis,
+            "signals":      ns.signals,
+            "pressure":     ns.pressure,
+            "pressure_own": ns.pressure_own,
+            "pressure_ns":  ns.pressure_ns,
+            "pressure_ew":  ns.pressure_ew,
+            "wave_offset_s": ns.wave_offset_s,
+            "itype":        inter.intersection_type,
+            "geometry":     inter.geometry,
+            "geo_label":    inter.geometry_label,
+            "has_light":    inter.has_traffic_light,
+            "threshold":    ns.threshold,
+            "timeout":      ns.timeout_ticks,
+            "ticks_red":    ns.ticks_in_phase,
+            "name":         inter.name,
+            "lat":          inter.latitude,
+            "lon":          inter.longitude,
+            "counts":       ns.entity_counts,
+            "cluster_id":   ns.cluster_id,
+        }
+
+    clusters = getattr(graph, "intersection_clusters", {})
+    return {
+        "tick":          result.tick_number,
+        "nodes":         nodes_frame,
+        "flows":         result.flows,
+        "total":         result.total_entities,
+        "greens":        result.green_count,
+        "yellows":       result.yellow_count,
+        "reds":          result.red_count,
+        "blinks":        result.blink_count,
+        "cluster_sizes": {cid: len(mems) for cid, mems in clusters.items()},
+    }
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -948,12 +847,16 @@ def build_vis(graph: TrafficGraph, all_histories: list[tuple]) -> str:
                 for fl in snap["flows"]
             ]
             all_snaps_js.append({
-                "scenario": sc_label,
-                "tick":     snap["tick"],
-                "total":    snap["total"],
-                "greens":   snap["greens"],
-                "nodes":    nodes_js,
-                "flows":    flows_js,
+                "scenario":     sc_label,
+                "tick":         snap["tick"],
+                "total":        snap["total"],
+                "greens":       snap["greens"],
+                "yellows":      snap.get("yellows", 0),
+                "reds":         snap.get("reds",    0),
+                "blinks":       snap.get("blinks",  0),
+                "cluster_sizes": snap.get("cluster_sizes", {}),
+                "nodes":        nodes_js,
+                "flows":        flows_js,
             })
 
     # ── Serializar aristas estáticas ──────────────────────────────────────────
@@ -1137,7 +1040,11 @@ input[type=range]{{flex:1;accent-color:var(--teal)}}
       <div class="stat-grid">
         <div class="stat"><div class="stat-val" id="s-tick">0</div><div class="stat-lbl">Tick</div></div>
         <div class="stat"><div class="stat-val" id="s-total">0</div><div class="stat-lbl">Entidades</div></div>
-        <div class="stat"><div class="stat-val" id="s-green">0</div><div class="stat-lbl">En verde</div></div>
+        <div class="stat"><div class="stat-val" id="s-green" style="color:var(--green)">0</div><div class="stat-lbl">Verde</div></div>
+        <div class="stat"><div class="stat-val" id="s-yellow" style="color:var(--yellow)">0</div><div class="stat-lbl">Amarillo</div></div>
+        <div class="stat"><div class="stat-val" id="s-red" style="color:var(--red)">0</div><div class="stat-lbl">Rojo</div></div>
+        <div class="stat"><div class="stat-val" id="s-blink" style="color:#f59e0b">0</div><div class="stat-lbl">Blink</div></div>
+        <div class="stat"><div class="stat-val" id="s-blind" style="color:var(--muted)">0</div><div class="stat-lbl">Sin semaf.</div></div>
         <div class="stat"><div class="stat-val" id="s-nodes">{len(nodes_static_js)}</div><div class="stat-lbl">Nodos</div></div>
       </div>
     </div>
@@ -1226,7 +1133,10 @@ function applySnap(snap){{
     const st=NODES_STATIC[nid];
     const baseR = st.itype==='master'?13:st.itype==='normal'?10:7;
     m.setStyle({{
-      fillColor: nd.phase==='blink' ? (_blinkOn?'#f59e0b':'#1e293b') : (PHASE_C[nd.phase]||'#ef4444'),
+      fillColor:   !nd.has_light ? '#374151'
+                 : nd.phase==='blink' ? (_blinkOn?'#f59e0b':'#1e293b')
+                 : (PHASE_C[nd.phase]||'#ef4444'),
+      fillOpacity: !nd.has_light ? 0.45 : 0.88,
       radius: Math.min(22,baseR+nd.pressure*.06),
     }});
     const ns=nd.has_light?`NS:${{nd.phase_ns.toUpperCase()}} EW:${{nd.phase_ew.toUpperCase()}}`:'sin semaforo';
@@ -1285,11 +1195,22 @@ function applySnap(snap){{
   }});
 
   // Stats
-  document.getElementById('s-tick').textContent  = snap.tick;
-  document.getElementById('s-total').textContent = snap.total;
-  document.getElementById('s-green').textContent = snap.greens;
-  document.getElementById('b-tick').textContent  = `tick #${{snap.tick}}`;
-  document.getElementById('b-sc').textContent    = snap.scenario.substring(0,20);
+  // Contar fases
+  const phaseCounts = {{green:0,yellow:0,red:0,blink:0,blind:0}};
+  Object.values(snap.nodes).forEach(nd=>{{
+    if (!nd.has_light) phaseCounts.blind++;
+    else if (phaseCounts[nd.phase] !== undefined) phaseCounts[nd.phase]++;
+  }});
+
+  document.getElementById('s-tick').textContent   = snap.tick;
+  document.getElementById('s-total').textContent  = snap.total;
+  document.getElementById('s-green').textContent  = phaseCounts.green;
+  document.getElementById('s-yellow').textContent = phaseCounts.yellow;
+  document.getElementById('s-red').textContent    = phaseCounts.red;
+  document.getElementById('s-blink').textContent  = phaseCounts.blink;
+  document.getElementById('s-blind').textContent  = phaseCounts.blind;
+  document.getElementById('b-tick').textContent   = `tick #${{snap.tick}}`;
+  document.getElementById('b-sc').textContent     = snap.scenario.substring(0,20);
 
   if(selectedNode && snap.nodes[selectedNode])
     renderNodePanel(selectedNode,snap.nodes[selectedNode],NODES_STATIC[selectedNode]);
@@ -1312,7 +1233,20 @@ function renderNodePanel(nid,nd,st){{
     <div class="ir">Tipo<span>${{(nd.itype||'').toUpperCase()}}</span></div>
     <div class="ir">Geometria<span>${{st?st.geometry:''}}</span></div>
     <div class="ir">Semaforo<span>${{nd.has_light?'Si':'No'}}</span></div>
-    ${{nd.cluster_id?`<div class="ir">Cluster<span style="color:#f59e0b">${{nd.cluster_id}}</span></div>`:''}}
+    ${{nd.cluster_id?`
+    <div class="ir">Cluster
+      <span style="color:#f59e0b">${{nd.cluster_id.replace('cluster_','')}}</span>
+    </div>
+    <div style="font-size:10px;color:var(--muted);margin-top:2px">
+      Nodos en cluster: <b>${{(ALL_SNAPS[frameIdx]?.cluster_sizes||{{}})[nd.cluster_id]||'?'}}</b>
+    </div>
+    <div style="font-size:10px;margin-top:4px">
+      ${{Object.entries(nd.signals||{{}}).map(([dir,ph])=>{{
+        const col={{green:'var(--green)',yellow:'var(--yellow)',red:'var(--red)',blink:'#f59e0b',none:'var(--muted)'}};
+        return `<span style="color:${{col[ph]||'var(--muted)'}};margin-right:6px;font-weight:700">${{dir}}:${{ph.toUpperCase()}}</span>`;
+      }}).join('')}}
+    </div>
+    `:''}}
   </div>
   ${{nd.has_light?`
   <div class="ic">

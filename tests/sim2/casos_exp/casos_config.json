@@ -1,0 +1,40 @@
+{
+  "_doc": "Configuracion de casos experimentales sim2. Cada caso define cuantos carros y parametros.",
+  "_nota": "Ejecutar: python tests/sim2/casos_exp/casos_exp.py --caso 246",
+
+  "casos": {
+    "246": {
+      "nombre":      "Caso 246",
+      "n_cars":      2,
+      "n_ticks":     40,
+      "descripcion": "2 carros en rutas cruzadas — verificacion basica de conflictos",
+      "color_set":   ["#f97316", "#3b82f6"]
+    },
+    "369": {
+      "nombre":      "Caso 369",
+      "n_cars":      3,
+      "n_ticks":     50,
+      "descripcion": "3 carros — un cruce triple esperado en nodo central",
+      "color_set":   ["#f97316", "#3b82f6", "#22c55e"]
+    },
+    "48C": {
+      "nombre":      "Caso 48C",
+      "n_cars":      4,
+      "n_ticks":     60,
+      "descripcion": "4 carros — red de conflictos mas compleja",
+      "color_set":   ["#f97316", "#3b82f6", "#22c55e", "#a855f7"]
+    },
+    "5AF": {
+      "nombre":      "Caso 5AF",
+      "n_cars":      5,
+      "n_ticks":     70,
+      "descripcion": "5 carros — limite del grafo de ejemplo, ideal con grafo real",
+      "color_set":   ["#f97316", "#3b82f6", "#22c55e", "#a855f7", "#ef4444"]
+    }
+  },
+
+  "movement": {
+    "ticks_to_next_max": 2,
+    "_doc": "Maximo de ticks por segmento — mantener bajo para que semaforos reaccionen"
+  }
+}

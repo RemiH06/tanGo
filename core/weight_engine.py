@@ -161,10 +161,13 @@ class WeightEngine:
             if main_seg else _MIN_ROAD_WEIGHT
         )
 
-        # El weight_multiplier del tipo de intersección escala el denominador:
-        # MASTER × 1.5 → necesita más entidades para llegar al umbral
-        # BLIND  × 0.3 → acumula presión rápido pero nunca cambia fase (umbral 999)
-        road_weight *= intersection.weight_multiplier
+        # weight_multiplier: tipo × geometría (escala el denominador)
+        # node_weight: peso estático combinado (centralidad + degree + road_quality)
+        #   node_weight=1.0 → intersección promedio de la red
+        #   node_weight=1.4 → nodo muy central — necesita más demanda para cambiar
+        #   node_weight=0.6 → nodo periférico — cambia con menos presión
+        # degree_weight se mantiene por compatibilidad; node_weight lo engloba en sim2+
+        road_weight *= intersection.weight_multiplier * intersection.node_weight
 
         pressure = (total_entity_weight / road_weight) * 100.0
 

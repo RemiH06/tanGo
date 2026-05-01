@@ -1,0 +1,96 @@
+{
+  "_doc": "Parametros de sim2 — ciudad completa, pesos estaticos + movimiento",
+  "_tick_duration_s": 30,
+  "n_ticks": 50,
+  "scenarios": [
+    {
+      "label": "Hora pico — lun 8am",
+      "timestamp": "2024-03-04T08:00:00",
+      "temperature_c": 22.0,
+      "is_raining": false,
+      "wind_speed_kmh": 10.0,
+      "visibility_m": 10000.0
+    },
+    {
+      "label": "Madrugada — mie 2am",
+      "timestamp": "2024-03-06T02:00:00",
+      "temperature_c": 18.0,
+      "is_raining": false,
+      "wind_speed_kmh": 5.0,
+      "visibility_m": 10000.0
+    },
+    {
+      "label": "Lluvia — sab 3pm",
+      "timestamp": "2024-03-09T15:00:00",
+      "temperature_c": 16.0,
+      "is_raining": true,
+      "wind_speed_kmh": 20.0,
+      "visibility_m": 3000.0
+    }
+  ],
+  "movement": {
+    "_doc": "Mas entidades para visualizar mejor el trafico",
+    "spawn_rate": 1000,
+    "max_entities": 10000,
+    "directed_ratio": 0.65
+  },
+  "spawn": {
+    "_doc": "Multiplicadores de spawn base (igual que sim1 para comparabilidad)",
+    "vehicle_multiplier": 1.0,
+    "pedestrian_multiplier": 1.0,
+    "emergency_probability": 0.02,
+    "wheelchair_probability": 0.08
+  },
+  "static_weights": {
+    "_doc": "Exponentes alpha-epsilon — en sim3 el RL los optimizara",
+    "alpha_degree": 1.0,
+    "beta_betweenness": 1.0,
+    "gamma_pagerank": 1.0,
+    "delta_road_quality": 1.0,
+    "epsilon_itype": 1.0
+  },
+  "experiment_presets": {
+    "_doc": "Presets que aparecen como botones en el visor",
+    "random_test": {
+      "label": "Random test",
+      "description": "Comportamiento base — verifica que no se rompió nada",
+      "vehicle_multiplier": 1.0,
+      "pedestrian_multiplier": 1.0,
+      "emergency_probability": 0.02
+    },
+    "rush_extreme": {
+      "label": "Hora pico extrema",
+      "description": "Doble trafico — ver efecto en node_weight",
+      "vehicle_multiplier": 2.5,
+      "pedestrian_multiplier": 1.5
+    },
+    "ghost_city": {
+      "label": "Ciudad fantasma",
+      "description": "Sin trafico — todos deberan pasar a BLINK",
+      "vehicle_multiplier": 0.0,
+      "pedestrian_multiplier": 0.0,
+      "emergency_probability": 0.0
+    },
+    "emergency_masters": {
+      "label": "Emergencias en MASTER",
+      "description": "Ambulancias en nodos maestros — green wave inmediata",
+      "vehicle_multiplier": 1.0,
+      "pedestrian_multiplier": 1.0,
+      "emergency_probability": 1.0,
+      "only_master_nodes": true
+    }
+  },
+  "visualization": {
+    "particle_color": {
+      "CAR": "#3b82f6",
+      "BUS": "#8b5cf6",
+      "TRUCK": "#f59e0b",
+      "MOTORCYCLE": "#06b6d4",
+      "BICYCLE": "#10b981",
+      "EMERGENCY": "#ef4444",
+      "PEDESTRIAN": "#e2e8f0"
+    },
+    "heatmap_opacity": 0.6,
+    "particle_radius": 5
+  }
+}
