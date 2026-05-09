@@ -1,0 +1,85 @@
+version: "3.9"
+
+# ─────────────────────────────────────────────────────────────────────────────
+#  tanGo — Docker Compose
+#  Servicios: FastAPI (8000) · Airflow (8082) · Streamlit (8501)
+#
+#  Arrancar:
+#    docker compose up --build
+#
+#  Solo API + dashboard (sin Airflow):
+#    docker compose up tango-api tango-dashboard
+#
+#  Trigger manual del DAG:
+#    docker compose exec tango-airflow airflow dags trigger tango_traffic_pipeline
+# ─────────────────────────────────────────────────────────────────────────────
+
+services:
+
+  # ── FastAPI ────────────────────────────────────────────────────────────────
+  tango-api:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.api
+    container_name: tango-api
+    ports:
+      - "8000:8000"
+    volumes:
+      # Volumen compartido — Airflow escribe aquí, FastAPI lee desde aquí
+      - tango-graph:/app/graph
+    env_file:
+      - .env
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # ── Airflow ────────────────────────────────────────────────────────────────
+  tango-airflow:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.airflow
+    container_name: tango-airflow
+    ports:
+      - "8082:8082"
+    volumes:
+      # Mismo volumen — el DAG escribe tango_state.json aquí
+      - tango-graph:/app/graph
+      # Persistir la DB de Airflow entre reinicios
+      - tango-airflow-db:/app/airflow
+    env_file:
+      - .env
+    environment:
+      - AIRFLOW__WEBSERVER__WEB_SERVER_PORT=8082
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8082/health"]
+      interval: 60s
+      timeout: 15s
+      retries: 5
+      start_period: 30s
+
+  # ── Streamlit dashboard ────────────────────────────────────────────────────
+  tango-dashboard:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.dashboard
+    container_name: tango-dashboard
+    ports:
+      - "8501:8501"
+    environment:
+      # Apuntar al contenedor de la API, no a localhost
+      - API_URL=http://tango-api:8000
+    depends_on:
+      - tango-api
+    restart: unless-stopped
+
+volumes:
+  # Volumen compartido entre FastAPI y Airflow
+  # Contiene: city_graph.json, tango_state.json, tango_context.json
+  tango-graph:
+
+  # Base de datos SQLite de Airflow
+  tango-airflow-db:

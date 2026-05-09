@@ -3,15 +3,19 @@ dags/tango_queries_dag.py
 --------------------------
 Pipeline de actualización de datos tanGo — KAN-10.
 
-Flujo (cada hora):
+Flujo HORARIO (cada hora):
   inicio
-    → verificar_grafo     ← comprueba city_graph.json
-    → refrescar_grafo     ← descarga desde Overpass si es necesario
+    → verificar_grafo     ← comprueba city_graph.json (si >24h → descarga)
+    → refrescar_grafo     ← descarga desde Overpass solo si es necesario
     → enriquecer_contexto ← TomTom (velocidades) + Open-Meteo (clima)
-    → calcular_pesos      ← betweenness, pagerank, road_quality
-    → correr_simulacion   ← 1 tick con TrafficAlgorithm + contexto real
+    → correr_simulacion   ← 10-15 ticks con TrafficAlgorithm + contexto real
     → exportar_estado     ← escribe tango_state.json para FastAPI
+                            (solo nodos semaforizados — sin blind)
   fin
+
+NOTA: calcular_pesos se separó a tango_daily_dag.py (DAG diario).
+Los pesos estáticos (betweenness, pagerank) no cambian cada hora —
+calcularlos cada run era costoso e innecesario.
 
 Fuentes externas:
   - Overpass API    — grafo OSM (sin key)
@@ -39,7 +43,6 @@ from airflow.operators.python import PythonOperator
 TANGO_ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(TANGO_ROOT))
 
-# Cargar .env si existe
 _env_file = TANGO_ROOT / ".env"
 if _env_file.exists():
     for line in _env_file.read_text().splitlines():
@@ -48,14 +51,18 @@ if _env_file.exists():
             k, v = line.split("=", 1)
             os.environ.setdefault(k.strip(), v.strip())
 
-CITY_JSON  = TANGO_ROOT / "graph" / "city_graph.json"
-STATE_JSON = TANGO_ROOT / "graph" / "tango_state.json"
+CITY_JSON    = TANGO_ROOT / "graph" / "city_graph.json"
+STATE_JSON   = TANGO_ROOT / "graph" / "tango_state.json"
 CONTEXT_JSON = TANGO_ROOT / "graph" / "tango_context.json"
+
+# FIX: número de ticks por corrida — suficiente para que los semáforos
+# cambien de fase y el estado refleje algo real, sin ser demasiado lento.
+N_TICKS_PER_RUN = 15
 
 logger = logging.getLogger(__name__)
 
 default_args = {
-    "owner":           "diego",
+    "owner":           "Rem",
     "depends_on_past": False,
     "retries":         1,
     "retry_delay":     timedelta(minutes=3),
@@ -83,17 +90,27 @@ def refrescar_grafo(**context) -> dict:
 
     if status and status.get("needs_refresh"):
         logger.info("Descargando grafo desde Overpass...")
-        from graph.city_loader import process_graph, load_config
-        cfg  = load_config()
-        data = process_graph(cfg)
+        from graph.city_loader import download_graph, process_graph, radius_to_bbox
+
+        lat = float(os.environ.get("CITY_LATITUDE",  "20.6597"))
+        lon = float(os.environ.get("CITY_LONGITUDE", "-103.3496"))
+        radius_m = float(os.environ.get("CITY_RADIUS_M", "800"))
+
+        bbox = radius_to_bbox(lat, lon, radius_m)
+        logger.info("Bbox: %s", bbox)
+
+        raw  = download_graph(bbox)
+        data = process_graph(raw)
+
         with open(CITY_JSON, "w", encoding="utf-8") as f:
             json.dump(data, f, ensure_ascii=False)
-        n_nodes = len(data.get("nodes", []))
+
+        n_nodes = data["metadata"]["n_nodes"]
         logger.info("Grafo descargado: %d nodos", n_nodes)
     else:
         with open(CITY_JSON, encoding="utf-8") as f:
             data = json.load(f)
-        n_nodes = len(data.get("nodes", []))
+        n_nodes = data["metadata"]["n_nodes"]
         logger.info("Grafo existente: %d nodos", n_nodes)
 
     return {"n_nodes": n_nodes}
@@ -112,11 +129,11 @@ def enriquecer_contexto(**context) -> dict:
     """
     import requests
 
-    lat = float(os.environ.get("CITY_LATITUDE",  "20.6597"))
-    lon = float(os.environ.get("CITY_LONGITUDE", "-103.3496"))
+    lat        = float(os.environ.get("CITY_LATITUDE",  "20.6597"))
+    lon        = float(os.environ.get("CITY_LONGITUDE", "-103.3496"))
     tomtom_key = os.environ.get("TOMTOM_API_KEY", "")
 
-    # ── Open-Meteo (sin key, gratis) ──────────────────────────────────────────
+    # ── Open-Meteo ────────────────────────────────────────────────────────────
     weather = {
         "temperature_c":  22.0,
         "is_raining":     False,
@@ -144,13 +161,13 @@ def enriquecer_contexto(**context) -> dict:
         logger.info(
             "Open-Meteo: %.1f°C lluvia=%s viento=%.1fkm/h",
             weather["temperature_c"], weather["is_raining"],
-            weather["wind_speed_kmh"]
+            weather["wind_speed_kmh"],
         )
     except Exception as e:
         logger.warning("Open-Meteo falló, usando defaults: %s", e)
 
-    # ── TomTom Traffic (con key) ──────────────────────────────────────────────
-    traffic_factor = 1.0   # 1.0 = velocidad libre, <1.0 = congestión
+    # ── TomTom Traffic ────────────────────────────────────────────────────────
+    traffic_factor = 1.0
     road_speeds: dict[str, float] = {}
 
     if tomtom_key and tomtom_key != "your_32_char_key_here":
@@ -158,8 +175,7 @@ def enriquecer_contexto(**context) -> dict:
             with open(CITY_JSON, encoding="utf-8") as f:
                 data = json.load(f)
 
-            # Tomar una muestra de segmentos para no exceder el rate limit
-            edges = data.get("edges", [])[:20]
+            edges     = data.get("edges", [])[:20]
             nodes_map = {n["node_id"]: n for n in data.get("nodes", [])}
 
             total_ratio = 0.0
@@ -177,12 +193,11 @@ def enriquecer_contexto(**context) -> dict:
                 url = (
                     f"https://api.tomtom.com/traffic/services/4/flowSegmentData/"
                     f"absolute/10/json"
-                    f"?point={mid_lat},{mid_lon}"
-                    f"&key={tomtom_key}"
+                    f"?point={mid_lat},{mid_lon}&key={tomtom_key}"
                 )
                 resp = requests.get(url, timeout=8)
                 if resp.status_code == 200:
-                    fd = resp.json().get("flowSegmentData", {})
+                    fd            = resp.json().get("flowSegmentData", {})
                     current_speed = fd.get("currentSpeed",  0)
                     free_flow     = fd.get("freeFlowSpeed", 0)
                     if free_flow > 0:
@@ -195,8 +210,7 @@ def enriquecer_contexto(**context) -> dict:
             if count > 0:
                 traffic_factor = round(total_ratio / count, 3)
                 logger.info(
-                    "TomTom: %d segmentos | factor de flujo=%.2f",
-                    count, traffic_factor
+                    "TomTom: %d segmentos | factor=%.2f", count, traffic_factor
                 )
             else:
                 logger.warning("TomTom: sin segmentos válidos")
@@ -221,7 +235,7 @@ def enriquecer_contexto(**context) -> dict:
 
     logger.info(
         "Contexto exportado: clima=%s tráfico=%.2f %d velocidades",
-        weather["source"], traffic_factor, len(road_speeds)
+        weather["source"], traffic_factor, len(road_speeds),
     )
     return {
         "weather_source":  weather["source"],
@@ -232,41 +246,18 @@ def enriquecer_contexto(**context) -> dict:
     }
 
 
-# ── Tarea 4: Calcular pesos ───────────────────────────────────────────────────
-
-def calcular_pesos(**context) -> dict:
-    from graph.city_loader import compute_static_weights
-
-    with open(CITY_JSON, encoding="utf-8") as f:
-        data = json.load(f)
-
-    nodes = data.get("nodes", [])
-    edges = data.get("edges", [])
-
-    logger.info("Calculando pesos estáticos para %d nodos...", len(nodes))
-    nodes = compute_static_weights(nodes, edges)
-    data["nodes"] = nodes
-
-    with open(CITY_JSON, "w", encoding="utf-8") as f:
-        json.dump(data, f, ensure_ascii=False)
-
-    weight_stats = {
-        "min": round(min(n.get("node_weight", 1.0) for n in nodes), 3),
-        "max": round(max(n.get("node_weight", 1.0) for n in nodes), 3),
-        "avg": round(sum(n.get("node_weight", 1.0) for n in nodes) / len(nodes), 3),
-    }
-    logger.info("Pesos calculados: %s", weight_stats)
-    return weight_stats
-
-
-# ── Tarea 5: Correr simulación ────────────────────────────────────────────────
+# ── Tarea 4: Correr simulación ────────────────────────────────────────────────
 
 def correr_simulacion(**context) -> dict:
     """
-    Corre 1 tick de TrafficAlgorithm con:
-      - Contexto real de Open-Meteo (temperatura, lluvia, viento)
-      - Factor de tráfico de TomTom (ajusta velocidades de entidades)
-      - Spawn sintético (reemplazable por VisionIngester en KAN-16)
+    FIX: corre N_TICKS_PER_RUN ticks (15) en vez de 1.
+
+    Con 1 tick todos los semáforos aparecen en verde porque el algoritmo
+    no ha tenido tiempo de acumular presión y cambiar fases. Con 15 ticks
+    el estado exportado refleja un ciclo de semáforos real.
+
+    El último tick es el que se exporta a tango_state.json.
+    Las métricas (green_count, red_count, etc.) son el promedio del episodio.
     """
     import random
     import uuid
@@ -298,10 +289,7 @@ def correr_simulacion(**context) -> dict:
     algo  = TrafficAlgorithm(graph)
     algo.reset()
 
-    # Spawn sintético ajustado por traffic_factor de TomTom
-    # traffic_factor < 1 → más tráfico (hora pico real)
-    # traffic_factor ≥ 1 → flujo libre
-    congestion_mult = max(0.5, 2.0 - traffic_factor)  # inverso suavizado
+    congestion_mult = max(0.5, 2.0 - traffic_factor)
 
     def spawn_node(itype: IntersectionType) -> list:
         if itype == IntersectionType.MASTER:
@@ -328,20 +316,49 @@ def correr_simulacion(**context) -> dict:
             ents.append(Pedestrian(str(uuid.uuid4())))
         return ents
 
-    entities_by_node = {
-        nid: spawn_node(inter.intersection_type)
-        for nid, inter in graph.intersections.items()
+    # FIX: correr N_TICKS_PER_RUN ticks, acumulando métricas
+    metrics_acc = {
+        "green_count":  0,
+        "red_count":    0,
+        "yellow_count": 0,
+        "blink_count":  0,
+        "total_entities": 0,
     }
+    last_result = None
 
-    result = algo.run_tick(entities_by_node, ctx)
+    logger.info("Corriendo %d ticks de simulación...", N_TICKS_PER_RUN)
+
+    for tick_n in range(N_TICKS_PER_RUN):
+        entities_by_node = {
+            nid: spawn_node(inter.intersection_type)
+            for nid, inter in graph.intersections.items()
+        }
+        result = algo.run_tick(entities_by_node, ctx)
+        last_result = result
+
+        metrics_acc["green_count"]    += result.green_count
+        metrics_acc["red_count"]      += result.red_count
+        metrics_acc["yellow_count"]   += result.yellow_count
+        metrics_acc["blink_count"]    += result.blink_count
+        metrics_acc["total_entities"] += result.total_entities
+
+    # Promediar métricas del episodio
+    metrics_avg = {k: round(v / N_TICKS_PER_RUN, 1)
+                   for k, v in metrics_acc.items()}
+
     logger.info(
-        "Simulación tick %d: %d entidades | %d verdes | factor_tráfico=%.2f",
-        result.tick_number, result.total_entities,
-        result.green_count, traffic_factor,
+        "Simulación completa: %d ticks | %.1f entidades/tick | "
+        "verde=%.1f rojo=%.1f factor_tráfico=%.2f",
+        N_TICKS_PER_RUN,
+        metrics_avg["total_entities"],
+        metrics_avg["green_count"],
+        metrics_avg["red_count"],
+        traffic_factor,
     )
 
+    # Snapshot del ÚLTIMO tick — es el estado más reciente
     intersections_snap = []
-    for nid, ns in result.nodes.items():
+    for nid, ns in last_result.nodes.items():
         inter = graph.intersections[nid]
         intersections_snap.append({
             "node_id":     nid,
@@ -358,36 +375,55 @@ def correr_simulacion(**context) -> dict:
         })
 
     return {
-        "tick":           result.tick_number,
-        "total_entities": result.total_entities,
-        "green_count":    result.green_count,
-        "red_count":      result.red_count,
-        "yellow_count":   result.yellow_count,
-        "blink_count":    result.blink_count,
-        "intersections":  intersections_snap,
-        "traffic_factor": traffic_factor,
-        "is_raining":     weather.get("is_raining", False),
+        "tick":             last_result.tick_number,
+        "n_ticks_run":      N_TICKS_PER_RUN,
+        "total_entities":   metrics_avg["total_entities"],
+        "green_count":      metrics_avg["green_count"],
+        "red_count":        metrics_avg["red_count"],
+        "yellow_count":     metrics_avg["yellow_count"],
+        "blink_count":      metrics_avg["blink_count"],
+        "intersections":    intersections_snap,
+        "traffic_factor":   traffic_factor,
+        "is_raining":       weather.get("is_raining", False),
     }
 
 
-# ── Tarea 6: Exportar estado ──────────────────────────────────────────────────
+# ── Tarea 5: Exportar estado ──────────────────────────────────────────────────
 
 def exportar_estado(**context) -> None:
+    """
+    FIX: filtra nodos blind del JSON exportado.
+
+    Los nodos blind no tienen semáforo — no aportan nada útil al dashboard
+    y generaban confusión al mostrar entidades en intersecciones sin control.
+    FastAPI y el dashboard solo ven nodos con has_light=True.
+    """
     ti = context["ti"]
 
-    peso_stats = ti.xcom_pull(task_ids="calcular_pesos")    or {}
     sim_result = ti.xcom_pull(task_ids="correr_simulacion") or {}
     graph_info = ti.xcom_pull(task_ids="refrescar_grafo")   or {}
     ctx_info   = ti.xcom_pull(task_ids="enriquecer_contexto") or {}
 
-    intersections = sim_result.get("intersections", [])
-    n_signaled    = sum(1 for i in intersections if i.get("has_light"))
+    all_intersections = sim_result.get("intersections", [])
+
+    # FIX: solo exportar nodos semaforizados (has_light=True)
+    # Los blind se excluyen — no tienen fase que mostrar ni semáforo que controlar
+    signaled_intersections = [
+        i for i in all_intersections if i.get("has_light")
+    ]
+
+    n_blind = len(all_intersections) - len(signaled_intersections)
+    logger.info(
+        "Filtrando nodos: %d total → %d semaforizados (%d blind excluidos)",
+        len(all_intersections), len(signaled_intersections), n_blind,
+    )
 
     state = {
-        "updated_at":     datetime.now().isoformat(),
-        "n_nodes":        graph_info.get("n_nodes", len(intersections)),
-        "n_signaled":     n_signaled,
-        "weight_stats":   peso_stats,
+        "updated_at":  datetime.now().isoformat(),
+        "n_nodes":     graph_info.get("n_nodes", len(all_intersections)),
+        "n_signaled":  len(signaled_intersections),
+        "n_blind":     n_blind,
+        "n_ticks_run": sim_result.get("n_ticks_run", 1),
         "context": {
             "weather_source":  ctx_info.get("weather_source",  "default"),
             "temperature_c":   ctx_info.get("temperature_c",   22.0),
@@ -396,48 +432,50 @@ def exportar_estado(**context) -> None:
             "n_road_speeds":   ctx_info.get("n_road_speeds",   0),
         },
         "metrics": {
-            "total_intersections": len(intersections),
+            "total_intersections": len(signaled_intersections),
             "total_records":       sim_result.get("total_entities", 0),
-            "total_ticks":         sim_result.get("tick",           0),
+            "n_ticks_run":         sim_result.get("n_ticks_run",    1),
             "green_count":         sim_result.get("green_count",    0),
             "red_count":           sim_result.get("red_count",      0),
             "blink_count":         sim_result.get("blink_count",    0),
             "traffic_factor":      sim_result.get("traffic_factor", 1.0),
         },
-        "intersections": intersections,
+        # Solo semaforizados — dashboard y FastAPI consumen esto
+        "intersections": signaled_intersections,
     }
 
     with open(STATE_JSON, "w", encoding="utf-8") as f:
         json.dump(state, f, ensure_ascii=False, indent=2)
 
     logger.info(
-        "Estado exportado → %s | %d intersecciones | clima=%s | tráfico=%.2f",
-        STATE_JSON, len(intersections),
+        "Estado exportado → %s | %d semaforizados | %d ticks | clima=%s | tráfico=%.2f",
+        STATE_JSON,
+        len(signaled_intersections),
+        sim_result.get("n_ticks_run", 1),
         state["context"]["weather_source"],
         state["context"]["traffic_factor"],
     )
 
 
-# ── DAG ───────────────────────────────────────────────────────────────────────
+# ── DAG HORARIO ───────────────────────────────────────────────────────────────
 
 with DAG(
-    dag_id            = "tango_traffic_graph_pipeline",
+    dag_id            = "tango_traffic_pipeline",
     default_args      = default_args,
-    description       = "Pipeline tanGo — Overpass + TomTom + Open-Meteo + simulación",
+    description       = "tanGo — pipeline horario: Overpass + TomTom + Open-Meteo + sim",
     start_date        = datetime(2026, 4, 26),
     schedule_interval = "@hourly",
     catchup           = False,
-    tags              = ["tanGo", "grafos", "trafico", "KAN-10"],
+    tags              = ["tanGo", "trafico", "KAN-10"],
 ) as dag:
 
     inicio = EmptyOperator(task_id="inicio")
     fin    = EmptyOperator(task_id="fin")
 
-    t_verificar  = PythonOperator(task_id="verificar_grafo",     python_callable=verificar_grafo)
-    t_refrescar  = PythonOperator(task_id="refrescar_grafo",     python_callable=refrescar_grafo)
-    t_contexto   = PythonOperator(task_id="enriquecer_contexto", python_callable=enriquecer_contexto)
-    t_pesos      = PythonOperator(task_id="calcular_pesos",      python_callable=calcular_pesos)
-    t_sim        = PythonOperator(task_id="correr_simulacion",   python_callable=correr_simulacion)
-    t_exportar   = PythonOperator(task_id="exportar_estado",     python_callable=exportar_estado)
+    t_verificar = PythonOperator(task_id="verificar_grafo",     python_callable=verificar_grafo)
+    t_refrescar = PythonOperator(task_id="refrescar_grafo",     python_callable=refrescar_grafo)
+    t_contexto  = PythonOperator(task_id="enriquecer_contexto", python_callable=enriquecer_contexto)
+    t_sim       = PythonOperator(task_id="correr_simulacion",   python_callable=correr_simulacion)
+    t_exportar  = PythonOperator(task_id="exportar_estado",     python_callable=exportar_estado)
 
-    inicio >> t_verificar >> t_refrescar >> t_contexto >> t_pesos >> t_sim >> t_exportar >> fin
+    inicio >> t_verificar >> t_refrescar >> t_contexto >> t_sim >> t_exportar >> fin
