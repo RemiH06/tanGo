@@ -1,0 +1,716 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>tanGo — Dashboard Técnico</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+:root {
+  --bg:      #F5F0E8;
+  --bg2:     #EDE8DC;
+  --bg3:     #E4DDD0;
+  --accent:  #6B1A2A;
+  --accent2: #C4691A;
+  --danger:  #8B1A1A;
+  --warn:    #C4691A;
+  --ok:      #2A6B3A;
+  --text:    #1A1410;
+  --text2:   #6B5E50;
+  --border:  #C8BFB0;
+  --mono:    'Space Mono', monospace;
+  --sans:    'DM Sans', sans-serif;
+}
+body.dark {
+  --bg:      #0a0c10;
+  --bg2:     #0f1219;
+  --bg3:     #161b26;
+  --accent:  #00e5a0;
+  --accent2: #457BFF;
+  --danger:  #ff4560;
+  --warn:    #f5a623;
+  --ok:      #00e5a0;
+  --text:    #e8eaf0;
+  --text2:   #7a8099;
+  --border:  #1e2535;
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+body { background:var(--bg); color:var(--text); font-family:var(--sans); height:100vh; overflow:hidden; display:flex; flex-direction:column; }
+
+body::before {
+  content:'';
+  position:fixed; inset:0;
+  background-image: linear-gradient(var(--border) 1px, transparent 1px), linear-gradient(90deg, var(--border) 1px, transparent 1px);
+  background-size:40px 40px;
+  opacity:0.25;
+  pointer-events:none;
+}
+
+/* HEADER */
+header {
+  display:flex; align-items:center; justify-content:space-between;
+  padding:0 24px; height:52px;
+  background:var(--bg2); border-bottom:1px solid var(--border);
+  flex-shrink:0; position:relative; z-index:10;
+}
+.logo { font-family:var(--mono); font-size:20px; font-weight:700; letter-spacing:-1px; }
+.logo span { color:var(--accent); }
+.header-meta { display:flex; align-items:center; gap:16px; }
+.status-dot { width:8px; height:8px; border-radius:50%; background:var(--ok); animation:pulse 2s infinite; }
+.meta-text { font-family:var(--mono); font-size:11px; color:var(--text2); }
+.refresh-btn {
+  font-family:var(--mono); font-size:11px; padding:5px 14px;
+  background:none; border:1px solid var(--border); border-radius:4px;
+  color:var(--text2); cursor:pointer; transition:all .2s;
+}
+.refresh-btn:hover { border-color:var(--accent); color:var(--accent); }
+
+/* LAYOUT */
+.layout { display:flex; flex:1; overflow:hidden; }
+
+/* SIDEBAR */
+.sidebar {
+  width:280px; flex-shrink:0;
+  background:var(--bg2); border-right:1px solid var(--border);
+  display:flex; flex-direction:column; overflow:hidden;
+}
+.sidebar-section { padding:14px 16px; border-bottom:1px solid var(--border); }
+.sidebar-label { font-family:var(--mono); font-size:10px; color:var(--text2); letter-spacing:2px; text-transform:uppercase; margin-bottom:10px; }
+
+/* STAT CARDS */
+.stat-grid { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+.stat-card {
+  background:var(--bg3); border:1px solid var(--border); border-radius:6px;
+  padding:10px; position:relative; overflow:hidden;
+}
+.stat-card::before { content:''; position:absolute; top:0; left:0; right:0; height:2px; }
+.stat-card.accent::before { background:var(--accent); }
+.stat-card.warn::before   { background:var(--warn); }
+.stat-card.ok::before     { background:var(--ok); }
+.stat-card.danger::before { background:var(--danger); }
+.stat-val { font-family:var(--mono); font-size:20px; font-weight:700; line-height:1.1; }
+.stat-lbl { font-size:10px; color:var(--text2); margin-top:2px; }
+.val-accent { color:var(--accent); }
+.val-warn   { color:var(--warn); }
+.val-ok     { color:var(--ok); }
+.val-danger { color:var(--danger); }
+
+/* PHASE BAR */
+.phase-bar { display:flex; height:8px; border-radius:4px; overflow:hidden; gap:1px; margin-top:6px; }
+.phase-seg { transition:width .6s ease; }
+.phase-seg.green  { background:var(--ok); }
+.phase-seg.red    { background:var(--danger); }
+.phase-seg.blink  { background:var(--warn); }
+.phase-seg.blind  { background:var(--border); }
+
+.phase-legend { display:flex; gap:10px; margin-top:8px; flex-wrap:wrap; }
+.legend-item { display:flex; align-items:center; gap:4px; font-size:10px; color:var(--text2); }
+.legend-dot { width:8px; height:8px; border-radius:2px; flex-shrink:0; }
+
+/* CONTEXT */
+.ctx-row { display:flex; justify-content:space-between; align-items:center; padding:5px 0; border-bottom:1px solid var(--border); }
+.ctx-row:last-child { border-bottom:none; }
+.ctx-key { font-size:11px; color:var(--text2); font-family:var(--mono); }
+.ctx-val { font-family:var(--mono); font-size:12px; font-weight:700; }
+
+/* FILTER */
+.filter-group { display:flex; flex-direction:column; gap:6px; }
+.filter-select {
+  width:100%; padding:7px 10px; border:1px solid var(--border);
+  background:var(--bg3); color:var(--text); border-radius:4px;
+  font-family:var(--mono); font-size:11px; cursor:pointer;
+}
+.filter-select:focus { outline:none; border-color:var(--accent); }
+.search-input {
+  width:100%; padding:7px 10px; border:1px solid var(--border);
+  background:var(--bg3); color:var(--text); border-radius:4px;
+  font-family:var(--mono); font-size:11px;
+}
+.search-input:focus { outline:none; border-color:var(--accent); }
+.search-input::placeholder { color:var(--text2); }
+
+/* MAIN AREA */
+.main { flex:1; display:flex; flex-direction:column; overflow:hidden; }
+
+/* TABS */
+.tabs { display:flex; border-bottom:1px solid var(--border); background:var(--bg2); padding:0 20px; flex-shrink:0; }
+.tab {
+  font-family:var(--mono); font-size:11px; letter-spacing:1px;
+  padding:12px 16px; cursor:pointer; color:var(--text2);
+  border-bottom:2px solid transparent; margin-bottom:-1px;
+  transition:all .2s; text-transform:uppercase;
+}
+.tab:hover { color:var(--text); }
+.tab.active { color:var(--accent); border-bottom-color:var(--accent); }
+
+/* TAB CONTENT */
+.tab-pane { display:none; flex:1; overflow:hidden; }
+.tab-pane.active { display:flex; flex-direction:column; }
+
+/* MAP */
+#map { flex:1; }
+.leaflet-tile { filter:sepia(0.3) brightness(1.05) contrast(0.95); }
+.leaflet-container { background:var(--bg); }
+
+/* NODE POPUP */
+.node-popup { font-family:var(--mono); font-size:11px; min-width:180px; }
+.popup-name { font-size:12px; font-weight:700; margin-bottom:8px; color:var(--text); line-height:1.3; }
+.popup-row { display:flex; justify-content:space-between; padding:3px 0; border-bottom:1px solid var(--border); }
+.popup-row:last-child { border-bottom:none; }
+.popup-key { color:var(--text2); }
+.popup-val { font-weight:700; }
+
+/* TABLE VIEW */
+.table-wrap { flex:1; overflow:auto; padding:16px 20px; }
+.data-table { width:100%; border-collapse:collapse; font-size:12px; }
+.data-table th {
+  font-family:var(--mono); font-size:10px; letter-spacing:1px; text-transform:uppercase;
+  color:var(--text2); padding:8px 12px; border-bottom:2px solid var(--border);
+  text-align:left; position:sticky; top:0; background:var(--bg); white-space:nowrap;
+}
+.data-table td { padding:8px 12px; border-bottom:1px solid var(--border); }
+.data-table tr:hover td { background:var(--bg2); }
+.data-table tr.highlight td { background:rgba(107,26,42,0.05); }
+.phase-pill {
+  display:inline-block; padding:2px 8px; border-radius:3px;
+  font-family:var(--mono); font-size:10px; font-weight:700; letter-spacing:0.5px;
+}
+.phase-pill.green  { background:rgba(42,107,58,0.12);  color:var(--ok); }
+.phase-pill.red    { background:rgba(139,26,26,0.12);  color:var(--danger); }
+.phase-pill.blink  { background:rgba(196,105,26,0.12); color:var(--warn); }
+.phase-pill.yellow { background:rgba(196,105,26,0.12); color:var(--warn); }
+
+/* PRESSURE CHART */
+.chart-wrap { flex:1; overflow:auto; padding:20px; display:flex; flex-direction:column; gap:16px; }
+.pressure-chart-title { font-family:var(--mono); font-size:12px; color:var(--text2); margin-bottom:12px; }
+.bar-chart { display:flex; flex-direction:column; gap:6px; }
+.bar-row { display:flex; align-items:center; gap:10px; }
+.bar-label { font-family:var(--mono); font-size:10px; color:var(--text2); width:200px; flex-shrink:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.bar-track { flex:1; height:16px; background:var(--bg3); border-radius:3px; overflow:hidden; position:relative; }
+.bar-fill { height:100%; border-radius:3px; transition:width .4s ease; }
+.bar-fill.high   { background:var(--danger); }
+.bar-fill.mid    { background:var(--warn); }
+.bar-fill.low    { background:var(--ok); }
+.bar-val { font-family:var(--mono); font-size:10px; color:var(--text2); width:60px; text-align:right; flex-shrink:0; }
+
+/* WEIGHT VIEW */
+.weight-grid-wrap { flex:1; overflow:auto; padding:20px; }
+.weight-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(200px, 1fr)); gap:10px; }
+.weight-node-card {
+  background:var(--bg2); border:1px solid var(--border); border-radius:6px;
+  padding:12px; transition:border-color .2s;
+}
+.weight-node-card:hover { border-color:var(--accent); }
+.wn-name { font-size:11px; color:var(--text); margin-bottom:8px; line-height:1.4; font-weight:500; }
+.wn-id   { font-family:var(--mono); font-size:9px; color:var(--text2); margin-bottom:8px; }
+.wn-bars { display:flex; flex-direction:column; gap:4px; }
+.wn-bar-row { display:flex; align-items:center; gap:6px; }
+.wn-bar-key { font-size:9px; color:var(--text2); width:60px; flex-shrink:0; }
+.wn-bar-track { flex:1; height:4px; background:var(--border); border-radius:2px; overflow:hidden; }
+.wn-bar-fill { height:100%; border-radius:2px; background:var(--accent); }
+.wn-bar-val { font-family:var(--mono); font-size:9px; color:var(--text2); width:32px; text-align:right; flex-shrink:0; }
+
+/* LOADING */
+.loading { display:flex; align-items:center; justify-content:center; flex:1; }
+.loading-text { font-family:var(--mono); font-size:12px; color:var(--text2); }
+
+/* FOOTER STRIP */
+.footer { 
+  height:32px; background:var(--bg2); border-top:1px solid var(--border);
+  display:flex; align-items:center; padding:0 20px; gap:24px; flex-shrink:0;
+}
+.footer-item { font-family:var(--mono); font-size:10px; color:var(--text2); }
+.footer-item span { color:var(--text); font-weight:700; }
+
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+@keyframes spin { to{transform:rotate(360deg)} }
+.spinning { animation:spin .8s linear infinite; display:inline-block; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">tan<span>Go</span> <span style="font-size:11px;color:var(--text2);font-weight:400;margin-left:8px">Dashboard Técnico</span></div>
+  <div class="header-meta">
+    <div class="status-dot" id="status-dot"></div>
+    <span class="meta-text" id="updated-at">Cargando...</span>
+    <button class="refresh-btn" onclick="loadData()">↻ Actualizar</button>
+    <button class="refresh-btn" id="theme-btn" onclick="toggleTheme()" style="min-width:36px">☀</button>
+  </div>
+</header>
+
+<div class="layout">
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+
+    <div class="sidebar-section">
+      <div class="sidebar-label">Resumen de red</div>
+      <div class="stat-grid">
+        <div class="stat-card accent">
+          <div class="stat-val val-accent" id="s-total">—</div>
+          <div class="stat-lbl">Nodos totales</div>
+        </div>
+        <div class="stat-card ok">
+          <div class="stat-val val-ok" id="s-signaled">—</div>
+          <div class="stat-lbl">Semaforizados</div>
+        </div>
+        <div class="stat-card ok">
+          <div class="stat-val val-ok" id="s-green">—</div>
+          <div class="stat-lbl">Verde</div>
+        </div>
+        <div class="stat-card danger">
+          <div class="stat-val val-danger" id="s-red">—</div>
+          <div class="stat-lbl">Rojo</div>
+        </div>
+        <div class="stat-card warn">
+          <div class="stat-val val-warn" id="s-blink">—</div>
+          <div class="stat-lbl">Blink</div>
+        </div>
+        <div class="stat-card" style="border-color:var(--border)">
+          <div class="stat-val" id="s-blind" style="color:var(--text2)">—</div>
+          <div class="stat-lbl">Sin semáforo</div>
+        </div>
+      </div>
+      <div class="phase-bar" id="phase-bar" style="margin-top:10px"></div>
+      <div class="phase-legend">
+        <div class="legend-item"><div class="legend-dot" style="background:var(--ok)"></div>Verde</div>
+        <div class="legend-item"><div class="legend-dot" style="background:var(--danger)"></div>Rojo</div>
+        <div class="legend-item"><div class="legend-dot" style="background:var(--warn)"></div>Blink</div>
+        <div class="legend-item"><div class="legend-dot" style="background:var(--border)"></div>Sin semáforo</div>
+      </div>
+    </div>
+
+    <div class="sidebar-section">
+      <div class="sidebar-label">Contexto en tiempo real</div>
+      <div class="ctx-row"><span class="ctx-key">Fuente clima</span><span class="ctx-val" id="ctx-weather">—</span></div>
+      <div class="ctx-row"><span class="ctx-key">Temperatura</span><span class="ctx-val" id="ctx-temp">—</span></div>
+      <div class="ctx-row"><span class="ctx-key">Lluvia</span><span class="ctx-val" id="ctx-rain">—</span></div>
+      <div class="ctx-row"><span class="ctx-key">Factor tráfico</span><span class="ctx-val" id="ctx-traffic">—</span></div>
+      <div class="ctx-row"><span class="ctx-key">Segmentos TomTom</span><span class="ctx-val" id="ctx-speeds">—</span></div>
+      <div class="ctx-row"><span class="ctx-key">Entidades tick</span><span class="ctx-val" id="ctx-entities">—</span></div>
+    </div>
+
+    <div class="sidebar-section">
+      <div class="sidebar-label">Pesos estáticos</div>
+      <div class="ctx-row"><span class="ctx-key">Mínimo</span><span class="ctx-val val-danger" id="w-min">—</span></div>
+      <div class="ctx-row"><span class="ctx-key">Promedio</span><span class="ctx-val val-warn" id="w-avg">—</span></div>
+      <div class="ctx-row"><span class="ctx-key">Máximo</span><span class="ctx-val val-ok" id="w-max">—</span></div>
+    </div>
+
+    <div class="sidebar-section">
+      <div class="sidebar-label">Filtros</div>
+      <div class="filter-group">
+        <input class="search-input" id="search-input" placeholder="Buscar intersección..." oninput="applyFilters()">
+        <select class="filter-select" id="phase-filter" onchange="applyFilters()">
+          <option value="">Todas las fases</option>
+          <option value="green">Verde</option>
+          <option value="red">Rojo</option>
+          <option value="yellow">Amarillo</option>
+          <option value="blink">Blink</option>
+        </select>
+        <select class="filter-select" id="itype-filter" onchange="applyFilters()">
+          <option value="">Todos los tipos</option>
+          <option value="master">Master</option>
+          <option value="normal">Normal</option>
+          <option value="blind">Blind</option>
+        </select>
+        <select class="filter-select" id="pressure-filter" onchange="applyFilters()">
+          <option value="">Cualquier presión</option>
+          <option value="high">Alta (&gt; 1000)</option>
+          <option value="mid">Media (100–1000)</option>
+          <option value="low">Baja (&lt; 100)</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="sidebar-section" style="margin-top:auto">
+      <div class="footer-item">Intersecciones visibles: <span id="visible-count">—</span></div>
+    </div>
+
+  </aside>
+
+  <!-- MAIN -->
+  <div class="main">
+
+    <div class="tabs">
+      <div class="tab active" onclick="switchTab('map')">Mapa</div>
+      <div class="tab" onclick="switchTab('table')">Tabla</div>
+      <div class="tab" onclick="switchTab('pressure')">Presión</div>
+      <div class="tab" onclick="switchTab('weights')">Pesos</div>
+    </div>
+
+    <!-- MAP TAB -->
+    <div class="tab-pane active" id="tab-map">
+      <div id="map"></div>
+    </div>
+
+    <!-- TABLE TAB -->
+    <div class="tab-pane" id="tab-table">
+      <div class="table-wrap">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Nombre</th>
+              <th>Tipo</th>
+              <th>Fase</th>
+              <th>Presión</th>
+              <th>node_weight</th>
+              <th>Entidades</th>
+              <th>Vecinos</th>
+            </tr>
+          </thead>
+          <tbody id="table-body">
+            <tr><td colspan="7" style="text-align:center;color:var(--text2);font-family:var(--mono);font-size:11px;padding:24px">Cargando datos...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- PRESSURE TAB -->
+    <div class="tab-pane" id="tab-pressure">
+      <div class="chart-wrap">
+        <div class="pressure-chart-title">Top 50 intersecciones por presión — filtro activo</div>
+        <div class="bar-chart" id="pressure-bars"></div>
+      </div>
+    </div>
+
+    <!-- WEIGHTS TAB -->
+    <div class="tab-pane" id="tab-weights">
+      <div class="weight-grid-wrap">
+        <div class="weight-grid" id="weight-grid"></div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<div class="footer">
+  <div class="footer-item">API: <span id="footer-api">http://localhost:8000</span></div>
+  <div class="footer-item">Tick: <span id="footer-tick">—</span></div>
+  <div class="footer-item">Verde: <span id="footer-green">—</span></div>
+  <div class="footer-item">Factor tráfico: <span id="footer-traffic">—</span></div>
+  <div class="footer-item" style="margin-left:auto">tanGo · ITESO 2026</div>
+</div>
+
+<script>
+const API = 'http://localhost:8000';
+let allIntersections = [];
+let filteredIntersections = [];
+let map = null;
+let markers = {};
+let currentTab = 'map';
+
+// ── MAPA ──────────────────────────────────────────────────────────────────────
+function initMap(lat, lon) {
+  if (map) return;
+  map = L.map('map').setView([lat, lon], 14);
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+    attribution: 'CartoDB', maxZoom: 19
+  }).addTo(map);
+}
+
+function phaseColor(phase, hasLight) {
+  if (!hasLight) return '#C8BFB0';
+  if (phase === 'green')  return '#2A6B3A';
+  if (phase === 'red')    return '#8B1A1A';
+  if (phase === 'yellow') return '#C4691A';
+  if (phase === 'blink')  return '#C4691A';
+  return '#6B5E50';
+}
+
+function itypeRadius(itype) {
+  if (itype === 'master') return 10;
+  if (itype === 'normal') return 7;
+  return 4;
+}
+
+function countEntities(counts) {
+  if (!counts) return 0;
+  return Object.values(counts).reduce((a, b) => a + b, 0);
+}
+
+function renderMarkers() {
+  if (!map) return;
+
+  // Limpiar markers viejos
+  Object.values(markers).forEach(m => map.removeLayer(m));
+  markers = {};
+
+  filteredIntersections.forEach(inter => {
+    const m = L.circleMarker([inter.latitude, inter.longitude], {
+      radius:      itypeRadius(inter.itype),
+      color:       inter.itype === 'master' ? '#6B1A2A' : '#C8BFB0',
+      weight:      inter.itype === 'master' ? 2 : 1,
+      fillColor:   phaseColor(inter.phase, inter.has_light),
+      fillOpacity: inter.has_light ? 0.88 : 0.35,
+    }).addTo(map);
+
+    const ents = countEntities(inter.counts);
+    const entHtml = Object.entries(inter.counts || {})
+      .map(([k,v]) => `<div class="popup-row"><span class="popup-key">${k}</span><span class="popup-val">${v}</span></div>`)
+      .join('') || '<div class="popup-row"><span class="popup-key" style="font-style:italic">Sin entidades</span></div>';
+
+    m.bindPopup(`
+      <div class="node-popup">
+        <div class="popup-name">${inter.name}</div>
+        <div class="popup-row"><span class="popup-key">ID</span><span class="popup-val" style="font-size:9px">${inter.node_id.replace('osm_','')}</span></div>
+        <div class="popup-row"><span class="popup-key">Tipo</span><span class="popup-val">${(inter.itype||'').toUpperCase()}</span></div>
+        <div class="popup-row"><span class="popup-key">Fase</span><span class="popup-val" style="color:${phaseColor(inter.phase, inter.has_light)}">${(inter.phase||'').toUpperCase()}</span></div>
+        <div class="popup-row"><span class="popup-key">Presión</span><span class="popup-val">${Math.round(inter.pressure)}</span></div>
+        <div class="popup-row"><span class="popup-key">node_weight</span><span class="popup-val">${(inter.node_weight||0).toFixed(3)}</span></div>
+        <div class="popup-row"><span class="popup-key">Entidades</span><span class="popup-val">${ents}</span></div>
+        <div style="border-top:1px solid var(--border);margin:6px 0 4px;font-size:10px;color:var(--text2)">Desglose</div>
+        ${entHtml}
+        <div class="popup-row" style="margin-top:4px"><span class="popup-key">Vecinos</span><span class="popup-val">${(inter.neighbors||[]).length}</span></div>
+      </div>
+    `, { maxWidth: 260 });
+
+    markers[inter.node_id] = m;
+  });
+}
+
+// ── TABLA ─────────────────────────────────────────────────────────────────────
+function renderTable() {
+  const tbody = document.getElementById('table-body');
+  if (!filteredIntersections.length) {
+    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--text2);font-family:var(--mono);font-size:11px;padding:24px">Sin resultados</td></tr>';
+    return;
+  }
+  const sorted = [...filteredIntersections].sort((a,b) => b.pressure - a.pressure);
+  tbody.innerHTML = sorted.map(i => {
+    const ents = countEntities(i.counts);
+    const pressureColor = i.pressure > 1000 ? 'var(--danger)' : i.pressure > 100 ? 'var(--warn)' : 'var(--text2)';
+    return `<tr>
+      <td style="max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${i.name}">${i.name}</td>
+      <td style="font-family:var(--mono);font-size:10px;color:var(--text2)">${(i.itype||'').toUpperCase()}</td>
+      <td><span class="phase-pill ${i.phase}">${(i.phase||'').toUpperCase()}</span></td>
+      <td style="font-family:var(--mono);font-size:12px;color:${pressureColor};font-weight:700">${Math.round(i.pressure)}</td>
+      <td style="font-family:var(--mono);font-size:11px">${(i.node_weight||0).toFixed(3)}</td>
+      <td style="font-family:var(--mono);font-size:11px">${ents}</td>
+      <td style="font-family:var(--mono);font-size:11px;color:var(--text2)">${(i.neighbors||[]).length}</td>
+    </tr>`;
+  }).join('');
+}
+
+// ── PRESIÓN ───────────────────────────────────────────────────────────────────
+function renderPressure() {
+  const container = document.getElementById('pressure-bars');
+  const sorted = [...filteredIntersections].sort((a,b) => b.pressure - a.pressure).slice(0, 50);
+  if (!sorted.length) { container.innerHTML = '<div style="color:var(--text2);font-family:var(--mono);font-size:11px">Sin datos</div>'; return; }
+  const maxP = sorted[0].pressure || 1;
+  container.innerHTML = sorted.map(i => {
+    const pct = Math.min(100, (i.pressure / maxP) * 100);
+    const cls = i.pressure > 1000 ? 'high' : i.pressure > 300 ? 'mid' : 'low';
+    const shortName = i.name.length > 30 ? i.name.slice(0,28) + '…' : i.name;
+    return `<div class="bar-row">
+      <div class="bar-label" title="${i.name}">${shortName}</div>
+      <div class="bar-track"><div class="bar-fill ${cls}" style="width:${pct.toFixed(1)}%"></div></div>
+      <div class="bar-val">${Math.round(i.pressure)}</div>
+    </div>`;
+  }).join('');
+}
+
+// ── PESOS ─────────────────────────────────────────────────────────────────────
+function renderWeights() {
+  const grid = document.getElementById('weight-grid');
+  const sorted = [...filteredIntersections]
+    .filter(i => i.has_light)
+    .sort((a,b) => b.node_weight - a.node_weight);
+  if (!sorted.length) { grid.innerHTML = '<div style="color:var(--text2);font-family:var(--mono);font-size:11px">Sin semáforos</div>'; return; }
+  const maxW = sorted[0].node_weight || 1;
+  grid.innerHTML = sorted.map(i => {
+    const wPct = (i.node_weight / maxW * 100).toFixed(1);
+    const pPct = Math.min(100, (i.pressure / 2000 * 100)).toFixed(1);
+    const ents = countEntities(i.counts);
+    return `<div class="weight-node-card">
+      <div class="wn-name">${i.name}</div>
+      <div class="wn-id">${i.node_id} · ${(i.itype||'').toUpperCase()}</div>
+      <div class="wn-bars">
+        <div class="wn-bar-row">
+          <div class="wn-bar-key">node_w</div>
+          <div class="wn-bar-track"><div class="wn-bar-fill" style="width:${wPct}%"></div></div>
+          <div class="wn-bar-val">${i.node_weight.toFixed(3)}</div>
+        </div>
+        <div class="wn-bar-row">
+          <div class="wn-bar-key">presión</div>
+          <div class="wn-bar-track"><div class="wn-bar-fill" style="width:${pPct}%;background:var(--warn)"></div></div>
+          <div class="wn-bar-val">${Math.round(i.pressure)}</div>
+        </div>
+        <div class="wn-bar-row">
+          <div class="wn-bar-key">fase</div>
+          <div class="wn-bar-track" style="background:transparent">
+            <span class="phase-pill ${i.phase}" style="font-size:9px;padding:1px 6px">${(i.phase||'').toUpperCase()}</span>
+          </div>
+          <div class="wn-bar-val">${ents} ents</div>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ── SIDEBAR STATS ─────────────────────────────────────────────────────────────
+function updateSidebar(state) {
+  const ints = state.intersections || [];
+  const total = ints.length;
+  const signaled = ints.filter(i => i.has_light).length;
+  const green  = ints.filter(i => i.phase === 'green').length;
+  const red    = ints.filter(i => i.phase === 'red' && i.has_light).length;
+  const blink  = ints.filter(i => i.phase === 'blink').length;
+  const blind  = ints.filter(i => !i.has_light).length;
+
+  document.getElementById('s-total').textContent    = total;
+  document.getElementById('s-signaled').textContent = signaled;
+  document.getElementById('s-green').textContent    = green;
+  document.getElementById('s-red').textContent      = red;
+  document.getElementById('s-blink').textContent    = blink;
+  document.getElementById('s-blind').textContent    = blind;
+
+  const bar = document.getElementById('phase-bar');
+  bar.innerHTML = `
+    <div class="phase-seg green"  style="width:${(green/total*100).toFixed(1)}%"></div>
+    <div class="phase-seg red"    style="width:${(red/total*100).toFixed(1)}%"></div>
+    <div class="phase-seg blink"  style="width:${(blink/total*100).toFixed(1)}%"></div>
+    <div class="phase-seg blind"  style="width:${(blind/total*100).toFixed(1)}%"></div>
+  `;
+
+  const ctx = state.context || {};
+  const m   = state.metrics  || {};
+  document.getElementById('ctx-weather').textContent  = ctx.weather_source || '—';
+  document.getElementById('ctx-temp').textContent     = ctx.temperature_c != null ? ctx.temperature_c.toFixed(1) + ' °C' : '—';
+  document.getElementById('ctx-rain').textContent     = ctx.is_raining ? 'Sí' : 'No';
+  document.getElementById('ctx-traffic').textContent  = ctx.traffic_factor != null ? ctx.traffic_factor.toFixed(3) : '—';
+  document.getElementById('ctx-speeds').textContent   = ctx.n_road_speeds != null ? ctx.n_road_speeds : '—';
+  document.getElementById('ctx-entities').textContent = m.total_records || '—';
+
+  const w = state.weight_stats || {};
+  document.getElementById('w-min').textContent = w.min != null ? w.min.toFixed(3) : '—';
+  document.getElementById('w-avg').textContent = w.avg != null ? w.avg.toFixed(3) : '—';
+  document.getElementById('w-max').textContent = w.max != null ? w.max.toFixed(3) : '—';
+
+  document.getElementById('updated-at').textContent  = state.updated_at ? 'Actualizado: ' + state.updated_at.slice(11,19) : '—';
+  document.getElementById('footer-tick').textContent    = m.total_ticks || '—';
+  document.getElementById('footer-green').textContent   = green;
+  document.getElementById('footer-traffic').textContent = ctx.traffic_factor != null ? ctx.traffic_factor.toFixed(3) : '—';
+}
+
+// ── FILTROS ───────────────────────────────────────────────────────────────────
+function applyFilters() {
+  const search   = document.getElementById('search-input').value.toLowerCase();
+  const phase    = document.getElementById('phase-filter').value;
+  const itype    = document.getElementById('itype-filter').value;
+  const pressure = document.getElementById('pressure-filter').value;
+
+  filteredIntersections = allIntersections.filter(i => {
+    if (search && !i.name.toLowerCase().includes(search) && !i.node_id.includes(search)) return false;
+    if (phase  && i.phase  !== phase)  return false;
+    if (itype  && i.itype  !== itype)  return false;
+    if (pressure === 'high' && i.pressure <= 1000) return false;
+    if (pressure === 'mid'  && (i.pressure < 100 || i.pressure > 1000)) return false;
+    if (pressure === 'low'  && i.pressure >= 100) return false;
+    return true;
+  });
+
+  document.getElementById('visible-count').textContent = filteredIntersections.length;
+  renderMarkers();
+  renderTable();
+  renderPressure();
+  renderWeights();
+}
+
+// ── TABS ──────────────────────────────────────────────────────────────────────
+function switchTab(name) {
+  currentTab = name;
+  document.querySelectorAll('.tab').forEach((t,i) => {
+    const names = ['map','table','pressure','weights'];
+    t.classList.toggle('active', names[i] === name);
+  });
+  document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
+  document.getElementById('tab-' + name).classList.add('active');
+  if (name === 'map' && map) { setTimeout(() => map.invalidateSize(), 100); }
+}
+
+// ── CARGA DE DATOS ────────────────────────────────────────────────────────────
+async function loadData() {
+  document.getElementById('updated-at').textContent = '↻ Cargando...';
+  document.getElementById('status-dot').style.background = 'var(--warn)';
+
+  try {
+    const [stateRes, metricsRes] = await Promise.all([
+      fetch(API + '/intersections'),
+      fetch(API + '/metrics'),
+    ]);
+
+    if (!stateRes.ok || !metricsRes.ok) throw new Error('API no disponible');
+
+    const intersections = await stateRes.json();
+    const metrics       = await metricsRes.json();
+
+    allIntersections = intersections;
+
+    const avgLat = intersections.reduce((s,i) => s + i.latitude,  0) / intersections.length;
+    const avgLon = intersections.reduce((s,i) => s + i.longitude, 0) / intersections.length;
+
+    initMap(avgLat, avgLon);
+
+    const state = {
+      intersections,
+      metrics,
+      context: {
+        weather_source:  metrics.weather_source,
+        temperature_c:   metrics.temperature_c,
+        is_raining:      metrics.is_raining,
+        traffic_factor:  metrics.traffic_factor,
+        n_road_speeds:   metrics.n_road_speeds,
+      },
+      weight_stats: metrics.weight_stats || {},
+      updated_at:   metrics.updated_at,
+    };
+
+    updateSidebar(state);
+    applyFilters();
+
+    document.getElementById('status-dot').style.background = 'var(--ok)';
+    document.getElementById('status-dot').style.animation  = 'pulse 2s infinite';
+
+  } catch (e) {
+    document.getElementById('updated-at').textContent = 'Error: API no disponible';
+    document.getElementById('status-dot').style.background = 'var(--danger)';
+    document.getElementById('status-dot').style.animation  = 'none';
+    console.error(e);
+  }
+}
+
+loadData();
+setInterval(loadData, 60000);
+
+function toggleTheme() {
+  const dark = document.body.classList.toggle('dark');
+  document.getElementById('theme-btn').textContent = dark ? '☽' : '☀';
+  if (map) {
+    document.querySelectorAll('.leaflet-tile').forEach(t => {
+      t.style.filter = dark
+        ? 'invert(1) hue-rotate(180deg) brightness(0.85) contrast(0.9)'
+        : 'sepia(0.3) brightness(1.05) contrast(0.95)';
+    });
+  }
+  localStorage.setItem('tango-theme', dark ? 'dark' : 'light');
+}
+
+// Restaurar tema guardado
+(function() {
+  const saved = localStorage.getItem('tango-theme');
+  if (saved === 'dark') {
+    document.body.classList.add('dark');
+    document.addEventListener('DOMContentLoaded', () => {
+      const btn = document.getElementById('theme-btn');
+      if (btn) btn.textContent = '☽';
+    });
+  }
+})();
+
+</script>
+</body>
+</html>

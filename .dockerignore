@@ -1,0 +1,38 @@
+# Git
+.git/
+.gitignore
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+
+# Entornos virtuales
+tango_env/
+airflow_env/
+venv/
+.venv/
+env/
+
+# Checkpoints de RL — pesan varios GB
+tests/sim3/checkpoints/
+
+# Logs de Airflow locales
+airflow/logs/
+airflow/airflow.db
+
+# Visualizaciones HTML generadas (archivos estáticos grandes)
+tests/sim*/tango_vis_*.html
+
+# VS Code / IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Secrets — el .env se monta como env_file, no se copia
+# (asegúrate de tener .env en tu .gitignore también)

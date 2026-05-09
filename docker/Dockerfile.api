@@ -1,0 +1,32 @@
+FROM python:3.11-slim
+
+WORKDIR /app
+
+# Dependencias del sistema
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    gcc \
+    && rm -rf /var/lib/apt/lists/*
+
+# Instalar dependencias Python
+COPY requirements.txt .
+RUN pip install --no-cache-dir \
+    fastapi==0.111.0 \
+    uvicorn==0.30.1 \
+    networkx==3.3 \
+    pandas==2.2.2 \
+    numpy==1.26.4 \
+    httpx==0.27.0 \
+    python-dotenv==1.0.1
+
+# Copiar código fuente
+COPY core/       ./core/
+COPY graph/      ./graph/
+COPY dashboard/api.py ./dashboard/api.py
+COPY dashboard/utils.py ./dashboard/utils.py
+
+# Crear directorio para el estado compartido
+RUN mkdir -p /app/graph
+
+EXPOSE 8000
+
+CMD ["uvicorn", "dashboard.api:app", "--host", "0.0.0.0", "--port", "8000"]

@@ -1,15 +1,14 @@
+import os
 import requests
 import pandas as pd
 
-API_URL = "http://127.0.0.1:8000"
+# En Docker: API_URL=http://tango-api:8000 (inyectado por docker-compose)
+# En local:  API_URL no definida → usa 127.0.0.1:8000
+API_URL = os.environ.get("API_URL", "http://127.0.0.1:8000")
 
 
 # ── INTERSECTIONS ───────────────────────
 def get_intersections():
-    """
-    Obtiene todas las intersecciones desde la API
-    y las convierte en DataFrame
-    """
     try:
         res = requests.get(f"{API_URL}/intersections")
         res.raise_for_status()
@@ -22,9 +21,6 @@ def get_intersections():
 
 # ── METRICS ────────────────────────────
 def get_metrics():
-    """
-    Obtiene métricas generales del sistema
-    """
     try:
         res = requests.get(f"{API_URL}/metrics")
         res.raise_for_status()
@@ -40,9 +36,6 @@ def get_metrics():
 
 # ── PRESSURE MAP ───────────────────────
 def get_pressure_map():
-    """
-    Obtiene el mapa de presión (dict)
-    """
     try:
         res = requests.get(f"{API_URL}/pressure-map")
         res.raise_for_status()
@@ -54,9 +47,6 @@ def get_pressure_map():
 
 # ── FILTROS ────────────────────────────
 def filter_by_phase(df, phase):
-    """
-    Filtra el dataframe por fase
-    """
     if phase == "Todas":
         return df
     return df[df["phase"] == phase]
@@ -64,9 +54,6 @@ def filter_by_phase(df, phase):
 
 # ── COLORES PARA MAPA ──────────────────
 def get_color(pressure):
-    """
-    Devuelve color según presión
-    """
     if pressure < 0.3:
         return "green"
     elif pressure < 0.7:
