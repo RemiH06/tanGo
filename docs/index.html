@@ -866,21 +866,12 @@ node_weight = (degree_w * betweenness_w * pagerank_w
         <span class="sim-card-title">tanGo sim0 — Timers fijos</span>
         <span class="sim-badge s0">BASELINE</span>
       </div>
-      <iframe id="iframe-sim0" src="../tests/sim0/tango_vis_sim0.html" title="Simulación sim0" onload="checkIframe('iframe-sim0')" onerror="fallbackIframe('iframe-sim0','sim0')"></iframe>
-      <script>
-      function checkIframe(id){
-        const f=document.getElementById(id);
-        try{if(!f.contentDocument||f.contentDocument.title==='404')fallbackIframe(id,'sim0');}catch(e){}
-      }
-      function fallbackIframe(id,sim){
-        const urls={
-          'sim0':'https://remih06.github.io/tanGo/tests/sim0/tango_vis_sim0.html',
-          'sim3':'https://remih06.github.io/tanGo/tests/sim3/tango_vis_sim3.html',
-        };
-        const f=document.getElementById(id);
-        if(f.src!==urls[sim])f.src=urls[sim];
-      }
-      </script>
+      <iframe id="iframe-sim0" src="../tests/sim0/tango_vis_sim0.html" title="Simulación sim0" style="width:100%;height:480px;border:none;display:block;background:var(--bg)"></iframe>
+      <div id="sim0-fallback" style="display:none;padding:48px 32px;text-align:center;color:var(--text2)">
+        <div style="font-family:var(--mono);font-size:32px;opacity:.2;margin-bottom:16px">⊘</div>
+        <p style="font-family:var(--mono);font-size:12px;margin-bottom:8px">Visualización no disponible en esta versión</p>
+        <p style="font-size:12px">Para verlo, clona el repo y corre <code>python tests/sim0/tango_sim0.py</code> localmente.</p>
+      </div>
       <div class="sim-card-desc">Baseline: semáforos en verde fijo. 367 vehículos detenidos/tick promedio.</div>
     </div>
   </div>
@@ -988,7 +979,12 @@ node_weight = (degree_w * betweenness_w * pagerank_w
         <span class="sim-card-title">tanGo sim3 — Agente PPO</span>
         <span class="sim-badge s3">PPO · RL</span>
       </div>
-      <iframe id="iframe-sim3" src="../tests/sim3/tango_vis_sim3.html" title="Simulación sim3" onload="checkIframe('iframe-sim3')" onerror="fallbackIframe('iframe-sim3','sim3')"></iframe>
+      <iframe id="iframe-sim3" src="../tests/sim3/tango_vis_sim3.html" title="Simulación sim3" style="width:100%;height:480px;border:none;display:block;background:var(--bg)"></iframe>
+      <div id="sim3-fallback" style="display:none;padding:48px 32px;text-align:center;color:var(--text2)">
+        <div style="font-family:var(--mono);font-size:32px;opacity:.2;margin-bottom:16px">⊘</div>
+        <p style="font-family:var(--mono);font-size:12px;margin-bottom:8px">Visualización no disponible en esta versión</p>
+        <p style="font-size:12px">Para verlo, clona el repo y corre <code>python tests/sim3/tango_sim3.py</code> localmente.</p>
+      </div>
       <div class="sim-card-desc">El agente PPO controla los semáforos en tiempo real. Los pulsos cyan indican semáforos que el agente cambió ese tick. La curva de reward se actualiza tick a tick.</div>
     </div>
   </div>
@@ -1233,23 +1229,28 @@ const hash = window.location.hash.replace('#','');
 if(hash) showPage(hash);
 
 // ── Fallback iframes ──────────────────────────────────────────────────────────
-function showFallback(fallbackId){
-  const el=document.getElementById(fallbackId);
-  if(el) el.style.display='block';
+function showFallback(fallbackId, iframeId){
+  const fb=document.getElementById(fallbackId);
+  const fr=document.getElementById(iframeId);
+  if(fb) fb.style.display='block';
+  if(fr) fr.style.display='none';
 }
 function checkIframeSim(iframeId, fallbackId){
   const f=document.getElementById(iframeId);
   if(!f) return;
-  try{
-    const doc=f.contentDocument||f.contentWindow.document;
-    if(!doc||doc.title==='404'||doc.body.innerHTML.trim()===''){
-      f.style.display='none';
-      showFallback(fallbackId);
-    }
-  }catch(e){
-    // cross-origin — si cargó sin error el iframe está bien
-  }
+  fetch(f.src, {method:'HEAD'})
+    .then(r=>{ if(!r.ok) showFallback(fallbackId, iframeId); })
+    .catch(()=>{ showFallback(fallbackId, iframeId); });
 }
+// Verificar todos los iframes al cargar
+document.addEventListener('DOMContentLoaded', ()=>{
+  [
+    ['iframe-sim0','sim0-fallback'],
+    ['iframe-sim1','sim1-fallback'],
+    ['iframe-sim2','sim2-fallback'],
+    ['iframe-sim3','sim3-fallback'],
+  ].forEach(([iid,fid])=>checkIframeSim(iid,fid));
+});
 function searchDocs(q){
   const items = document.querySelectorAll('.nav-item');
   items.forEach(item => {
