@@ -330,6 +330,7 @@ body.dark .hl{background:rgba(0,229,160,.2)}
     <div class="nav-item" onclick="showPage('kans')">KANs completados</div>
     <div class="nav-item" onclick="showPage('pending')">Trabajo pendiente</div>
     <div class="nav-item" onclick="showPage('references')">Referencias</div>
+    <div class="nav-item" onclick="showPage('contact')">Contacto</div>
   </div>
 </nav>
 
@@ -370,6 +371,11 @@ body.dark .hl{background:rgba(0,229,160,.2)}
 
   <h2>Cómo navegar esta documentación</h2>
   <p>Usa la barra lateral para explorar secciones. El menú <strong>El algoritmo</strong> explica el motor central paso a paso. <strong>Simulaciones</strong> incluye visualizaciones interactivas de cada versión. <strong>Infraestructura</strong> cubre el stack de producción.</p>
+
+  <div class="callout" style="margin-top:32px">
+    <div class="callout-title">Licencia — GNU AGPL v3.0</div>
+    <p>El código fuente de tanGo es libre bajo los términos de la <strong>GNU Affero General Public License v3.0</strong>. Puedes usarlo, modificarlo y distribuirlo siempre que cualquier versión derivada — incluyendo versiones ofrecidas como servicio de red — también publique su código fuente bajo la misma licencia. <a href="https://github.com/RemiH06/tanGo/blob/main/LICENSE" target="_blank" style="color:var(--accent)">Ver licencia completa →</a></p>
+  </div>
 </div>
 
 <!-- ══════ ARCHITECTURE ══════ -->
@@ -866,7 +872,7 @@ node_weight = (degree_w * betweenness_w * pagerank_w
         <span class="sim-card-title">tanGo sim0 — Timers fijos</span>
         <span class="sim-badge s0">BASELINE</span>
       </div>
-      <iframe id="iframe-sim0" src="./sim0.html" title="Simulación sim0" style="width:100%;height:480px;border:none;display:block;background:var(--bg)"></iframe>
+      <iframe id="iframe-sim0" src="" title="Simulación sim0" style="width:100%;height:480px;border:none;display:block;background:var(--bg)"></iframe>
       <div id="sim0-fallback" style="display:none;padding:48px 32px;text-align:center;color:var(--text2)">
         <div style="font-family:var(--mono);font-size:32px;opacity:.2;margin-bottom:16px">⊘</div>
         <p style="font-family:var(--mono);font-size:12px;margin-bottom:8px">Visualización no disponible en esta versión</p>
@@ -888,7 +894,7 @@ node_weight = (degree_w * betweenness_w * pagerank_w
         <span class="sim-card-title">tanGo sim1 — SCOOT greedy</span>
         <span class="sim-badge s1">ALGORITMO</span>
       </div>
-      <iframe id="iframe-sim1" src="./sim1.html" title="Simulación sim1" style="width:100%;height:360px;border:none;display:block;background:var(--bg)"></iframe>
+      <iframe id="iframe-sim1" src="" title="Simulación sim1" style="width:100%;height:360px;border:none;display:block;background:var(--bg)"></iframe>
       <div id="sim1-fallback" style="display:none;padding:48px 32px;text-align:center;color:var(--text2)">
         <div style="font-family:var(--mono);font-size:32px;opacity:.2;margin-bottom:16px">⊘</div>
         <p style="font-family:var(--mono);font-size:12px;margin-bottom:8px">Visualización no disponible en esta versión</p>
@@ -910,7 +916,7 @@ node_weight = (degree_w * betweenness_w * pagerank_w
         <span class="sim-card-title">tanGo sim2 — Pesos estáticos + Movimiento</span>
         <span class="sim-badge s2">MOVIMIENTO</span>
       </div>
-      <iframe id="iframe-sim2" src="./sim2.html" title="Simulación sim2" style="width:100%;height:360px;border:none;display:block;background:var(--bg)"></iframe>
+      <iframe id="iframe-sim2" src="" title="Simulación sim2" style="width:100%;height:360px;border:none;display:block;background:var(--bg)"></iframe>
       <div id="sim2-fallback" style="display:none;padding:48px 32px;text-align:center;color:var(--text2)">
         <div style="font-family:var(--mono);font-size:32px;opacity:.2;margin-bottom:16px">⊘</div>
         <p style="font-family:var(--mono);font-size:12px;margin-bottom:8px">Visualización no disponible en esta versión</p>
@@ -979,7 +985,7 @@ node_weight = (degree_w * betweenness_w * pagerank_w
         <span class="sim-card-title">tanGo sim3 — Agente PPO</span>
         <span class="sim-badge s3">PPO · RL</span>
       </div>
-      <iframe id="iframe-sim3" src="./sim3.html" title="Simulación sim3" style="width:100%;height:480px;border:none;display:block;background:var(--bg)"></iframe>
+      <iframe id="iframe-sim3" src="" title="Simulación sim3" style="width:100%;height:480px;border:none;display:block;background:var(--bg)"></iframe>
       <div id="sim3-fallback" style="display:none;padding:48px 32px;text-align:center;color:var(--text2)">
         <div style="font-family:var(--mono);font-size:32px;opacity:.2;margin-bottom:16px">⊘</div>
         <p style="font-family:var(--mono);font-size:12px;margin-bottom:8px">Visualización no disponible en esta versión</p>
@@ -1194,6 +1200,84 @@ docker compose exec tango-airflow airflow dags trigger tango_traffic_pipeline</p
   <p><strong>TomTom Traffic API</strong> — Datos de velocidades actuales por segmento vial. Requiere API key.</p>
 </div>
 
+<!-- ══════ CONTACT ══════ -->
+<div class="page" id="page-contact">
+  <h1><span>Contacto</span></h1>
+  <p class="subtitle">tanGo · mayo 2026</p>
+
+  <div style="display:flex;gap:48px;align-items:flex-start;margin:40px 0;flex-wrap:wrap">
+
+    <!-- Info de contacto -->
+    <div>
+      <div style="display:flex;flex-direction:column;gap:16px;margin-bottom:32px">
+        <div style="background:var(--bg2);border:1px solid var(--border);border-radius:4px;padding:16px 20px">
+          <div style="font-family:var(--mono);font-size:9px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--text2);margin-bottom:6px">Email</div>
+          <a href="mailto:remi.hexagon@gmail.com" style="font-family:var(--mono);font-size:14px;color:var(--accent);text-decoration:none">remi.hexagon@gmail.com</a>
+        </div>
+        <div style="background:var(--bg2);border:1px solid var(--border);border-radius:4px;padding:16px 20px">
+          <div style="font-family:var(--mono);font-size:9px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--text2);margin-bottom:6px">GitHub</div>
+          <a href="https://github.com/RemiH06" target="_blank" style="font-family:var(--mono);font-size:14px;color:var(--accent);text-decoration:none">github.com/RemiH06</a>
+        </div>
+        <div style="background:var(--bg2);border:1px solid var(--border);border-radius:4px;padding:16px 20px">
+          <div style="font-family:var(--mono);font-size:9px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--text2);margin-bottom:6px">Repositorio</div>
+          <a href="https://github.com/RemiH06/tanGo" target="_blank" style="font-family:var(--mono);font-size:14px;color:var(--accent);text-decoration:none">github.com/RemiH06/tanGo</a>
+        </div>
+      </div>
+
+      <!-- Licencia -->
+      <div style="background:var(--bg2);border:1px solid var(--border);border-radius:4px;padding:16px 20px">
+        <div style="font-family:var(--mono);font-size:9px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--text2);margin-bottom:8px">Licencia</div>
+        <p style="font-family:var(--mono);font-size:12px;color:var(--accent);margin-bottom:6px">GNU Affero General Public License v3.0</p>
+        <p style="font-size:12px;color:var(--text2);margin:0;line-height:1.6">El código fuente es libre — puedes usarlo, modificarlo y distribuirlo bajo los mismos términos. Cualquier versión modificada que se ofrezca como servicio de red debe también publicar su código fuente.</p>
+      </div>
+    </div>
+  </div>
+
+  <p class="muted">Proyecto académico desarrollado durante la primera mitad del 2026. Gracias a todxs.</p>
+
+  <div style="display:flex;gap:32px;align-items:flex-start;margin-top:48px">
+    <!-- ASCII semáforo jgs -->
+    <pre style="font-family:'Space Mono',monospace;font-size:12px;line-height:1.45;background:var(--bg2);border:1px solid var(--border);border-radius:4px;padding:24px 28px;flex-shrink:0;color:var(--text2)">
+             ##
+            _[]_
+           [____]
+       .----'  '----.
+   .===|    .==.    |===.
+   \   |   <span style="color:var(--danger)">/####\</span>   |   /
+   /   |   <span style="color:var(--danger)">\####/</span>   |   \
+   '===|    `""`    |==='
+   .===|    .==.    |===.
+   \   |   <span style="color:var(--warn)">/::::\</span>   |   /
+   /   |   <span style="color:var(--warn)">\::::/</span>   |   \
+   '===|    `""`    |==='
+   .===|    .==.    |===.
+   \   |   <span style="color:var(--ok)">/&&&&\</span>   |   /
+   /   |   <span style="color:var(--ok)">\&&&&/</span>   |   \
+   '===|    `""`    |==='
+jgs    '--.______.--'</pre>
+
+    <pre style="font-family:'Space Mono',monospace;font-size:12px;line-height:1.45;background:none;border:none;padding:24px 0;flex-shrink:0;color:var(--danger)">⠀⠀⠀⠀⠀⠀⠀⠀⣄⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢀⡾⡄⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+⠀⠀⠀⠀⠀⠀⠀⡼⠙⣧⡀⠀⠀⠀⠀⠀⠀⠀⠀⢠⣿⠃⢹⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+⠀⠀⠀⠀⠀⠀⢰⠃⠀⠘⣿⡄⠀⠀⠀⠀⠀⠀⢀⣿⡇⠀⠘⡇⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+⠀⠀⠀⠀⠀⠀⡎⠀⠀⠀⢹⣿⣆⠀⠀⠀⠀⠀⣼⣿⠁⠀⠀⣷⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+⠀⠀⠀⠀⠀⠀⡇⠀⠀⢀⠞⢻⣿⡆⠀⠀⠀⢰⣿⣿⡀⠀⠀⢹⡄⠀⠀⠀⠀⢀⣤⣤⡄⠀⠀⣀⣤⣤⣀
+⠀⠀⠀⠀⠀⠀⡇⠀⢰⠋⠀⠈⣿⣿⡄⠀⠀⣾⣿⡇⠹⡄⠀⢨⡇⠀⠀⠀⢸⣿⣿⣿⣿⣾⣿⣿⣿⣿⡇
+⠀⠀⠀⠀⠀⠀⡇⢀⡏⠀⢀⣴⣿⣿⣿⣿⣾⣿⣿⣧⡀⢳⠀⢸⡁⠀⠀⠀⠻⣿⣿⣿⣿⣿⣿⣿⣿⠟⠀
+⠀⠀⠀⠀⠀⠀⢣⠸⣅⣴⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣾⡀⣸⠀⠀⠀⠀⠀⠀⠙⠻⣿⣿⡿⠋⠀⠀⠀
+⠀⠀⠀⠀⠀⠀⠘⣦⣿⣿⡿⠛⠻⢿⣿⣿⣿⣿⡟⠉⠙⢿⣿⣇⠀⠀⠀⣀⣠⡄⠀⠀⠀⠉⠀⠀⠀⠀⠀
+⠀⠀⠀⠀⠀⠀⠀⣿⣿⡿⠀⠀⣿⡟⣿⣿⣿⣿⢸⣷⠀⠈⣿⣿⣤⠶⠋⠁⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+⠚⠉⠉⠉⠙⠒⠲⣿⣿⣷⠀⠀⠙⢡⣿⣿⣽⣿⣌⠁⠀⣰⣿⣿⣀⣀⣀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+⠀⠀⠀⠀⠀⢀⣠⠽⢿⣿⣿⣶⣶⣿⣿⣿⣿⣿⣿⣿⣿⣿⡿⠃⠀⠀⠀⠉⠑⠒⠠⠀⠀⠀⠀⠀⠀⠀⠀
+⠀⠀⣀⠴⠚⠉⠀⠀⠀⠙⠿⣿⣿⣿⣿⣿⣿⣿⣿⣿⡿⠟⠁⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+⠀⠊⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠈⣿⣿⣿⣿⣿⣿⡍⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢰⣿⣿⣿⣿⣿⣿⣷⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢠⣿⣿⣿⣿⣿⣿⣿⣿⣷⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢀⣾⣿⣿⣿⣿⣿⣿⣿⣿⣿⣧⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣸⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⡄⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠿⠿⠿⠿⠿⠿⠿⠿⠿⠿⠿⠿⠇⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀</pre>
+  </div>
+</div>
+
 </main>
 </div>
 
@@ -1229,27 +1313,52 @@ const hash = window.location.hash.replace('#','');
 if(hash) showPage(hash);
 
 // ── Fallback iframes ──────────────────────────────────────────────────────────
+const SIM_PATHS = {
+  'iframe-sim0': ['../tests/sim0/tango_vis_sim0.html', './sim0.html'],
+  'iframe-sim1': ['../tests/sim1/tango_vis.html',      './sim1.html'],
+  'iframe-sim2': ['../tests/sim2/tango_vis_sim2.html', './sim2.html'],
+  'iframe-sim3': ['../tests/sim3/tango_vis_sim3.html', './sim3.html'],
+};
+
 function showFallback(fallbackId, iframeId){
   const fb=document.getElementById(fallbackId);
   const fr=document.getElementById(iframeId);
   if(fb) fb.style.display='block';
   if(fr) fr.style.display='none';
 }
-function checkIframeSim(iframeId, fallbackId){
-  const f=document.getElementById(iframeId);
-  if(!f) return;
-  fetch(f.src, {method:'HEAD'})
-    .then(r=>{ if(!r.ok) showFallback(fallbackId, iframeId); })
-    .catch(()=>{ showFallback(fallbackId, iframeId); });
+
+function tryLoadIframe(iframeId, fallbackId, pathIndex){
+  const f  = document.getElementById(iframeId);
+  const paths = SIM_PATHS[iframeId] || [];
+  if(!f || pathIndex >= paths.length){ showFallback(fallbackId, iframeId); return; }
+
+  f.src = paths[pathIndex];
+
+  // Si carga pero el contenido es una página de error (404 de GH Pages etc.)
+  f.onload = function(){
+    try{
+      const title = f.contentDocument && f.contentDocument.title;
+      if(title && (title.includes('404') || title.trim() === '')){
+        tryLoadIframe(iframeId, fallbackId, pathIndex + 1);
+      }
+      // Si llegó aquí sin error y el título no es 404, está bien
+    } catch(e){
+      // Cross-origin — si no lanzó error al asignar src, se cargó bien
+    }
+  };
+
+  f.onerror = function(){
+    tryLoadIframe(iframeId, fallbackId, pathIndex + 1);
+  };
 }
-// Verificar todos los iframes al cargar
+
 document.addEventListener('DOMContentLoaded', ()=>{
   [
     ['iframe-sim0','sim0-fallback'],
     ['iframe-sim1','sim1-fallback'],
     ['iframe-sim2','sim2-fallback'],
     ['iframe-sim3','sim3-fallback'],
-  ].forEach(([iid,fid])=>checkIframeSim(iid,fid));
+  ].forEach(([iid,fid]) => tryLoadIframe(iid, fid, 0));
 });
 function searchDocs(q){
   const items = document.querySelectorAll('.nav-item');
