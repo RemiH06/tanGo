@@ -1,0 +1,1197 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>tanGo — Documentación</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+/* ── tokens — modo claro (dashboard) ── */
+:root {
+  --bg:      #F5F0E8;
+  --bg2:     #EDE8DC;
+  --bg3:     #E4DDD0;
+  --accent:  #6B1A2A;
+  --accent2: #C4691A;
+  --danger:  #8B1A1A;
+  --warn:    #C4691A;
+  --ok:      #2A6B3A;
+  --text:    #1A1410;
+  --text2:   #6B5E50;
+  --border:  #C8BFB0;
+  --mono:    'Space Mono', monospace;
+  --sans:    'DM Sans', sans-serif;
+  --nav-w:   260px;
+  --hdr-h:   52px;
+}
+body.dark {
+  --bg:      #0a0c10;
+  --bg2:     #0f1219;
+  --bg3:     #161b26;
+  --accent:  #00e5a0;
+  --accent2: #457BFF;
+  --danger:  #ff4560;
+  --warn:    #f5a623;
+  --ok:      #00e5a0;
+  --text:    #e8eaf0;
+  --text2:   #7a8099;
+  --border:  #1e2535;
+}
+
+/* ── reset ── */
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;overflow:hidden}
+body{
+  background:var(--bg);color:var(--text);
+  font-family:var(--sans);font-size:14px;
+  line-height:1.7;display:flex;flex-direction:column;
+}
+
+/* ── grid de fondo ── */
+body::before{
+  content:'';position:fixed;inset:0;
+  background-image:linear-gradient(var(--border) 1px,transparent 1px),
+                   linear-gradient(90deg,var(--border) 1px,transparent 1px);
+  background-size:40px 40px;
+  opacity:.18;pointer-events:none;z-index:0;
+}
+
+/* ── header ── */
+header{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:0 24px;height:var(--hdr-h);
+  background:var(--bg2);border-bottom:1px solid var(--border);
+  flex-shrink:0;position:relative;z-index:100;
+}
+.logo{font-family:var(--mono);font-size:18px;font-weight:700;letter-spacing:-1px}
+.logo span{color:var(--accent)}
+.hdr-right{display:flex;align-items:center;gap:12px}
+.badge{
+  font-family:var(--mono);font-size:10px;padding:3px 10px;
+  border:1px solid var(--border);border-radius:2px;
+  color:var(--text2);cursor:default;
+}
+.badge.live{border-color:var(--accent);color:var(--accent)}
+.theme-btn{
+  font-family:var(--mono);font-size:11px;padding:5px 12px;
+  background:none;border:1px solid var(--border);border-radius:2px;
+  color:var(--text2);cursor:pointer;transition:all .2s;
+}
+.theme-btn:hover{border-color:var(--accent);color:var(--accent)}
+
+/* ── layout principal ── */
+.layout{display:flex;flex:1;overflow:hidden;position:relative;z-index:1}
+
+/* ── sidebar ── */
+nav{
+  width:var(--nav-w);flex-shrink:0;
+  background:var(--bg2);border-right:1px solid var(--border);
+  display:flex;flex-direction:column;overflow:hidden;
+}
+.nav-search{
+  padding:12px;border-bottom:1px solid var(--border);
+}
+.nav-search input{
+  width:100%;padding:6px 10px;
+  background:var(--bg3);border:1px solid var(--border);
+  border-radius:2px;color:var(--text);font-family:var(--mono);font-size:11px;
+  outline:none;
+}
+.nav-search input::placeholder{color:var(--text2)}
+.nav-search input:focus{border-color:var(--accent)}
+.nav-list{flex:1;overflow-y:auto;padding:8px 0;scrollbar-width:thin;scrollbar-color:var(--border) transparent}
+.nav-section{padding:8px 16px 4px;font-family:var(--mono);font-size:9px;
+             font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--text2)}
+.nav-item{
+  display:block;padding:7px 16px;font-size:12px;color:var(--text2);
+  cursor:pointer;transition:all .15s;border-left:2px solid transparent;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+.nav-item:hover{color:var(--text);background:var(--bg3);border-left-color:var(--border)}
+.nav-item.active{color:var(--accent);background:var(--bg3);border-left-color:var(--accent)}
+.nav-item.sub{padding-left:28px;font-size:11px}
+
+/* ── contenido principal ── */
+main{
+  flex:1;overflow-y:auto;
+  scrollbar-width:thin;scrollbar-color:var(--border) transparent;
+}
+.page{display:none;padding:40px 56px 80px;max-width:900px}
+.page.active{display:block}
+
+/* ── tipografía ── */
+h1{
+  font-family:var(--mono);font-size:26px;font-weight:700;
+  color:var(--text);margin-bottom:8px;letter-spacing:-1px;
+}
+h1 span{color:var(--accent)}
+.subtitle{font-size:14px;color:var(--text2);margin-bottom:32px;font-style:italic}
+h2{
+  font-family:var(--mono);font-size:15px;font-weight:700;
+  color:var(--text);margin:40px 0 16px;padding-bottom:8px;
+  border-bottom:1px solid var(--border);letter-spacing:-.5px;
+}
+h3{font-size:13px;font-weight:600;color:var(--accent);margin:24px 0 10px;font-family:var(--mono)}
+p{margin-bottom:14px;color:var(--text);line-height:1.8}
+p.muted{color:var(--text2);font-size:13px}
+strong{font-weight:600;color:var(--text)}
+
+/* ── código inline ── */
+code{
+  font-family:var(--mono);font-size:12px;
+  background:var(--bg3);border:1px solid var(--border);
+  padding:1px 6px;border-radius:2px;color:var(--accent);
+}
+
+/* ── bloques de código ── */
+pre{
+  background:var(--bg2);border:1px solid var(--border);
+  border-radius:4px;padding:16px 20px;margin:16px 0;
+  overflow-x:auto;font-family:var(--mono);font-size:12px;
+  line-height:1.7;color:var(--text);
+}
+pre .kw{color:var(--accent2)}
+pre .cm{color:var(--text2);font-style:italic}
+pre .str{color:var(--ok)}
+pre .num{color:var(--warn)}
+
+/* ── callouts ── */
+.callout{
+  border-left:3px solid var(--accent);background:var(--bg2);
+  padding:14px 18px;margin:20px 0;border-radius:0 4px 4px 0;
+}
+.callout.warn{border-color:var(--warn)}
+.callout.ok{border-color:var(--ok)}
+.callout-title{font-family:var(--mono);font-size:10px;font-weight:700;
+               letter-spacing:.1em;text-transform:uppercase;
+               color:var(--accent);margin-bottom:6px}
+.callout.warn .callout-title{color:var(--warn)}
+.callout.ok .callout-title{color:var(--ok)}
+.callout p{margin-bottom:0;font-size:13px}
+
+/* ── tabla ── */
+table{width:100%;border-collapse:collapse;margin:16px 0;font-size:13px}
+th{
+  background:var(--bg3);padding:8px 12px;text-align:left;
+  font-family:var(--mono);font-size:10px;font-weight:700;
+  letter-spacing:.08em;color:var(--text2);
+  border-bottom:1px solid var(--border);
+}
+td{padding:9px 12px;border-bottom:1px solid var(--border);vertical-align:top}
+tr:hover td{background:var(--bg3)}
+td code{font-size:11px}
+
+/* ── diagrama SVG card ── */
+.diagram-card{
+  background:var(--bg2);border:1px solid var(--border);
+  border-radius:4px;margin:24px 0;padding:24px;
+  overflow-x:auto;
+}
+.diagram-card svg text{fill:var(--text)}
+.diagram-cap{
+  font-family:var(--mono);font-size:10px;color:var(--text2);
+  margin-top:12px;text-align:center;letter-spacing:.05em;
+}
+
+/* ── iframes de simulaciones ── */
+.sim-grid{display:grid;grid-template-columns:1fr 1fr;gap:20px;margin:24px 0}
+.sim-card{
+  background:var(--bg2);border:1px solid var(--border);
+  border-radius:4px;overflow:hidden;
+}
+.sim-card-header{
+  padding:10px 16px;background:var(--bg3);
+  border-bottom:1px solid var(--border);
+  display:flex;align-items:center;justify-content:space-between;
+}
+.sim-card-title{font-family:var(--mono);font-size:11px;font-weight:700;color:var(--text)}
+.sim-badge{
+  font-family:var(--mono);font-size:9px;padding:2px 7px;
+  border-radius:2px;border:1px solid;
+}
+.sim-badge.s0{border-color:var(--text2);color:var(--text2)}
+.sim-badge.s1{border-color:var(--accent2);color:var(--accent2)}
+.sim-badge.s2{border-color:var(--warn);color:var(--warn)}
+.sim-badge.s3{border-color:var(--accent);color:var(--accent)}
+.sim-card iframe{
+  width:100%;height:360px;border:none;display:block;
+  background:var(--bg);
+}
+.sim-card-desc{
+  padding:10px 16px;font-size:11px;color:var(--text2);
+  border-top:1px solid var(--border);font-style:italic;
+}
+.sim-full{grid-column:1/-1}
+.sim-full iframe{height:480px}
+
+/* ── métrica pill ── */
+.metrics-row{display:flex;gap:12px;flex-wrap:wrap;margin:16px 0}
+.metric{
+  background:var(--bg2);border:1px solid var(--border);
+  border-radius:3px;padding:12px 18px;flex:1;min-width:120px;
+}
+.metric-val{
+  font-family:var(--mono);font-size:22px;font-weight:700;
+  color:var(--accent);
+}
+.metric-lbl{font-size:11px;color:var(--text2);margin-top:2px}
+
+/* ── paso del algoritmo ── */
+.step-row{
+  display:flex;gap:16px;align-items:flex-start;
+  margin:16px 0;padding:16px;
+  background:var(--bg2);border:1px solid var(--border);border-radius:3px;
+}
+.step-num{
+  font-family:var(--mono);font-size:20px;font-weight:700;
+  color:var(--accent);min-width:32px;line-height:1;margin-top:2px;
+}
+.step-content h4{font-size:13px;font-weight:600;margin-bottom:6px;color:var(--text)}
+.step-content p{font-size:13px;color:var(--text2);margin:0}
+
+/* ── KAN timeline ── */
+.kan-list{margin:16px 0}
+.kan-item{
+  display:flex;gap:16px;padding:12px 0;
+  border-bottom:1px solid var(--border);
+}
+.kan-item:last-child{border-bottom:none}
+.kan-dot{
+  width:28px;height:28px;border-radius:50%;flex-shrink:0;
+  display:flex;align-items:center;justify-content:center;
+  font-family:var(--mono);font-size:10px;font-weight:700;
+  margin-top:2px;
+}
+.kan-dot.done{background:rgba(0,180,120,.15);border:1px solid var(--ok);color:var(--ok)}
+.kan-dot.pending{background:var(--bg3);border:1px solid var(--border);color:var(--text2)}
+.kan-body h4{font-size:13px;font-weight:600;margin-bottom:3px}
+.kan-body p{font-size:12px;color:var(--text2);margin:0}
+
+/* ── scrollbar ── */
+::-webkit-scrollbar{width:5px;height:5px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
+
+/* ── search highlight ── */
+.hl{background:rgba(107,26,42,.2);border-radius:2px}
+body.dark .hl{background:rgba(0,229,160,.2)}
+</style>
+</head>
+<body>
+
+<!-- ── HEADER ── -->
+<header>
+  <div class="logo">tan<span>Go</span> <span style="font-size:12px;color:var(--text2);font-weight:400">/ docs</span></div>
+  <div class="hdr-right">
+    <span class="badge live">v1.0 · mayo 2026</span>
+    <span class="badge">354 nodos · GDL</span>
+    <button class="theme-btn" onclick="toggleTheme()" id="tbtn">☾ Dark</button>
+  </div>
+</header>
+
+<div class="layout">
+
+<!-- ── NAVEGACIÓN ── -->
+<nav>
+  <div class="nav-search">
+    <input type="text" placeholder="Buscar en docs..." id="search-input" oninput="searchDocs(this.value)">
+  </div>
+  <div class="nav-list" id="nav-list">
+    <div class="nav-section">Introducción</div>
+    <div class="nav-item active" onclick="showPage('overview')">¿Qué es tanGo?</div>
+    <div class="nav-item" onclick="showPage('architecture')">Arquitectura del sistema</div>
+    <div class="nav-item" onclick="showPage('stack')">Stack tecnológico</div>
+
+    <div class="nav-section">El algoritmo</div>
+    <div class="nav-item" onclick="showPage('algorithm')">Visión general</div>
+    <div class="nav-item sub" onclick="showPage('paso1')">Paso 1 — Presión propia</div>
+    <div class="nav-item sub" onclick="showPage('paso2')">Paso 2 — Mente colmena</div>
+    <div class="nav-item sub" onclick="showPage('paso3')">Paso 3 — Ajuste de fases</div>
+    <div class="nav-item" onclick="showPage('greenwave')">Ola verde (SCOOT)</div>
+    <div class="nav-item" onclick="showPage('entities')">Entidades y contexto</div>
+    <div class="nav-item" onclick="showPage('weights')">Pesos estáticos</div>
+
+    <div class="nav-section">Simulaciones</div>
+    <div class="nav-item" onclick="showPage('sims-overview')">Evolución sim0 → sim3</div>
+    <div class="nav-item sub" onclick="showPage('sim0')">sim0 — Timers fijos</div>
+    <div class="nav-item sub" onclick="showPage('sim1')">sim1 — SCOOT greedy</div>
+    <div class="nav-item sub" onclick="showPage('sim2')">sim2 — Pesos + movimiento</div>
+    <div class="nav-item sub" onclick="showPage('sim3')">sim3 — PPO (RL)</div>
+    <div class="nav-item" onclick="showPage('results')">Resultados comparativos</div>
+
+    <div class="nav-section">Infraestructura</div>
+    <div class="nav-item" onclick="showPage('dag')">DAG de Airflow</div>
+    <div class="nav-item" onclick="showPage('api')">FastAPI</div>
+    <div class="nav-item" onclick="showPage('docker')">Docker</div>
+
+    <div class="nav-section">Proyecto</div>
+    <div class="nav-item" onclick="showPage('kans')">KANs completados</div>
+    <div class="nav-item" onclick="showPage('pending')">Trabajo pendiente</div>
+    <div class="nav-item" onclick="showPage('references')">Referencias</div>
+  </div>
+</nav>
+
+<!-- ── CONTENIDO ── -->
+<main id="main-content">
+
+<!-- ══════ OVERVIEW ══════ -->
+<div class="page active" id="page-overview">
+  <h1>tan<span>Go</span></h1>
+  <p class="subtitle">Sistema de coordinación inteligente de semáforos para la ZMG · Guadalajara, México</p>
+
+  <div class="metrics-row">
+    <div class="metric"><div class="metric-val">354</div><div class="metric-lbl">Nodos del grafo</div></div>
+    <div class="metric"><div class="metric-val">672</div><div class="metric-lbl">Aristas (segmentos viales)</div></div>
+    <div class="metric"><div class="metric-val">550</div><div class="metric-lbl">Episodios de entrenamiento PPO</div></div>
+    <div class="metric"><div class="metric-val">15×</div><div class="metric-lbl">Menos vehículos detenidos vs baseline</div></div>
+  </div>
+
+  <p>tanGo es un sistema académico de coordinación de semáforos inteligentes que combina un algoritmo inspirado en <strong>SCOOT</strong> (Split Cycle Offset Optimisation Technique) con <strong>Reinforcement Learning</strong> (PPO) para minimizar el tiempo de detención en intersecciones del centro de Guadalajara.</p>
+
+  <p>El sistema opera sobre un grafo real extraído de OpenStreetMap con 354 intersecciones y 672 segmentos viales del área metropolitana. Cada hora, un DAG de Airflow consulta datos reales de clima (Open-Meteo) y velocidades de tráfico (TomTom), corre 15 ticks de simulación, y exporta el estado al dashboard.</p>
+
+  <div class="callout ok">
+    <div class="callout-title">Resultado principal</div>
+    <p>El agente PPO (sim3) logra <strong>24.18 vehículos detenidos por tick</strong> frente a 367 del baseline de timers fijos (sim0) — una reducción del 93%. Además es el único sistema que completa rutas: <strong>1,036 llegadas</strong> en 60 ticks vs 0 de sim0 y sim1.</p>
+  </div>
+
+  <h2>Cómo navegar esta documentación</h2>
+  <p>Usa la barra lateral para explorar secciones. El menú <strong>El algoritmo</strong> explica el motor central paso a paso. <strong>Simulaciones</strong> incluye visualizaciones interactivas de cada versión. <strong>Infraestructura</strong> cubre el stack de producción.</p>
+</div>
+
+<!-- ══════ ARCHITECTURE ══════ -->
+<div class="page" id="page-architecture">
+  <h1>Arquitectura del <span>sistema</span></h1>
+  <p class="subtitle">Flujo de datos desde Overpass/TomTom hasta el dashboard</p>
+
+  <div class="diagram-card">
+    <svg width="100%" viewBox="0 0 800 480" role="img">
+      <title>Arquitectura tanGo</title>
+      <defs>
+        <marker id="arr" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+          <path d="M2 1L8 5L2 9" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+        </marker>
+      </defs>
+      <!-- Fuentes externas -->
+      <g>
+        <rect x="20" y="30" width="120" height="38" rx="4" fill="none" stroke="currentColor" stroke-opacity=".3" stroke-width="1"/>
+        <text x="80" y="53" text-anchor="middle" font-family="'Space Mono'" font-size="11" fill="currentColor" fill-opacity=".5">Overpass API</text>
+      </g>
+      <g>
+        <rect x="20" y="88" width="120" height="38" rx="4" fill="none" stroke="currentColor" stroke-opacity=".3" stroke-width="1"/>
+        <text x="80" y="111" text-anchor="middle" font-family="'Space Mono'" font-size="11" fill="currentColor" fill-opacity=".5">Open-Meteo</text>
+      </g>
+      <g>
+        <rect x="20" y="146" width="120" height="38" rx="4" fill="none" stroke="currentColor" stroke-opacity=".3" stroke-width="1"/>
+        <text x="80" y="169" text-anchor="middle" font-family="'Space Mono'" font-size="11" fill="currentColor" fill-opacity=".5">TomTom API</text>
+      </g>
+
+      <!-- Flecha hacia Airflow -->
+      <line x1="140" y1="49" x2="220" y2="110" stroke="currentColor" stroke-opacity=".3" stroke-width="1" marker-end="url(#arr)"/>
+      <line x1="140" y1="107" x2="220" y2="120" stroke="currentColor" stroke-opacity=".3" stroke-width="1" marker-end="url(#arr)"/>
+      <line x1="140" y1="165" x2="220" y2="130" stroke="currentColor" stroke-opacity=".3" stroke-width="1" marker-end="url(#arr)"/>
+
+      <!-- Airflow DAG -->
+      <rect x="220" y="60" width="170" height="110" rx="6" fill="currentColor" fill-opacity=".06" stroke="currentColor" stroke-opacity=".4" stroke-width="1.5"/>
+      <text x="305" y="84" text-anchor="middle" font-family="'Space Mono'" font-size="12" font-weight="700" fill="currentColor">Airflow DAG</text>
+      <text x="305" y="100" text-anchor="middle" font-family="'DM Sans'" font-size="10" fill="currentColor" fill-opacity=".6">verificar_grafo</text>
+      <text x="305" y="114" text-anchor="middle" font-family="'DM Sans'" font-size="10" fill="currentColor" fill-opacity=".6">enriquecer_contexto</text>
+      <text x="305" y="128" text-anchor="middle" font-family="'DM Sans'" font-size="10" fill="currentColor" fill-opacity=".6">correr_simulacion × 15</text>
+      <text x="305" y="142" text-anchor="middle" font-family="'DM Sans'" font-size="10" fill="currentColor" fill-opacity=".6">exportar_estado</text>
+      <text x="305" y="162" text-anchor="middle" font-family="'Space Mono'" font-size="9" fill="currentColor" fill-opacity=".4">@hourly</text>
+
+      <!-- Flecha a core -->
+      <line x1="390" y1="115" x2="460" y2="115" stroke="currentColor" stroke-opacity=".5" stroke-width="1.5" marker-end="url(#arr)"/>
+
+      <!-- Core algorithm -->
+      <rect x="460" y="70" width="160" height="90" rx="6" fill="currentColor" fill-opacity=".08" stroke="currentColor" stroke-opacity=".5" stroke-width="1.5"/>
+      <text x="540" y="94" text-anchor="middle" font-family="'Space Mono'" font-size="12" font-weight="700" fill="currentColor">core/</text>
+      <text x="540" y="110" text-anchor="middle" font-family="'DM Sans'" font-size="10" fill="currentColor" fill-opacity=".6">TrafficAlgorithm</text>
+      <text x="540" y="124" text-anchor="middle" font-family="'DM Sans'" font-size="10" fill="currentColor" fill-opacity=".6">WeightEngine</text>
+      <text x="540" y="138" text-anchor="middle" font-family="'DM Sans'" font-size="10" fill="currentColor" fill-opacity=".6">MovementEngine</text>
+
+      <!-- Flecha a state.json -->
+      <line x1="540" y1="160" x2="540" y2="210" stroke="currentColor" stroke-opacity=".4" stroke-width="1.5" marker-end="url(#arr)"/>
+
+      <!-- tango_state.json -->
+      <rect x="440" y="210" width="200" height="44" rx="4" fill="currentColor" fill-opacity=".05" stroke="currentColor" stroke-opacity=".35" stroke-width="1" stroke-dasharray="4 3"/>
+      <text x="540" y="234" text-anchor="middle" font-family="'Space Mono'" font-size="11" fill="currentColor" fill-opacity=".7">tango_state.json</text>
+      <text x="540" y="248" text-anchor="middle" font-family="'DM Sans'" font-size="9" fill="currentColor" fill-opacity=".4">volumen compartido Docker</text>
+
+      <!-- FastAPI -->
+      <line x1="540" y1="254" x2="540" y2="300" stroke="currentColor" stroke-opacity=".4" stroke-width="1.5" marker-end="url(#arr)"/>
+      <rect x="440" y="300" width="200" height="50" rx="6" fill="currentColor" fill-opacity=".08" stroke="currentColor" stroke-opacity=".5" stroke-width="1.5"/>
+      <text x="540" y="322" text-anchor="middle" font-family="'Space Mono'" font-size="12" font-weight="700" fill="currentColor">FastAPI</text>
+      <text x="540" y="338" text-anchor="middle" font-family="'DM Sans'" font-size="10" fill="currentColor" fill-opacity=".6">/intersections · /metrics · /pressure-map</text>
+
+      <!-- Dashboard HTML y Streamlit -->
+      <line x1="480" y1="350" x2="340" y2="400" stroke="currentColor" stroke-opacity=".35" stroke-width="1.2" marker-end="url(#arr)"/>
+      <line x1="600" y1="350" x2="680" y2="400" stroke="currentColor" stroke-opacity=".35" stroke-width="1.2" marker-end="url(#arr)"/>
+
+      <rect x="230" y="400" width="160" height="44" rx="4" fill="currentColor" fill-opacity=".06" stroke="currentColor" stroke-opacity=".4" stroke-width="1"/>
+      <text x="310" y="420" text-anchor="middle" font-family="'Space Mono'" font-size="11" fill="currentColor">Dashboard HTML</text>
+      <text x="310" y="436" text-anchor="middle" font-family="'DM Sans'" font-size="9" fill="currentColor" fill-opacity=".4">modo claro/oscuro · Leaflet</text>
+
+      <rect x="620" y="400" width="130" height="44" rx="4" fill="currentColor" fill-opacity=".06" stroke="currentColor" stroke-opacity=".4" stroke-width="1"/>
+      <text x="685" y="420" text-anchor="middle" font-family="'Space Mono'" font-size="11" fill="currentColor">Streamlit</text>
+      <text x="685" y="436" text-anchor="middle" font-family="'DM Sans'" font-size="9" fill="currentColor" fill-opacity=".4">:8501</text>
+
+      <!-- label @hourly -->
+      <text x="393" y="108" font-family="'DM Sans'" font-size="9" fill="currentColor" fill-opacity=".4">run_tick()</text>
+
+      <!-- city_graph.json -->
+      <rect x="20" y="220" width="140" height="38" rx="4" fill="none" stroke="currentColor" stroke-opacity=".25" stroke-width="1" stroke-dasharray="3 3"/>
+      <text x="90" y="239" text-anchor="middle" font-family="'Space Mono'" font-size="10" fill="currentColor" fill-opacity=".5">city_graph.json</text>
+      <text x="90" y="252" text-anchor="middle" font-family="'DM Sans'" font-size="9" fill="currentColor" fill-opacity=".35">354 nodos · 672 aristas</text>
+      <line x1="160" y1="239" x2="220" y2="165" stroke="currentColor" stroke-opacity=".2" stroke-width="1" stroke-dasharray="3 3" marker-end="url(#arr)"/>
+    </svg>
+    <p class="diagram-cap">FIG 1 — Arquitectura completa del sistema tanGo. El DAG horario es el único proceso que escribe el estado; todos los demás son lectores.</p>
+  </div>
+
+  <h2>Principio de diseño</h2>
+  <p>El sistema sigue una arquitectura de <strong>un escritor, múltiples lectores</strong>. El DAG de Airflow es el único proceso que escribe <code>tango_state.json</code>. FastAPI, el dashboard HTML y Streamlit solo leen. Esto elimina condiciones de carrera y hace el sistema predecible.</p>
+
+  <div class="callout">
+    <div class="callout-title">Separación de entornos</div>
+    <p>Ray/RLlib (sim3) tiene conflictos de dependencias con Airflow. Por eso existen dos entornos virtuales separados: <code>~/tango_env</code> para entrenamiento RL y <code>~/airflow_env</code> para el pipeline de producción. Docker los aísla en contenedores distintos.</p>
+  </div>
+</div>
+
+<!-- ══════ STACK ══════ -->
+<div class="page" id="page-stack">
+  <h1>Stack <span>tecnológico</span></h1>
+  <p class="subtitle">Python 3.11 · WSL2 Debian · i3-11va · 20GB RAM</p>
+
+  <h2>Tecnologías principales</h2>
+  <table>
+    <tr><th>Componente</th><th>Tecnología</th><th>Versión</th><th>Función</th></tr>
+    <tr><td>Algoritmo</td><td><code>networkx</code></td><td>3.3</td><td>Grafo de la ciudad, betweenness, PageRank, Dijkstra</td></tr>
+    <tr><td>RL</td><td><code>ray[rllib]</code></td><td>2.55</td><td>Entrenamiento PPO, gestión de workers</td></tr>
+    <tr><td>RL framework</td><td><code>gymnasium</code></td><td>0.29</td><td>Entorno TanGoEnv</td></tr>
+    <tr><td>RL modelo</td><td><code>torch</code></td><td>2.1+</td><td>Red neuronal FCNet 256-256-128</td></tr>
+    <tr><td>Pipeline</td><td><code>apache-airflow</code></td><td>2.9</td><td>DAG horario, orquestación de tareas</td></tr>
+    <tr><td>API</td><td><code>fastapi</code> + <code>uvicorn</code></td><td>0.111 / 0.30</td><td>Endpoints REST para dashboard</td></tr>
+    <tr><td>Dashboard</td><td><code>streamlit</code></td><td>1.35</td><td>Dashboard del compañero</td></tr>
+    <tr><td>Visualización</td><td>Leaflet.js</td><td>1.9.4</td><td>Mapas interactivos (HTML puro)</td></tr>
+    <tr><td>Datos externos</td><td>Overpass, Open-Meteo, TomTom</td><td>—</td><td>Grafo OSM, clima, velocidades</td></tr>
+    <tr><td>Contenedores</td><td><code>docker</code> + compose</td><td>29.2</td><td>Despliegue de 3 servicios</td></tr>
+  </table>
+
+  <h2>Estructura del proyecto</h2>
+  <pre>36.TanGo/
+├── <span class="kw">core/</span>              <span class="cm"># Motor del algoritmo — independiente de UI</span>
+│   ├── algorithm.py   <span class="cm"># TrafficAlgorithm (3 pasos)</span>
+│   ├── movement.py    <span class="cm"># MovementEngine — Dijkstra + velocidades</span>
+│   ├── road.py        <span class="cm"># Intersection, Phase, RoadSegment</span>
+│   ├── entities.py    <span class="cm"># Vehicle, Pedestrian, VehicleType</span>
+│   ├── context.py     <span class="cm"># TrafficContext (hora, clima, tráfico)</span>
+│   └── weight_engine.py  <span class="cm"># Presión, ola verde, pesos</span>
+├── <span class="kw">graph/</span>
+│   ├── city_graph.json   <span class="cm"># 354 nodos, 672 aristas — GDL centro</span>
+│   ├── tango_state.json  <span class="cm"># Estado horario generado por DAG</span>
+│   └── city_loader.py    <span class="cm"># Overpass → JSON + pesos estáticos</span>
+├── <span class="kw">dags/</span>
+│   └── tango_queries_dag.py  <span class="cm"># Pipeline @hourly</span>
+├── <span class="kw">dashboard/</span>
+│   ├── api.py        <span class="cm"># FastAPI :8000</span>
+│   ├── app.py        <span class="cm"># Streamlit :8501</span>
+│   └── tanGo_dashboard.html
+├── <span class="kw">tests/</span>
+│   ├── sim0/ sim1/ sim2/  <span class="cm"># Evolución del simulador</span>
+│   └── sim3/
+│       ├── tango_env.py   <span class="cm"># TanGoEnv (gymnasium)</span>
+│       ├── train.py
+│       ├── evaluate.py
+│       └── tango_sim3.py  <span class="cm"># Visualización PPO</span>
+└── <span class="kw">docker/</span>
+    ├── Dockerfile.api / .airflow / .dashboard
+    └── docker-compose.yml</pre>
+</div>
+
+<!-- ══════ ALGORITHM OVERVIEW ══════ -->
+<div class="page" id="page-algorithm">
+  <h1>El <span>algoritmo</span></h1>
+  <p class="subtitle">Tres pasos secuenciales por tick · Inspirado en SCOOT + coordinación vecinal</p>
+
+  <p>El corazón de tanGo es <code>TrafficAlgorithm.run_tick()</code>. Con cada llamada, el sistema ejecuta tres pasos secuenciales que transforman el estado de las entidades en la red en decisiones de fase para cada semáforo.</p>
+
+  <div class="diagram-card">
+    <svg width="100%" viewBox="0 0 680 200" role="img">
+      <title>Los tres pasos del algoritmo tanGo</title>
+      <defs>
+        <marker id="arr2" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+          <path d="M2 1L8 5L2 9" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+        </marker>
+      </defs>
+      <!-- Input -->
+      <rect x="20" y="76" width="130" height="48" rx="4" fill="none" stroke="currentColor" stroke-opacity=".3" stroke-width="1" stroke-dasharray="4 3"/>
+      <text x="85" y="97" text-anchor="middle" font-family="'Space Mono'" font-size="11" fill="currentColor" fill-opacity=".6">entities_by_node</text>
+      <text x="85" y="113" text-anchor="middle" font-family="'DM Sans'" font-size="10" fill="currentColor" fill-opacity=".4">+ TrafficContext</text>
+
+      <line x1="150" y1="100" x2="180" y2="100" stroke="currentColor" stroke-opacity=".4" stroke-width="1.5" marker-end="url(#arr2)"/>
+
+      <!-- Paso 1 -->
+      <rect x="180" y="60" width="130" height="80" rx="6" fill="currentColor" fill-opacity=".07" stroke="currentColor" stroke-opacity=".5" stroke-width="1.5"/>
+      <text x="245" y="86" text-anchor="middle" font-family="'Space Mono'" font-size="10" font-weight="700" fill="currentColor" fill-opacity=".5">PASO 1</text>
+      <text x="245" y="102" text-anchor="middle" font-family="'Space Mono'" font-size="12" font-weight="700" fill="currentColor">Presión</text>
+      <text x="245" y="118" text-anchor="middle" font-family="'DM Sans'" font-size="10" fill="currentColor" fill-opacity=".6">propia</text>
+      <text x="245" y="132" text-anchor="middle" font-family="'Space Mono'" font-size="9" fill="currentColor" fill-opacity=".3">WeightEngine</text>
+
+      <line x1="310" y1="100" x2="340" y2="100" stroke="currentColor" stroke-opacity=".4" stroke-width="1.5" marker-end="url(#arr2)"/>
+
+      <!-- Paso 2 -->
+      <rect x="340" y="60" width="130" height="80" rx="6" fill="currentColor" fill-opacity=".07" stroke="currentColor" stroke-opacity=".5" stroke-width="1.5"/>
+      <text x="405" y="86" text-anchor="middle" font-family="'Space Mono'" font-size="10" font-weight="700" fill="currentColor" fill-opacity=".5">PASO 2</text>
+      <text x="405" y="102" text-anchor="middle" font-family="'Space Mono'" font-size="12" font-weight="700" fill="currentColor">Colmena</text>
+      <text x="405" y="118" text-anchor="middle" font-family="'DM Sans'" font-size="10" fill="currentColor" fill-opacity=".6">+ green wave</text>
+      <text x="405" y="132" text-anchor="middle" font-family="'Space Mono'" font-size="9" fill="currentColor" fill-opacity=".3">propagate_signals</text>
+
+      <line x1="470" y1="100" x2="500" y2="100" stroke="currentColor" stroke-opacity=".4" stroke-width="1.5" marker-end="url(#arr2)"/>
+
+      <!-- Paso 3 -->
+      <rect x="500" y="60" width="130" height="80" rx="6" fill="currentColor" fill-opacity=".07" stroke="currentColor" stroke-opacity=".5" stroke-width="1.5"/>
+      <text x="565" y="86" text-anchor="middle" font-family="'Space Mono'" font-size="10" font-weight="700" fill="currentColor" fill-opacity=".5">PASO 3</text>
+      <text x="565" y="102" text-anchor="middle" font-family="'Space Mono'" font-size="12" font-weight="700" fill="currentColor">Fases</text>
+      <text x="565" y="118" text-anchor="middle" font-family="'DM Sans'" font-size="10" fill="currentColor" fill-opacity=".6">+ clusters</text>
+      <text x="565" y="132" text-anchor="middle" font-family="'Space Mono'" font-size="9" fill="currentColor" fill-opacity=".3">adjust_phase()</text>
+
+      <!-- Labels bajo las flechas -->
+      <text x="160" y="92" text-anchor="middle" font-family="'DM Sans'" font-size="9" fill="currentColor" fill-opacity=".35">input</text>
+      <text x="325" y="92" text-anchor="middle" font-family="'DM Sans'" font-size="9" fill="currentColor" fill-opacity=".35">p_own</text>
+      <text x="487" y="92" text-anchor="middle" font-family="'DM Sans'" font-size="9" fill="currentColor" fill-opacity=".35">p_combined</text>
+
+      <!-- Tick label -->
+      <text x="340" y="175" text-anchor="middle" font-family="'Space Mono'" font-size="9" fill="currentColor" fill-opacity=".3">1 tick ≈ 30 segundos simulados</text>
+    </svg>
+    <p class="diagram-cap">FIG 2 — Los tres pasos de run_tick(). La presión fluye de izquierda a derecha; las decisiones de fase son el output final.</p>
+  </div>
+
+  <div class="step-row">
+    <div class="step-num">1</div>
+    <div class="step-content">
+      <h4>Presión propia — <code>_compute_own_pressures()</code></h4>
+      <p>Para cada intersección, <code>WeightEngine.aggregate_pressure()</code> calcula una presión escalar a partir de las entidades presentes: tipo de vehículo, cantidad, presencia de emergencias y contexto (hora, lluvia, temperatura). Es una función pura — mismo input, mismo output.</p>
+    </div>
+  </div>
+  <div class="step-row">
+    <div class="step-num">2</div>
+    <div class="step-content">
+      <h4>Mente colmena — <code>_propagate_neighbor_signals()</code></h4>
+      <p>Cada nodo recibe señales de sus vecinos upstream. Si un vecino está en verde, se calcula el offset temporal (distancia / velocidad) para saber cuándo llegará su flujo. Si el offset se ha cumplido, el nodo actual se marca <code>_wave_forced=True</code> — la ola verde llegó.</p>
+    </div>
+  </div>
+  <div class="step-row">
+    <div class="step-num">3</div>
+    <div class="step-content">
+      <h4>Ajuste de fases — <code>_adjust_phases()</code></h4>
+      <p>Aplica la máquina de estados (RED → GREEN → YELLOW → RED) con exclusión mutua NS/EW, timeout de equidad, modo BLINK para intersecciones vacías, y coordinación de cluster: el nodo con mayor presión en el cluster gana el verde; los demás ceden.</p>
+    </div>
+  </div>
+</div>
+
+<!-- ══════ PASO 1 ══════ -->
+<div class="page" id="page-paso1">
+  <h1>Paso 1 — <span>Presión propia</span></h1>
+  <p class="subtitle">WeightEngine.aggregate_pressure() · Función pura</p>
+
+  <p>La presión de una intersección es una medida escalar de cuánta urgencia existe para dar el verde. Se calcula <em>únicamente</em> a partir de las entidades presentes — sin considerar vecinos ni historial.</p>
+
+  <h2>Factores de presión</h2>
+  <table>
+    <tr><th>Factor</th><th>Peso base</th><th>Descripción</th></tr>
+    <tr><td>Vehículo normal (CAR, TRUCK…)</td><td>1.0</td><td>Cada vehículo suma 1 unidad de presión</td></tr>
+    <tr><td>EMERGENCY</td><td>10.0</td><td>Ambulancias y patrullas tienen prioridad absoluta</td></tr>
+    <tr><td>BUS</td><td>2.5</td><td>Mayor capacidad = mayor impacto en flujo</td></tr>
+    <tr><td>Hora pico (7–9h, 17–20h)</td><td>×1.4</td><td>Multiplicador por contexto temporal</td></tr>
+    <tr><td>Lluvia</td><td>×1.2</td><td>Velocidades reducidas aumentan congestion</td></tr>
+    <tr><td>Temperatura extrema</td><td>×1.1</td><td>Afecta comportamiento vial</td></tr>
+    <tr><td>node_weight</td><td>×[0.5–1.5]</td><td>Intersecciones más importantes amplifican presión</td></tr>
+  </table>
+
+  <h2>Propiedad clave: statelesness</h2>
+  <div class="callout">
+    <div class="callout-title">Diseño funcional</div>
+    <p><code>aggregate_pressure()</code> no tiene efectos secundarios ni lee estado global. Para el mismo conjunto de entidades y contexto, siempre devuelve el mismo valor. Esto hace el algoritmo reproducible, testeable y fácil de calibrar.</p>
+  </div>
+
+  <pre><span class="cm"># Ejemplo simplificado de cálculo de presión</span>
+<span class="kw">def</span> aggregate_pressure(entities, inter, ctx):
+    base = <span class="num">0.0</span>
+    <span class="kw">for</span> e <span class="kw">in</span> entities:
+        w = VEHICLE_WEIGHTS.get(e.vehicle_type, <span class="num">1.0</span>)
+        base += w
+    <span class="cm"># Modificadores de contexto</span>
+    <span class="kw">if</span> ctx.is_rush_hour:  base *= <span class="num">1.4</span>
+    <span class="kw">if</span> ctx.is_raining:    base *= <span class="num">1.2</span>
+    <span class="cm"># Amplificar por importancia del nodo</span>
+    <span class="kw">return</span> base * inter.node_weight</pre>
+</div>
+
+<!-- ══════ PASO 2 ══════ -->
+<div class="page" id="page-paso2">
+  <h1>Paso 2 — <span>Mente colmena</span></h1>
+  <p class="subtitle">Coordinación vecinal + green wave anticipatoria</p>
+
+  <p>El paso más sofisticado del algoritmo. Cada nodo no solo reacciona a su propio tráfico — también escucha a sus vecinos upstream para anticipar el flujo que se aproxima.</p>
+
+  <h2>Componentes</h2>
+
+  <h3>a) Señal vecinal de presión</h3>
+  <p>La influencia de un vecino decae con la distancia. Un nodo a 50m tiene más influencia que uno a 500m. Los nodos tipo MASTER amplifican su señal ×1.3.</p>
+  <pre>influence = neighbor_pressure / (1 + distance_m / speed_kmh)
+combined  += influence * <span class="num">0.25</span>  <span class="cm"># NEIGHBOR_WEIGHT</span></pre>
+
+  <h3>b) Boost anticipatorio</h3>
+  <p>Si un vecino upstream está en verde pero el flujo aún no llega (offset pendiente), se aplica un boost proporcional a la urgencia — cuanto más cerca está el flujo de llegar, mayor el boost.</p>
+  <pre>urgency    = <span class="num">1.0</span> / (<span class="num">1.0</span> + ticks_remaining * TICK_DURATION_S / <span class="num">20.0</span>)
+wave_boost = neighbor_pressure * urgency
+combined  += wave_boost * <span class="num">0.15</span>  <span class="cm"># WAVE_BOOST_WEIGHT</span></pre>
+
+  <h3>c) Ola verde forzada (offset cumplido)</h3>
+  <p>Cuando los ticks transcurridos desde que el vecino se puso en verde superan el <code>offset_ticks</code> (distancia / velocidad / TICK_DURATION_S), el flujo ya debería haber llegado. El nodo se marca <code>_wave_forced=True</code> y en el Paso 3 se fuerza a verde independientemente de la presión local.</p>
+
+  <div class="callout ok">
+    <div class="callout-title">Por qué esto es similar a SCOOT</div>
+    <p>SCOOT (Robertson & Bretherton, 1991) coordina semáforos calculando offsets temporales entre intersecciones para crear "olas verdes" en avenidas principales. tanGo implementa el mismo principio pero de forma distribuida: cada nodo calcula su propio offset a partir de sus vecinos upstream, sin un controlador central.</p>
+  </div>
+
+  <h2>Parámetros ajustables (knobs RL)</h2>
+  <table>
+    <tr><th>Constante</th><th>Valor</th><th>Efecto</th></tr>
+    <tr><td><code>NEIGHBOR_WEIGHT</code></td><td>0.25</td><td>Influencia de la presión del vecino</td></tr>
+    <tr><td><code>WAVE_BOOST_WEIGHT</code></td><td>0.15</td><td>Boost anticipatorio de ola verde</td></tr>
+    <tr><td><code>WAVE_URGENCY_S</code></td><td>20.0s</td><td>Referencia de urgencia (decaimiento)</td></tr>
+    <tr><td><code>MASTER_AMPLIFIER</code></td><td>1.3×</td><td>Amplificación de señal para nodos MASTER</td></tr>
+  </table>
+</div>
+
+<!-- ══════ PASO 3 ══════ -->
+<div class="page" id="page-paso3">
+  <h1>Paso 3 — <span>Ajuste de fases</span></h1>
+  <p class="subtitle">Máquina de estados con coordinación de cluster</p>
+
+  <h2>Máquina de estados</h2>
+  <div class="diagram-card">
+    <svg width="100%" viewBox="0 0 680 160" role="img">
+      <title>Máquina de estados de semáforo</title>
+      <defs>
+        <marker id="arr3" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+          <path d="M2 1L8 5L2 9" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+        </marker>
+      </defs>
+      <!-- RED -->
+      <rect x="60" y="50" width="110" height="60" rx="6" fill="rgba(139,26,26,.15)" stroke="rgba(139,26,26,.6)" stroke-width="1.5"/>
+      <text x="115" y="82" text-anchor="middle" font-family="'Space Mono'" font-size="13" font-weight="700" fill="currentColor">RED</text>
+      <text x="115" y="98" text-anchor="middle" font-family="'DM Sans'" font-size="10" fill="currentColor" fill-opacity=".5">presión &lt; umbral</text>
+      <!-- GREEN -->
+      <rect x="270" y="50" width="110" height="60" rx="6" fill="rgba(42,107,58,.15)" stroke="rgba(42,107,58,.6)" stroke-width="1.5"/>
+      <text x="325" y="82" text-anchor="middle" font-family="'Space Mono'" font-size="13" font-weight="700" fill="currentColor">GREEN</text>
+      <text x="325" y="98" text-anchor="middle" font-family="'DM Sans'" font-size="10" fill="currentColor" fill-opacity=".5">presión ≥ umbral</text>
+      <!-- YELLOW -->
+      <rect x="480" y="50" width="110" height="60" rx="6" fill="rgba(196,105,26,.15)" stroke="rgba(196,105,26,.6)" stroke-width="1.5"/>
+      <text x="535" y="82" text-anchor="middle" font-family="'Space Mono'" font-size="13" font-weight="700" fill="currentColor">YELLOW</text>
+      <text x="535" y="98" text-anchor="middle" font-family="'DM Sans'" font-size="10" fill="currentColor" fill-opacity=".5">transición (1 tick)</text>
+      <!-- BLINK (debajo) -->
+      <rect x="165" y="50" width="90" height="60" rx="6" fill="rgba(100,100,100,.08)" stroke="currentColor" stroke-opacity=".3" stroke-width="1" stroke-dasharray="4 3"/>
+      <text x="210" y="82" text-anchor="middle" font-family="'Space Mono'" font-size="12" font-weight="700" fill="currentColor" fill-opacity=".5">BLINK</text>
+      <text x="210" y="98" text-anchor="middle" font-family="'DM Sans'" font-size="10" fill="currentColor" fill-opacity=".35">sin tráfico</text>
+      <!-- Flechas -->
+      <line x1="170" y1="80" x2="264" y2="80" stroke="rgba(42,107,58,.6)" stroke-width="1.5" marker-end="url(#arr3)"/>
+      <text x="218" y="73" text-anchor="middle" font-family="'DM Sans'" font-size="9" fill="currentColor" fill-opacity=".4">p ≥ umbral</text>
+      <line x1="380" y1="80" x2="474" y2="80" stroke="rgba(196,105,26,.6)" stroke-width="1.5" marker-end="url(#arr3)"/>
+      <text x="427" y="73" text-anchor="middle" font-family="'DM Sans'" font-size="9" fill="currentColor" fill-opacity=".4">timeout</text>
+      <path d="M535 110 Q535 140 115 140 Q115 140 115 110" fill="none" stroke="rgba(139,26,26,.5)" stroke-width="1.5" marker-end="url(#arr3)"/>
+      <text x="325" y="154" text-anchor="middle" font-family="'DM Sans'" font-size="9" fill="currentColor" fill-opacity=".4">fin de amarillo</text>
+      <!-- RED → BLINK -->
+      <line x1="170" y1="80" x2="255" y2="80" stroke="currentColor" stroke-opacity=".2" stroke-width="1"/>
+    </svg>
+    <p class="diagram-cap">FIG 3 — Máquina de estados del semáforo. BLINK es un estado especial para intersecciones sin tráfico.</p>
+  </div>
+
+  <h2>Coordinación de cluster</h2>
+  <p>Cuando dos o más intersecciones están a menos de 60m entre sí (p.ej. un cruce con camellón), forman un <strong>cluster de coordinación</strong>. Dentro del cluster, solo puede estar en verde una intersección a la vez. El ganador es el de mayor presión combinada.</p>
+  <pre><span class="cm"># Ceder al ganador del cluster</span>
+winner_id = max(cluster_members, key=<span class="kw">lambda</span> n: pressures[n])
+<span class="kw">for</span> node_id <span class="kw">in</span> cluster_members:
+    <span class="kw">if</span> node_id != winner_id:
+        pressures[node_id] *= <span class="num">0.3</span>  <span class="cm"># CLUSTER_YIELD</span></pre>
+
+  <h2>Timeout de equidad</h2>
+  <p>Ninguna intersección puede permanecer en rojo indefinidamente. Si un nodo lleva más de <code>red_timeout_ticks</code> en rojo y tiene entidades esperando, su presión se eleva artificialmente para garantizar que eventualmente reciba el verde.</p>
+</div>
+
+<!-- ══════ GREEN WAVE ══════ -->
+<div class="page" id="page-greenwave">
+  <h1>Ola verde <span>SCOOT</span></h1>
+  <p class="subtitle">Coordinación temporal entre intersecciones · offset = distancia / velocidad</p>
+
+  <p>La ola verde es el mecanismo por el que los semáforos se sincronizan para que un vehículo que sale de una intersección en verde llegue a la siguiente cuando esta también esté en verde, sin necesidad de detenerse.</p>
+
+  <h2>Cálculo del offset</h2>
+  <pre><span class="cm"># WeightEngine.compute_green_wave_offset()</span>
+offset_s = distance_m / (speed_kmh / <span class="num">3.6</span>)
+<span class="cm"># Convertir a ticks (1 tick ≈ 30s simulados)</span>
+offset_ticks = max(<span class="num">1</span>, round(offset_s / TICK_DURATION_S))</pre>
+
+  <h2>Ejemplo en Guadalajara</h2>
+  <p>Avenida Federalismo entre dos intersecciones separadas 350m, límite de velocidad 50km/h:</p>
+  <pre>offset_s     = 350 / (50 / 3.6) = <span class="num">25.2</span> segundos
+offset_ticks = round(25.2 / 30) = <span class="num">1</span> tick</pre>
+
+  <p>Si la intersección upstream se pone en verde en el tick 5, la downstream debe ponerse en verde en el tick 6 — el flujo ya llegó.</p>
+
+  <div class="callout ok">
+    <div class="callout-title">Diferencia con SCOOT clásico</div>
+    <p>SCOOT requiere un controlador central con sensores de lazo inductivo en cada segmento. tanGo aproxima el mismo comportamiento de forma distribuida: cada nodo calcula su propio offset a partir de los datos del grafo OSM (longitud y velocidad de cada segmento), sin infraestructura adicional.</p>
+  </div>
+</div>
+
+<!-- ══════ ENTITIES ══════ -->
+<div class="page" id="page-entities">
+  <h1>Entidades y <span>contexto</span></h1>
+  <p class="subtitle">Los actores de la simulación</p>
+
+  <h2>Tipos de entidades</h2>
+  <table>
+    <tr><th>Tipo</th><th>Peso presión</th><th>Spawn (MASTER / NORMAL / BLIND)</th></tr>
+    <tr><td><code>CAR</code></td><td>1.0</td><td>60% del pool</td></tr>
+    <tr><td><code>MOTORCYCLE</code></td><td>0.6</td><td>15% del pool</td></tr>
+    <tr><td><code>BUS</code></td><td>2.5</td><td>10% del pool</td></tr>
+    <tr><td><code>TRUCK</code></td><td>2.0</td><td>8% del pool</td></tr>
+    <tr><td><code>BICYCLE</code></td><td>0.3</td><td>5% (2% con lluvia)</td></tr>
+    <tr><td><code>EMERGENCY</code></td><td>10.0</td><td>2% del pool</td></tr>
+    <tr><td><code>PEDESTRIAN</code></td><td>0.5</td><td>15% de prob. por tick</td></tr>
+  </table>
+
+  <h2>TrafficContext</h2>
+  <p>El contexto encapsula las condiciones del mundo real para un tick específico. En producción, se construye con datos reales de Open-Meteo y TomTom.</p>
+  <table>
+    <tr><th>Campo</th><th>Fuente</th><th>Efecto en el algoritmo</th></tr>
+    <tr><td><code>timestamp</code></td><td>Sistema</td><td>Detecta hora pico (7–9h, 17–20h) → ×1.4</td></tr>
+    <tr><td><code>temperature_c</code></td><td>Open-Meteo</td><td>Extremos → ×1.1 en spawn rate</td></tr>
+    <tr><td><code>is_raining</code></td><td>Open-Meteo</td><td>×1.2 presión, menos bicis</td></tr>
+    <tr><td><code>wind_speed_kmh</code></td><td>Open-Meteo</td><td>Ajuste menor de velocidades</td></tr>
+    <tr><td><code>visibility_m</code></td><td>Open-Meteo</td><td>Reducción de velocidades</td></tr>
+    <tr><td><code>traffic_factor</code></td><td>TomTom</td><td>Multiplica spawn rate por congestión real</td></tr>
+  </table>
+</div>
+
+<!-- ══════ WEIGHTS ══════ -->
+<div class="page" id="page-weights">
+  <h1>Pesos <span>estáticos</span></h1>
+  <p class="subtitle">5 dimensiones combinadas en media geométrica · calculados una vez por día</p>
+
+  <p>El <code>node_weight</code> de cada intersección cuantifica su importancia estructural en la red vial. Un nodo con peso alto amplifica su presión propia y la señal que envía a sus vecinos.</p>
+
+  <h2>Las 5 dimensiones</h2>
+  <table>
+    <tr><th>Dimensión</th><th>Cálculo</th><th>Rango</th></tr>
+    <tr><td>degree_weight</td><td>1 + (street_count − 1) × 0.15</td><td>[1.0, 2.5]</td></tr>
+    <tr><td>betweenness</td><td>Centralidad de intermediación (NetworkX)</td><td>[0.5, 1.5]</td></tr>
+    <tr><td>pagerank</td><td>PageRank α=0.85 (NetworkX)</td><td>[0.5, 1.5]</td></tr>
+    <tr><td>road_quality</td><td>Promedio de calidad de vías entrantes</td><td>[0.1, 1.0]</td></tr>
+    <tr><td>itype_bonus</td><td>MASTER=1.3, NORMAL=1.0, BLIND=0.5</td><td>[0.5, 1.3]</td></tr>
+  </table>
+
+  <pre><span class="cm"># Media geométrica de las 5 dimensiones (α=β=γ=δ=ε=1)</span>
+node_weight = (degree_w * betweenness_w * pagerank_w
+               * road_quality * itype_bonus) ** (<span class="num">1</span>/<span class="num">5</span>)</pre>
+
+  <div class="callout warn">
+    <div class="callout-title">Trabajo futuro — calibración RL</div>
+    <p>Los exponentes de la media geométrica son actualmente todos 1 (igual peso a cada dimensión). La siguiente fase del proyecto consiste en usar el agente PPO para aprender los exponentes óptimos por hora del día, convirtiendo estos pesos estáticos en dinámicos.</p>
+  </div>
+</div>
+
+<!-- ══════ SIMS OVERVIEW ══════ -->
+<div class="page" id="page-sims-overview">
+  <h1>Evolución <span>sim0 → sim3</span></h1>
+  <p class="subtitle">Cuatro generaciones del simulador, cada una más sofisticada</p>
+
+  <div class="metrics-row">
+    <div class="metric"><div class="metric-val" style="color:var(--text2)">sim0</div><div class="metric-lbl">Timers fijos</div></div>
+    <div class="metric"><div class="metric-val" style="color:var(--accent2)">sim1</div><div class="metric-lbl">SCOOT greedy</div></div>
+    <div class="metric"><div class="metric-val" style="color:var(--warn)">sim2</div><div class="metric-lbl">Pesos + Dijkstra</div></div>
+    <div class="metric"><div class="metric-val">sim3</div><div class="metric-lbl">PPO (RL)</div></div>
+  </div>
+
+  <table>
+    <tr><th>Versión</th><th>Novedad principal</th><th>Detenidos/tick</th><th>Llegadas</th></tr>
+    <tr><td><code>sim0</code></td><td>Baseline: todos en verde fijo</td><td>367</td><td>0</td></tr>
+    <tr><td><code>sim1</code></td><td>TrafficAlgorithm + presión + ola verde</td><td>491</td><td>0</td></tr>
+    <tr><td><code>sim2</code></td><td>node_weight + MovementEngine + Dijkstra</td><td>—</td><td>variable</td></tr>
+    <tr><td><code>sim3</code></td><td>PPO: el agente decide las fases</td><td><strong>24.18</strong></td><td><strong>1,036</strong></td></tr>
+  </table>
+
+  <div class="callout">
+    <div class="callout-title">Nota sobre sim1</div>
+    <p>sim1 muestra más detenidos que sim0 porque el algoritmo de presión crea cuellos de botella mientras aprende a coordinarse. A largo plazo (más ticks) sim1 supera a sim0, pero en la ventana de 60 ticks la comparativa es desfavorable. sim3 resuelve esto con RL.</p>
+  </div>
+</div>
+
+<!-- ══════ SIM0 ══════ -->
+<div class="page" id="page-sim0">
+  <h1><span>sim0</span> — Timers fijos</h1>
+  <p class="subtitle">Baseline · Todos los semáforos en verde permanente</p>
+  <p>El baseline más simple posible: todas las intersecciones con semáforo se fijan en verde. No hay lógica de coordinación ni reacción al tráfico. Sirve como referencia inferior.</p>
+  <div class="sim-grid">
+    <div class="sim-card sim-full">
+      <div class="sim-card-header">
+        <span class="sim-card-title">tanGo sim0 — Timers fijos</span>
+        <span class="sim-badge s0">BASELINE</span>
+      </div>
+      <iframe src="../tests/sim0/tango_vis_sim0.html" title="Simulación sim0"></iframe>
+      <div class="sim-card-desc">Baseline: semáforos en verde fijo. 367 vehículos detenidos/tick promedio.</div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════ SIM1 ══════ -->
+<div class="page" id="page-sim1">
+  <h1><span>sim1</span> — SCOOT greedy</h1>
+  <p class="subtitle">TrafficAlgorithm completo · presión + ola verde</p>
+  <p>Primera versión del algoritmo completo. Introduce presión por entidades, coordinación vecinal y ola verde. Las entidades son sintéticas (sin rutas reales).</p>
+  <div class="sim-grid">
+    <div class="sim-card sim-full">
+      <div class="sim-card-header">
+        <span class="sim-card-title">tanGo sim1 — SCOOT greedy</span>
+        <span class="sim-badge s1">ALGORITMO</span>
+      </div>
+      <iframe src="../tests/sim1/tango_vis.html" title="Simulación sim1"></iframe>
+      <div class="sim-card-desc">TrafficAlgorithm con presión y ola verde. Escenarios: hora pico, lluvia, fin de semana.</div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════ SIM2 ══════ -->
+<div class="page" id="page-sim2">
+  <h1><span>sim2</span> — Pesos + movimiento</h1>
+  <p class="subtitle">node_weight · MovementEngine · Dijkstra · heatmap</p>
+  <p>Agrega movimiento real de entidades con rutas calculadas por Dijkstra, pesos estáticos por nodo (betweenness, pagerank, road_quality) y partículas animadas en el mapa.</p>
+  <div class="sim-grid">
+    <div class="sim-card sim-full">
+      <div class="sim-card-header">
+        <span class="sim-card-title">tanGo sim2 — Pesos estáticos + Movimiento</span>
+        <span class="sim-badge s2">MOVIMIENTO</span>
+      </div>
+      <iframe src="../tests/sim2/tango_vis_sim2.html" title="Simulación sim2"></iframe>
+      <div class="sim-card-desc">Partículas animadas con rutas Dijkstra, heatmap de flujo acumulado y pesos estáticos por nodo.</div>
+    </div>
+  </div>
+  <h2>Casos experimentales</h2>
+  <div class="sim-grid">
+    <div class="sim-card">
+      <div class="sim-card-header"><span class="sim-card-title">Caso 246</span><span class="sim-badge s2">EXP</span></div>
+      <iframe src="../tests/sim2/casos_exp/caso246_vis.html" title="Caso 246"></iframe>
+    </div>
+    <div class="sim-card">
+      <div class="sim-card-header"><span class="sim-card-title">Caso 369</span><span class="sim-badge s2">EXP</span></div>
+      <iframe src="../tests/sim2/casos_exp/caso369_vis.html" title="Caso 369"></iframe>
+    </div>
+    <div class="sim-card">
+      <div class="sim-card-header"><span class="sim-card-title">Caso 48C</span><span class="sim-badge s2">EXP</span></div>
+      <iframe src="../tests/sim2/casos_exp/caso48C_vis.html" title="Caso 48C"></iframe>
+    </div>
+    <div class="sim-card">
+      <div class="sim-card-header"><span class="sim-card-title">Caso 5AF</span><span class="sim-badge s2">EXP</span></div>
+      <iframe src="../tests/sim2/casos_exp/caso5AF_vis.html" title="Caso 5AF"></iframe>
+    </div>
+  </div>
+</div>
+
+<!-- ══════ SIM3 ══════ -->
+<div class="page" id="page-sim3">
+  <h1><span>sim3</span> — Agente PPO</h1>
+  <p class="subtitle">Reinforcement Learning · PPO · 550 episodios · checkpoint_00550</p>
+
+  <p>El agente PPO observa 10 features por cada semáforo (presión, fase, entidades, hora, vecinos…) y decide en cada tick si mantener o cambiar la fase de cada semáforo. Entrenado durante ~5 días en CPU.</p>
+
+  <h2>Espacio de observación (10 features × N_semáforos)</h2>
+  <table>
+    <tr><th>#</th><th>Feature</th><th>Rango</th></tr>
+    <tr><td>0</td><td>Presión normalizada</td><td>[0,1]</td></tr>
+    <tr><td>1</td><td>Fase codificada (RED=0, YELLOW=0.5, GREEN=1, BLINK=0.25)</td><td>[0,1]</td></tr>
+    <tr><td>2</td><td>Ticks en fase actual normalizado</td><td>[0,1]</td></tr>
+    <tr><td>3</td><td>Entidades en nodo normalizado</td><td>[0,1]</td></tr>
+    <tr><td>4</td><td>Hay emergencia (binario)</td><td>{0,1}</td></tr>
+    <tr><td>5</td><td>node_weight</td><td>[0.5,1.5]</td></tr>
+    <tr><td>6</td><td>Sin(hora/24×2π) normalizado</td><td>[0,1]</td></tr>
+    <tr><td>7</td><td>Cos(hora/24×2π) normalizado</td><td>[0,1]</td></tr>
+    <tr><td>8</td><td>Presión promedio vecinos upstream</td><td>[0,1]</td></tr>
+    <tr><td>9</td><td>wave_offset normalizado</td><td>[0,1]</td></tr>
+  </table>
+
+  <h2>Función de recompensa</h2>
+  <pre>reward = w_flow   × (entidades_en_verde / total)
+       - w_wait   × (espera_acumulada / (total × n_ticks))
+       - w_emerg  × emergencias_detenidas
+       + w_arrived × (llegadas_este_tick / total)
+<span class="cm"># Pesos: w_flow=1.0, w_wait=0.5, w_emerg=5.0, w_arrived=2.0</span></pre>
+
+  <div class="sim-grid">
+    <div class="sim-card sim-full">
+      <div class="sim-card-header">
+        <span class="sim-card-title">tanGo sim3 — Agente PPO</span>
+        <span class="sim-badge s3">PPO · RL</span>
+      </div>
+      <iframe src="../tests/sim3/tango_vis_sim3.html" title="Simulación sim3"></iframe>
+      <div class="sim-card-desc">El agente PPO controla los semáforos en tiempo real. Los pulsos cyan indican semáforos que el agente cambió ese tick. La curva de reward se actualiza tick a tick.</div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════ RESULTS ══════ -->
+<div class="page" id="page-results">
+  <h1>Resultados <span>comparativos</span></h1>
+  <p class="subtitle">60 ticks · escenario rush_hour</p>
+
+  <div class="metrics-row">
+    <div class="metric"><div class="metric-val" style="color:var(--text2)">367</div><div class="metric-lbl">sim0 detenidos/tick</div></div>
+    <div class="metric"><div class="metric-val" style="color:var(--accent2)">491</div><div class="metric-lbl">sim1 detenidos/tick</div></div>
+    <div class="metric"><div class="metric-val">24.18</div><div class="metric-lbl">sim3 detenidos/tick</div></div>
+    <div class="metric"><div class="metric-val">−93%</div><div class="metric-lbl">reducción vs sim0</div></div>
+  </div>
+
+  <table>
+    <tr><th>Métrica</th><th>sim0</th><th>sim1</th><th>sim3 (PPO)</th></tr>
+    <tr><td>Detenidos promedio/tick</td><td>367.0</td><td>491.52</td><td><strong>24.18</strong></td></tr>
+    <tr><td>% ticks en verde (acum.)</td><td>12,600</td><td>6,438</td><td>3,750</td></tr>
+    <tr><td>Vehículos llegados</td><td>0</td><td>0</td><td><strong>1,036</strong></td></tr>
+    <tr><td>Emergencias detenidas</td><td>0</td><td>0</td><td>0</td></tr>
+    <tr><td>Reward sum</td><td>0</td><td>0</td><td>−186.07</td></tr>
+    <tr><td>Ticks evaluados</td><td>60</td><td>60</td><td>60</td></tr>
+  </table>
+
+  <div class="callout">
+    <div class="callout-title">Interpretación del % verde</div>
+    <p>sim3 tiene <em>menos</em> verde acumulado que sim0. Esto es coherente: el agente aprendió que dar verde sin coordinación no ayuda. En vez de poner todo en verde, <strong>coordina cuándo dar el verde</strong> — resultado: 15× menos vehículos detenidos.</p>
+  </div>
+
+  <div class="callout ok">
+    <div class="callout-title">Por qué sim0 y sim1 tienen llegadas = 0</div>
+    <p>sim0 y sim1 usan spawn sintético sin rutas reales — las entidades aparecen y desaparecen cada tick sin completar trayectos. sim3 usa <code>MovementEngine</code> con Dijkstra y lifetime real, por eso es el único que registra llegadas al destino.</p>
+  </div>
+</div>
+
+<!-- ══════ DAG ══════ -->
+<div class="page" id="page-dag">
+  <h1>DAG de <span>Airflow</span></h1>
+  <p class="subtitle">Pipeline horario · tango_traffic_pipeline · @hourly</p>
+
+  <div class="diagram-card">
+    <svg width="100%" viewBox="0 0 680 120" role="img">
+      <title>DAG de Airflow tanGo</title>
+      <defs>
+        <marker id="arr4" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+          <path d="M2 1L8 5L2 9" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+        </marker>
+      </defs>
+      <rect x="10" y="40" width="70" height="36" rx="4" fill="currentColor" fill-opacity=".05" stroke="currentColor" stroke-opacity=".3" stroke-width="1"/>
+      <text x="45" y="62" text-anchor="middle" font-family="'Space Mono'" font-size="10" fill="currentColor" fill-opacity=".5">inicio</text>
+      <line x1="80" y1="58" x2="108" y2="58" stroke="currentColor" stroke-opacity=".4" stroke-width="1.2" marker-end="url(#arr4)"/>
+
+      <rect x="108" y="36" width="106" height="44" rx="4" fill="currentColor" fill-opacity=".07" stroke="currentColor" stroke-opacity=".45" stroke-width="1.2"/>
+      <text x="161" y="56" text-anchor="middle" font-family="'Space Mono'" font-size="10" fill="currentColor">verificar</text>
+      <text x="161" y="70" text-anchor="middle" font-family="'DM Sans'" font-size="9" fill="currentColor" fill-opacity=".5">_grafo</text>
+      <line x1="214" y1="58" x2="240" y2="58" stroke="currentColor" stroke-opacity=".4" stroke-width="1.2" marker-end="url(#arr4)"/>
+
+      <rect x="240" y="36" width="90" height="44" rx="4" fill="currentColor" fill-opacity=".07" stroke="currentColor" stroke-opacity=".45" stroke-width="1.2"/>
+      <text x="285" y="56" text-anchor="middle" font-family="'Space Mono'" font-size="10" fill="currentColor">refrescar</text>
+      <text x="285" y="70" text-anchor="middle" font-family="'DM Sans'" font-size="9" fill="currentColor" fill-opacity=".5">si &gt;24h</text>
+      <line x1="330" y1="58" x2="356" y2="58" stroke="currentColor" stroke-opacity=".4" stroke-width="1.2" marker-end="url(#arr4)"/>
+
+      <rect x="356" y="36" width="96" height="44" rx="4" fill="currentColor" fill-opacity=".07" stroke="currentColor" stroke-opacity=".45" stroke-width="1.2"/>
+      <text x="404" y="53" text-anchor="middle" font-family="'Space Mono'" font-size="10" fill="currentColor">enriquecer</text>
+      <text x="404" y="67" text-anchor="middle" font-family="'DM Sans'" font-size="9" fill="currentColor" fill-opacity=".5">TomTom+Meteo</text>
+      <line x1="452" y1="58" x2="476" y2="58" stroke="currentColor" stroke-opacity=".4" stroke-width="1.2" marker-end="url(#arr4)"/>
+
+      <rect x="476" y="36" width="96" height="44" rx="4" fill="currentColor" fill-opacity=".09" stroke="currentColor" stroke-opacity=".55" stroke-width="1.5"/>
+      <text x="524" y="53" text-anchor="middle" font-family="'Space Mono'" font-size="10" font-weight="700" fill="currentColor">correr</text>
+      <text x="524" y="67" text-anchor="middle" font-family="'DM Sans'" font-size="9" fill="currentColor" fill-opacity=".5">×15 ticks</text>
+      <line x1="572" y1="58" x2="596" y2="58" stroke="currentColor" stroke-opacity=".4" stroke-width="1.2" marker-end="url(#arr4)"/>
+
+      <rect x="596" y="36" width="72" height="44" rx="4" fill="currentColor" fill-opacity=".07" stroke="currentColor" stroke-opacity=".45" stroke-width="1.2"/>
+      <text x="632" y="53" text-anchor="middle" font-family="'Space Mono'" font-size="10" fill="currentColor">exportar</text>
+      <text x="632" y="67" text-anchor="middle" font-family="'DM Sans'" font-size="9" fill="currentColor" fill-opacity=".5">state.json</text>
+
+      <text x="340" y="108" text-anchor="middle" font-family="'Space Mono'" font-size="9" fill="currentColor" fill-opacity=".3">@hourly · SequentialExecutor · Puerto 8082</text>
+    </svg>
+    <p class="diagram-cap">FIG 4 — Pipeline DAG horario. calcular_pesos se separó a un DAG diario (no cambia cada hora).</p>
+  </div>
+
+  <h2>Comandos de operación</h2>
+  <pre><span class="cm"># Levantar Airflow</span>
+<span class="kw">source</span> ~/airflow_env/bin/activate
+<span class="kw">export</span> AIRFLOW_HOME=~/airflow
+<span class="kw">export</span> AIRFLOW__CORE__DAGS_FOLDER=<span class="str">"/mnt/c/.../36.TanGo/dags"</span>
+<span class="kw">export</span> AIRFLOW__WEBSERVER__WEB_SERVER_PORT=<span class="num">8082</span>
+airflow standalone
+
+<span class="cm"># Trigger manual</span>
+airflow dags trigger tango_traffic_pipeline
+
+<span class="cm"># Ver logs de una tarea</span>
+airflow tasks logs tango_traffic_pipeline correr_simulacion &lt;run_id&gt;</pre>
+
+  <div class="callout warn">
+    <div class="callout-title">Puerto 8080 ocupado</div>
+    <p>En esta máquina el puerto 8080 está ocupado por EDB Postgres. Airflow corre en el puerto 8082.</p>
+  </div>
+</div>
+
+<!-- ══════ API ══════ -->
+<div class="page" id="page-api">
+  <h1>FastAPI <span>:8000</span></h1>
+  <p class="subtitle">Endpoints REST que consume el dashboard</p>
+
+  <table>
+    <tr><th>Endpoint</th><th>Descripción</th><th>Retorna</th></tr>
+    <tr><td><code>GET /</code></td><td>Health check</td><td>status, updated_at, n_nodes</td></tr>
+    <tr><td><code>GET /intersections</code></td><td>Lista completa de intersecciones</td><td>Array de nodos con fase, presión, coords</td></tr>
+    <tr><td><code>GET /metrics</code></td><td>Métricas generales del sistema</td><td>green_count, red_count, traffic_factor…</td></tr>
+    <tr><td><code>GET /pressure-map</code></td><td>Mapa de presión</td><td>{node_id: pressure}</td></tr>
+    <tr><td><code>GET /intersections/{id}</code></td><td>Detalle de un nodo</td><td>Nodo completo con vecinos</td></tr>
+    <tr><td><code>GET /status</code></td><td>Estado completo para debugging</td><td>phase_counts, context, weight_stats</td></tr>
+  </table>
+
+  <h2>Correr localmente</h2>
+  <pre><span class="kw">source</span> ~/airflow_env/bin/activate
+<span class="kw">cd</span> <span class="str">"/mnt/c/.../36.TanGo"</span>
+uvicorn dashboard.api:app --reload --port <span class="num">8000</span></pre>
+</div>
+
+<!-- ══════ DOCKER ══════ -->
+<div class="page" id="page-docker">
+  <h1><span>Docker</span></h1>
+  <p class="subtitle">3 contenedores · 1 volumen compartido · docker compose up</p>
+
+  <table>
+    <tr><th>Servicio</th><th>Puerto</th><th>Descripción</th></tr>
+    <tr><td><code>tango-api</code></td><td>8000</td><td>FastAPI + core/ + graph/</td></tr>
+    <tr><td><code>tango-airflow</code></td><td>8082</td><td>Airflow + DAG (usuario: admin/admin)</td></tr>
+    <tr><td><code>tango-dashboard</code></td><td>8501</td><td>Streamlit app</td></tr>
+  </table>
+
+  <h2>Comandos</h2>
+  <pre><span class="cm"># Primera vez (o después de cambiar código)</span>
+docker compose up --build
+
+<span class="cm"># Demos posteriores (sin reconstruir)</span>
+docker compose up
+
+<span class="cm"># Apagar</span>
+docker compose down
+
+<span class="cm"># Trigger manual del DAG dentro de Docker</span>
+docker compose exec tango-airflow airflow dags trigger tango_traffic_pipeline</pre>
+
+  <div class="callout">
+    <div class="callout-title">Prerequisito</div>
+    <p>Docker Desktop debe estar abierto en Windows con la integración WSL activada antes de correr los comandos en WSL. <strong>El RL (Ray/torch) no está dockerizado</strong> — es offline y tiene conflictos de dependencias. Se mantiene en <code>~/tango_env</code>.</p>
+  </div>
+</div>
+
+<!-- ══════ KANs ══════ -->
+<div class="page" id="page-kans">
+  <h1>KANs <span>completados</span></h1>
+  <p class="subtitle">Registro de hitos del proyecto</p>
+
+  <div class="kan-list">
+    <div class="kan-item"><div class="kan-dot done">✓</div><div class="kan-body"><h4>sim0 — Baseline timers fijos</h4><p>Primer simulador, referencia inferior para comparativas.</p></div></div>
+    <div class="kan-item"><div class="kan-dot done">✓</div><div class="kan-body"><h4>sim1 — TrafficAlgorithm + SCOOT greedy</h4><p>Algoritmo completo con presión, ola verde y coordinación vecinal. Casos experimentales: 246, 369, 48C, 5AF.</p></div></div>
+    <div class="kan-item"><div class="kan-dot done">✓</div><div class="kan-body"><h4>sim2 — Pesos estáticos + MovementEngine</h4><p>node_weight (betweenness, pagerank, road_quality). Entidades con rutas Dijkstra, partículas animadas, heatmap.</p></div></div>
+    <div class="kan-item"><div class="kan-dot done">✓</div><div class="kan-body"><h4>sim3 — Entorno RL + PPO</h4><p>TanGoEnv (gymnasium), entrenamiento PPO con Ray 2.55 (~5 días CPU), checkpoint_00550. 15× mejora vs baseline.</p></div></div>
+    <div class="kan-item"><div class="kan-dot done">✓</div><div class="kan-body"><h4>KAN-10 — DAG Airflow</h4><p>Pipeline @hourly con Overpass, TomTom, Open-Meteo. 15 ticks por run, filtro de nodos blind.</p></div></div>
+    <div class="kan-item"><div class="kan-dot done">✓</div><div class="kan-body"><h4>KAN-11 — FastAPI + Dashboard HTML</h4><p>Endpoints REST. Dashboard técnico modo claro/oscuro con Leaflet, métricas en tiempo real.</p></div></div>
+    <div class="kan-item"><div class="kan-dot done">✓</div><div class="kan-body"><h4>KAN-12 — Docker</h4><p>3 contenedores (API, Airflow, Streamlit), volumen compartido, docker compose up.</p></div></div>
+  </div>
+</div>
+
+<!-- ══════ PENDING ══════ -->
+<div class="page" id="page-pending">
+  <h1>Trabajo <span>pendiente</span></h1>
+  <p class="subtitle">En orden de prioridad</p>
+
+  <div class="kan-list">
+    <div class="kan-item"><div class="kan-dot pending">16</div><div class="kan-body"><h4>KAN-16 — VisionIngester / YOLO</h4><p>Reemplaza el spawn sintético del DAG con conteos reales desde cámaras. Compañero responsable.</p></div></div>
+    <div class="kan-item"><div class="kan-dot pending">17</div><div class="kan-body"><h4>KAN-17 — Kafka</h4><p>Stream de eventos entre YOLO y el DAG. Depende de KAN-16.</p></div></div>
+    <div class="kan-item"><div class="kan-dot pending">—</div><div class="kan-body"><h4>Actualizar Docker con YOLO/Kafka</h4><p>Agregar cuarto contenedor al docker-compose.yml cuando KAN-16 y 17 estén listos.</p></div></div>
+    <div class="kan-item"><div class="kan-dot pending">—</div><div class="kan-body"><h4>sim3b — Multi-agente</h4><p>Extensión opcional de sim3 a múltiples agentes cuando converja completamente.</p></div></div>
+    <div class="kan-item"><div class="kan-dot pending">—</div><div class="kan-body"><h4>Calibración de pesos RL</h4><p>Usar PPO para aprender los exponentes óptimos de la media geométrica de node_weight por hora del día.</p></div></div>
+  </div>
+</div>
+
+<!-- ══════ REFERENCES ══════ -->
+<div class="page" id="page-references">
+  <h1><span>Referencias</span></h1>
+  <p class="subtitle">Fundamentos teóricos de tanGo</p>
+
+  <h2>Algoritmo de semáforos</h2>
+  <p><strong>SCOOT</strong> — Robertson, D.I. & Bretherton, R.D. (1991). <em>Optimizing networks of traffic signals in real time — the SCOOT method.</em> IEEE Transactions on Vehicular Technology, 40(1), 11–15.</p>
+  <p><strong>FUSION</strong> — TRL / Transport for London (2019). <em>FUSION: Multi-source data fusion for urban traffic management.</em> Aplicación de múltiples fuentes de datos en tiempo real para coordinación de semáforos en Londres.</p>
+
+  <h2>Reinforcement Learning</h2>
+  <p><strong>PPO</strong> — Schulman, J., Wolski, F., Dhariwal, P., Radford, A., & Klimov, O. (2017). <em>Proximal Policy Optimization Algorithms.</em> arXiv:1707.06347.</p>
+  <p><strong>RLlib</strong> — Liang, E., et al. (2018). <em>RLlib: Abstractions for Distributed Reinforcement Learning.</em> ICML. Ray 2.55 con api_stack clásica (<code>enable_rl_module_and_learner=False</code>).</p>
+
+  <h2>Grafo de la ciudad</h2>
+  <p><strong>OpenStreetMap</strong> — datos viales de Guadalajara ZMG descargados via <strong>Overpass API</strong>. Coordenadas de intersecciones, tipos de vía, límites de velocidad y sentido del tráfico.</p>
+  <p><strong>Betweenness centrality</strong> — Freeman, L.C. (1977). <em>A set of measures of centrality based on betweenness.</em> Sociometry, 40(1), 35–41.</p>
+  <p><strong>PageRank</strong> — Page, L., Brin, S., Motwani, R., & Winograd, T. (1999). <em>The PageRank citation ranking: Bringing order to the web.</em> Stanford InfoLab.</p>
+
+  <h2>Datos en tiempo real</h2>
+  <p><strong>Open-Meteo</strong> — API meteorológica de código abierto. Temperatura, precipitación, viento y visibilidad en tiempo real sin API key.</p>
+  <p><strong>TomTom Traffic API</strong> — Datos de velocidades actuales por segmento vial. Requiere API key.</p>
+</div>
+
+</main>
+</div>
+
+<script>
+// ── Tema ──────────────────────────────────────────────────────────────────
+const saved = localStorage.getItem('tango-theme');
+if(saved === 'dark' || (!saved && window.matchMedia('(prefers-color-scheme: dark)').matches)){
+  document.body.classList.add('dark');
+  document.getElementById('tbtn').textContent = '☀ Light';
+}
+function toggleTheme(){
+  const isDark = document.body.classList.toggle('dark');
+  document.getElementById('tbtn').textContent = isDark ? '☀ Light' : '☾ Dark';
+  localStorage.setItem('tango-theme', isDark ? 'dark' : 'light');
+}
+
+// ── Navegación ────────────────────────────────────────────────────────────
+function showPage(id){
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  const page = document.getElementById('page-'+id);
+  if(page){ page.classList.add('active'); document.getElementById('main-content').scrollTop=0; }
+  document.querySelectorAll('.nav-item').forEach(n => {
+    if(n.getAttribute('onclick') && n.getAttribute('onclick').includes("'"+id+"'")){
+      n.classList.add('active');
+    }
+  });
+  window.location.hash = id;
+}
+
+// Restaurar página desde hash
+const hash = window.location.hash.replace('#','');
+if(hash) showPage(hash);
+
+// ── Búsqueda ──────────────────────────────────────────────────────────────
+function searchDocs(q){
+  const items = document.querySelectorAll('.nav-item');
+  items.forEach(item => {
+    if(!q){ item.style.display = ''; return; }
+    const txt = item.textContent.toLowerCase();
+    item.style.display = txt.includes(q.toLowerCase()) ? '' : 'none';
+  });
+  document.querySelectorAll('.nav-section').forEach(s => {
+    s.style.display = q ? 'none' : '';
+  });
+}
+</script>
+</body>
+</html>
