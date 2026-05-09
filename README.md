@@ -11,140 +11,208 @@
    ██║   ██║  ██║██║ ╚████║╚██████╔╝╚██████╔╝
    ╚═╝   ╚═╝  ╚═╝╚═╝  ╚═══╝ ╚═════╝  ╚═════╝ 
         
-        Semáforo Inteligente de Tráfico         version 0.1.0-dev
-        by Hex (@RemiH06), , ,
+        Semáforo Inteligente de Tráfico         version 1.0.0
+        by Hex (@RemiH06), @cesarsantos23, @edumar67, @DonCo93
 ```
 
 ![Maintained](https://img.shields.io/badge/Maintained%3F-yes-green.svg?style=for-the-badge)
 ![License](https://img.shields.io/badge/License-AGPL%20v3-blue.svg?style=for-the-badge)
 ![Python](https://img.shields.io/badge/Python-3.11+-yellow.svg?style=for-the-badge)
-![Neo4j](https://img.shields.io/badge/Neo4j-Graph%20DB-008CC1?style=for-the-badge)
+![Ray](https://img.shields.io/badge/Ray%20RLlib-2.55-informational?style=for-the-badge)
 
 ---
 
 ## 🚦 Descripción general
 
-**tanGo** es un sistema de ingeniería de datos que controla semáforos en tiempo real mediante un modelo de **pesos dinámicos** sobre un grafo vial. El nombre viene de **tan**gente (las funciones `sin/cos` que modelan ciclos temporales) y **Go** de ir. Como el baile: sincronizado, fluido, en tiempo real.
+**tanGo** es un sistema de coordinación inteligente de semáforos que combina un algoritmo inspirado en **SCOOT** (Split Cycle Offset Optimisation Technique) con **Reinforcement Learning** (PPO) para minimizar el tiempo de detención en intersecciones del centro de Guadalajara.
+
+El nombre viene de **tan**gente (las funciones `sin/cos` que modelan ciclos temporales) y **Go** de ir. Como el baile: sincronizado, fluido, en tiempo real.
+
+El sistema opera sobre un grafo real de **354 intersecciones y 672 segmentos viales** extraído de OpenStreetMap. Cada hora, un DAG de Airflow consulta datos reales de clima (Open-Meteo) y velocidades de tráfico (TomTom), corre 15 ticks de simulación y exporta el estado al dashboard.
 
 ```diff
-+ El sistema decide cuándo cambiar un semáforo según la presión acumulada de
-+ vehículos y peatones en cada intersección, ajustada por clima, hora y día.
-- No es un sistema de semáforos de tiempo fijo.
-- No depende de un solo proveedor de datos.
++ Agente PPO entrenado: 15× menos vehículos detenidos que el baseline
++ 1,036 vehículos completaron su ruta en 60 ticks (vs 0 del baseline)
++ Adaptable a cualquier ciudad con datos en OpenStreetMap
+- No es un sistema de semáforos de tiempo fijo
+- No depende de un solo proveedor de datos
 ```
+
+> 📖 **Documentación completa:** [remih06.github.io/tanGo](https://remih06.github.io/tanGo)
 
 ---
 
 ## ⚙️ Arquitectura
 
 ```
-tango/
+36.TanGo/
 ├── core/
-│   ├── context.py          # TrafficContext — dataclass inmutable por ciclo
-│   ├── entities.py         # TrafficEntity (ABC), Vehicle, Pedestrian
-│   ├── road.py             # RoadSegment, Intersection
-│   └── weight_engine.py    # Motor de pesos — funciones puras
-├── safety/
-│   ├── guard.py            # SafetyGuard — silla de ruedas, emergencias, giros
-│   └── circuit_breaker.py  # Resiliencia ante fallos de APIs externas
-├── ingest/
-│   └── base.py             # DataIngester (ABC), TomTomIngester, WeatherIngester
+│   ├── algorithm.py        # TrafficAlgorithm — 3 pasos secuenciales
+│   ├── context.py          # TrafficContext — hora, clima, tráfico real
+│   ├── entities.py         # Vehicle, Pedestrian, VehicleType
+│   ├── road.py             # Intersection, Phase, RoadSegment
+│   ├── movement.py         # MovementEngine — Dijkstra + velocidades
+│   └── weight_engine.py    # Presión, ola verde, pesos estáticos
 ├── graph/
-│   └── simulator.py        # CitySimulator — Neo4j + NetworkX
-├── pipeline/               # Apache Airflow DAGs
-├── api/                    # FastAPI — exposición de señales en tiempo real
-└── tests/
-    └── test_weight_engine.py
+│   ├── city_graph.json     # 354 nodos, 672 aristas — GDL centro
+│   ├── tango_state.json    # Estado horario generado por DAG
+│   └── city_loader.py      # Overpass API → JSON + pesos estáticos
+├── dags/
+│   ├── tango_queries_dag.py   # Pipeline @hourly
+│   └── tango_daily_dag.py     # Recálculo de pesos @3am
+├── dashboard/
+│   ├── api.py              # FastAPI :8000
+│   ├── app.py              # Streamlit :8501
+│   └── tanGo_dashboard.html   # Dashboard principal — modo claro/oscuro
+├── tests/
+│   ├── sim0/               # Baseline: timers fijos
+│   ├── sim1/               # SCOOT greedy
+│   ├── sim2/               # Pesos estáticos + MovementEngine
+│   └── sim3/               # PPO — agente RL entrenado
+│       ├── tango_env.py    # TanGoEnv (gymnasium)
+│       ├── train.py
+│       ├── evaluate.py
+│       └── tango_sim3.py   # Visualización del agente PPO
+├── docker/
+│   ├── Dockerfile.api
+│   ├── Dockerfile.airflow
+│   └── Dockerfile.dashboard
+├── docker-compose.yml
+└── docs/
+    └── index.html          # Documentación interactiva
 ```
 
 ---
 
-## 🧮 Sistema de pesos
+## 🧮 El algoritmo — 3 pasos por tick
 
-Cada entidad en una intersección contribuye con un **peso** al total de presión. Cuando la presión supera el umbral de la vía, el semáforo cambia de fase.
+Cada tick (~30 segundos simulados), `TrafficAlgorithm.run_tick()` ejecuta:
 
-```
-Σ peso_efectivo(entidades) / peso_efectivo(vía) × 100 ≥ 100  →  cambio de fase
-```
+**Paso 1 — Presión propia**
+`WeightEngine.aggregate_pressure()` calcula una presión escalar por intersección a partir de las entidades presentes. Función pura: mismo input → mismo output.
 
-**Pesos base de entidades:**
+**Paso 2 — Mente colmena**
+Cada nodo recibe señales de sus vecinos upstream. Si un vecino está en verde, se calcula el offset temporal (distancia / velocidad) para anticipar la llegada del flujo. Cuando el offset se cumple, el nodo downstream se fuerza a verde — esto implementa la **ola verde distribuida** de SCOOT.
 
-| Entidad | Peso base |
-|---|---|
-| Peatón | 10 |
-| Vehículo (auto) | 5 |
-| Autobús | 8 |
-| Bicicleta | 2 |
-| Emergencia | 999 (override inmediato) |
+**Paso 3 — Ajuste de fases**
+Aplica la máquina de estados (RED → GREEN → YELLOW → RED) con exclusión mutua NS/EW, timeout de equidad, modo BLINK para intersecciones vacías y coordinación de cluster (intersecciones a <60m se coordinan entre sí).
 
-**Pesos base de vías:**
+---
 
-| Vía | Peso base |
-|---|---|
-| Autopista / periférico | 100 |
-| Avenida principal | 80 |
-| Avenida secundaria | 50 |
-| Calle residencial | 20 |
-| Callejón | 5 |
+## 🤖 Reinforcement Learning — sim3
 
-**Modificadores dinámicos por contexto:**
+El agente PPO observa **10 features por semáforo** (presión, fase, entidades, hora cíclica sin/cos, presión de vecinos upstream, wave_offset) y decide en cada tick si mantener o cambiar cada fase.
 
-| Condición | Efecto |
-|---|---|
-| 🌧️ Lluvia | Peatón × 1.3 |
-| 🌡️ Temperatura extrema (< 5°C o > 35°C) | Peatón × 1.3 |
-| 🌙 Madrugada (00:00 – 05:00) | Vehículo × 1.5 · Peatón × 0.8 |
-| 📅 Fin de semana | Avenida × 0.7 (distribuir flujo) |
-| ♿ Silla de ruedas | Verde mínimo extendido automáticamente |
-| 🚨 Vehículo de emergencia | Override inmediato — todas las fases a rojo |
+**Resultados tras 550 episodios de entrenamiento (~5 días en CPU):**
+
+| Métrica | sim0 (baseline) | sim1 (SCOOT) | sim3 (PPO) |
+|---|---|---|---|
+| Detenidos/tick | 367 | 491 | **24.18** |
+| Vehículos llegados | 0 | 0 | **1,036** |
+| Reducción vs baseline | — | — | **−93%** |
+
+> sim3b (multi-agente) queda como trabajo futuro — con los recursos actuales (i3-11va, 20GB RAM) es inviable: sim3 requirió ~500,000 segundos de CPU para 550 episodios. Un esquema multi-agente multiplicaría ese costo por el número de agentes.
 
 ---
 
 ## 🏗️ Stack tecnológico
 
-| Capa | Herramienta | Razón |
+| Capa | Herramienta | Versión |
 |---|---|---|
-| Grafos (persistencia) | Neo4j + CQL + GDS + Bloom | Ciudad modelada como grafo nativo |
-| Grafos (algoritmos) | NetworkX | Dijkstra, propagación ola verde |
-| Procesamiento | Python 3.11, Pandas, NumPy | ETL + codificación trigonométrica temporal |
-| Ingesta | httpx async | TomTom Traffic API + Open-Meteo |
-| Orquestación | Apache Airflow | DAG cada 5 minutos, ciclo continuo |
-| API | FastAPI + Uvicorn | Exposición de señales en tiempo real |
-| Dashboard | Streamlit + Folium | Mapa de presión + métricas |
-| Testing | pytest + pytest-asyncio | Funciones puras → tests sin mocks |
-| Contenedores | Docker | Portabilidad del pipeline completo |
+| Algoritmo | NetworkX | 3.3 |
+| RL entrenamiento | Ray RLlib | 2.55 |
+| RL entorno | Gymnasium | 0.29 |
+| RL modelo | PyTorch | 2.1+ |
+| Pipeline | Apache Airflow | 2.9 |
+| API | FastAPI + Uvicorn | 0.111 / 0.30 |
+| Dashboard | Streamlit | 1.35 |
+| Visualización | Leaflet.js | 1.9.4 |
+| Datos externos | Overpass, Open-Meteo, TomTom | — |
+| Contenedores | Docker + Compose | 29.2 |
+
+---
+
+## 🚀 Quickstart con Docker
+
+```bash
+git clone https://github.com/RemiH06/tanGo.git
+cd tanGo
+docker compose up --build
+```
+
+| Servicio | URL |
+|---|---|
+| FastAPI | http://localhost:8000 |
+| Airflow | http://localhost:8082 (admin/admin) |
+| Streamlit | http://localhost:8501 |
+
+Trigger manual del DAG para poblar el estado inicial:
+
+```bash
+docker compose exec tango-airflow airflow dags trigger tango_traffic_pipeline
+```
+
+---
+
+## 🖥️ Quickstart local (WSL / Linux)
+
+```bash
+# Entorno del algoritmo y visualizaciones
+python -m venv ~/tango_env
+source ~/tango_env/bin/activate
+pip install -r requirements_sim3.txt
+
+# Generar visualización del agente PPO
+python tests/sim3/tango_sim3.py --checkpoint tests/sim3/checkpoints/checkpoint_00550
+
+# Entorno de Airflow + FastAPI
+python -m venv ~/airflow_env
+source ~/airflow_env/bin/activate
+pip install -r requirements_airflow.txt
+
+# Levantar Airflow
+export AIRFLOW_HOME=~/airflow
+export AIRFLOW__CORE__DAGS_FOLDER="$(pwd)/dags"
+export AIRFLOW__WEBSERVER__WEB_SERVER_PORT=8082
+airflow standalone
+
+# Levantar FastAPI (otra terminal)
+uvicorn dashboard.api:app --reload --port 8000
+```
+
+---
+
+## 🗂️ Variables de entorno
+
+Crea un archivo `.env` en la raíz del proyecto:
+
+```env
+TOMTOM_API_KEY=tu_api_key_aqui
+CITY_LATITUDE=20.6597
+CITY_LONGITUDE=-103.3496
+CITY_RADIUS_M=800
+```
+
+Open-Meteo no requiere API key. TomTom es opcional — sin key el pipeline usa factor de tráfico 1.0 (flujo libre).
 
 ---
 
 ## 🔒 Seguridad
 
 - API keys exclusivamente en variables de entorno — nunca en el código fuente
-- `SecurityLayer`: validación de tokens, rate limiting, sanitización de inputs
 - `CircuitBreaker`: si TomTom o Open-Meteo fallan, el pipeline continúa con fallback seguro
-- Auditoría de eventos críticos (cambios de fase, overrides de emergencia)
+- Un solo escritor (`tango_state.json`) — múltiples lectores sin condiciones de carrera
 
 ---
 
 ## 🧪 Tests
 
 ```bash
+source ~/airflow_env/bin/activate
 pytest tests/ -v
 ```
 
-Los tests del `WeightEngine` son completamente deterministas — no requieren red ni base de datos porque todas las funciones son puras. Dado el mismo `TrafficContext`, siempre devuelven el mismo resultado.
-
----
-
-## 🗂️ Variables de entorno
-
-```env
-TOMTOM_API_KEY=tu_api_key_aqui
-NEO4J_URI=bolt://localhost:7687
-NEO4J_USER=neo4j
-NEO4J_PASSWORD=tu_password_aqui
-CITY_LATITUDE=20.6597
-CITY_LONGITUDE=-103.3496
-```
+Los tests del `WeightEngine` son completamente deterministas — no requieren red ni base de datos porque todas las funciones son puras.
 
 ---
 
