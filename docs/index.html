@@ -866,7 +866,21 @@ node_weight = (degree_w * betweenness_w * pagerank_w
         <span class="sim-card-title">tanGo sim0 — Timers fijos</span>
         <span class="sim-badge s0">BASELINE</span>
       </div>
-      <iframe src="../tests/sim0/tango_vis_sim0.html" title="Simulación sim0"></iframe>
+      <iframe id="iframe-sim0" src="../tests/sim0/tango_vis_sim0.html" title="Simulación sim0" onload="checkIframe('iframe-sim0')" onerror="fallbackIframe('iframe-sim0','sim0')"></iframe>
+      <script>
+      function checkIframe(id){
+        const f=document.getElementById(id);
+        try{if(!f.contentDocument||f.contentDocument.title==='404')fallbackIframe(id,'sim0');}catch(e){}
+      }
+      function fallbackIframe(id,sim){
+        const urls={
+          'sim0':'https://remih06.github.io/tanGo/tests/sim0/tango_vis_sim0.html',
+          'sim3':'https://remih06.github.io/tanGo/tests/sim3/tango_vis_sim3.html',
+        };
+        const f=document.getElementById(id);
+        if(f.src!==urls[sim])f.src=urls[sim];
+      }
+      </script>
       <div class="sim-card-desc">Baseline: semáforos en verde fijo. 367 vehículos detenidos/tick promedio.</div>
     </div>
   </div>
@@ -883,7 +897,12 @@ node_weight = (degree_w * betweenness_w * pagerank_w
         <span class="sim-card-title">tanGo sim1 — SCOOT greedy</span>
         <span class="sim-badge s1">ALGORITMO</span>
       </div>
-      <iframe src="../tests/sim1/tango_vis.html" title="Simulación sim1"></iframe>
+      <iframe id="iframe-sim1" src="../tests/sim1/tango_vis.html" title="Simulación sim1" style="width:100%;height:360px;border:none;display:block;background:var(--bg)" onload="checkIframeSim('iframe-sim1','sim1-fallback')" onerror="showFallback('sim1-fallback')"></iframe>
+      <div id="sim1-fallback" style="display:none;padding:48px 32px;text-align:center;color:var(--text2)">
+        <div style="font-family:var(--mono);font-size:32px;opacity:.2;margin-bottom:16px">⊘</div>
+        <p style="font-family:var(--mono);font-size:12px;margin-bottom:8px">Visualización no disponible en esta versión</p>
+        <p style="font-size:12px">sim1 pesa <strong style="color:var(--text)">~401MB</strong> — excede el límite práctico para el repositorio público. Para verlo, clona el repo y corre <code>python tests/sim1/tango_sim.py</code> localmente.</p>
+      </div>
       <div class="sim-card-desc">TrafficAlgorithm con presión y ola verde. Escenarios: hora pico, lluvia, fin de semana.</div>
     </div>
   </div>
@@ -900,7 +919,12 @@ node_weight = (degree_w * betweenness_w * pagerank_w
         <span class="sim-card-title">tanGo sim2 — Pesos estáticos + Movimiento</span>
         <span class="sim-badge s2">MOVIMIENTO</span>
       </div>
-      <iframe src="../tests/sim2/tango_vis_sim2.html" title="Simulación sim2"></iframe>
+      <iframe id="iframe-sim2" src="../tests/sim2/tango_vis_sim2.html" title="Simulación sim2" style="width:100%;height:360px;border:none;display:block;background:var(--bg)" onload="checkIframeSim('iframe-sim2','sim2-fallback')" onerror="showFallback('sim2-fallback')"></iframe>
+      <div id="sim2-fallback" style="display:none;padding:48px 32px;text-align:center;color:var(--text2)">
+        <div style="font-family:var(--mono);font-size:32px;opacity:.2;margin-bottom:16px">⊘</div>
+        <p style="font-family:var(--mono);font-size:12px;margin-bottom:8px">Visualización no disponible en esta versión</p>
+        <p style="font-size:12px">sim2 pesa <strong style="color:var(--text)">~482MB</strong> — excede el límite práctico para el repositorio público. Para verlo, clona el repo y corre <code>python tests/sim2/tango_sim2.py</code> localmente.</p>
+      </div>
       <div class="sim-card-desc">Partículas animadas con rutas Dijkstra, heatmap de flujo acumulado y pesos estáticos por nodo.</div>
     </div>
   </div>
@@ -908,19 +932,23 @@ node_weight = (degree_w * betweenness_w * pagerank_w
   <div class="sim-grid">
     <div class="sim-card">
       <div class="sim-card-header"><span class="sim-card-title">Caso 246</span><span class="sim-badge s2">EXP</span></div>
-      <iframe src="../tests/sim2/casos_exp/caso246_vis.html" title="Caso 246"></iframe>
+      <iframe src="../tests/sim2/casos_exp/caso246_vis.html" title="Caso 246" style="width:100%;height:260px;border:none;display:block" onerror="this.style.display='none';this.nextElementSibling.style.display='block'"></iframe>
+      <div style="display:none;padding:24px;text-align:center;color:var(--text2);font-size:12px">No disponible — ver localmente</div>
     </div>
     <div class="sim-card">
       <div class="sim-card-header"><span class="sim-card-title">Caso 369</span><span class="sim-badge s2">EXP</span></div>
-      <iframe src="../tests/sim2/casos_exp/caso369_vis.html" title="Caso 369"></iframe>
+      <iframe src="../tests/sim2/casos_exp/caso369_vis.html" title="Caso 369" style="width:100%;height:260px;border:none;display:block" onerror="this.style.display='none';this.nextElementSibling.style.display='block'"></iframe>
+      <div style="display:none;padding:24px;text-align:center;color:var(--text2);font-size:12px">No disponible — ver localmente</div>
     </div>
     <div class="sim-card">
       <div class="sim-card-header"><span class="sim-card-title">Caso 48C</span><span class="sim-badge s2">EXP</span></div>
-      <iframe src="../tests/sim2/casos_exp/caso48C_vis.html" title="Caso 48C"></iframe>
+      <iframe src="../tests/sim2/casos_exp/caso48C_vis.html" title="Caso 48C" style="width:100%;height:260px;border:none;display:block" onerror="this.style.display='none';this.nextElementSibling.style.display='block'"></iframe>
+      <div style="display:none;padding:24px;text-align:center;color:var(--text2);font-size:12px">No disponible — ver localmente</div>
     </div>
     <div class="sim-card">
       <div class="sim-card-header"><span class="sim-card-title">Caso 5AF</span><span class="sim-badge s2">EXP</span></div>
-      <iframe src="../tests/sim2/casos_exp/caso5AF_vis.html" title="Caso 5AF"></iframe>
+      <iframe src="../tests/sim2/casos_exp/caso5AF_vis.html" title="Caso 5AF" style="width:100%;height:260px;border:none;display:block" onerror="this.style.display='none';this.nextElementSibling.style.display='block'"></iframe>
+      <div style="display:none;padding:24px;text-align:center;color:var(--text2);font-size:12px">No disponible — ver localmente</div>
     </div>
   </div>
 </div>
@@ -960,7 +988,7 @@ node_weight = (degree_w * betweenness_w * pagerank_w
         <span class="sim-card-title">tanGo sim3 — Agente PPO</span>
         <span class="sim-badge s3">PPO · RL</span>
       </div>
-      <iframe src="../tests/sim3/tango_vis_sim3.html" title="Simulación sim3"></iframe>
+      <iframe id="iframe-sim3" src="../tests/sim3/tango_vis_sim3.html" title="Simulación sim3" onload="checkIframe('iframe-sim3')" onerror="fallbackIframe('iframe-sim3','sim3')"></iframe>
       <div class="sim-card-desc">El agente PPO controla los semáforos en tiempo real. Los pulsos cyan indican semáforos que el agente cambió ese tick. La curva de reward se actualiza tick a tick.</div>
     </div>
   </div>
@@ -1142,7 +1170,7 @@ docker compose exec tango-airflow airflow dags trigger tango_traffic_pipeline</p
     <div class="kan-item"><div class="kan-dot pending">16</div><div class="kan-body"><h4>KAN-16 — VisionIngester / YOLO</h4><p>Reemplaza el spawn sintético del DAG con conteos reales desde cámaras. Compañero responsable.</p></div></div>
     <div class="kan-item"><div class="kan-dot pending">17</div><div class="kan-body"><h4>KAN-17 — Kafka</h4><p>Stream de eventos entre YOLO y el DAG. Depende de KAN-16.</p></div></div>
     <div class="kan-item"><div class="kan-dot pending">—</div><div class="kan-body"><h4>Actualizar Docker con YOLO/Kafka</h4><p>Agregar cuarto contenedor al docker-compose.yml cuando KAN-16 y 17 estén listos.</p></div></div>
-    <div class="kan-item"><div class="kan-dot pending">—</div><div class="kan-body"><h4>sim3b — Multi-agente</h4><p>Extensión opcional de sim3 a múltiples agentes cuando converja completamente.</p></div></div>
+    <div class="kan-item"><div class="kan-dot pending">—</div><div class="kan-body"><h4>sim3b — Multi-agente (descartado)</h4><p>Extensión de sim3 con múltiples agentes independientes por intersección. Descartado por restricciones de hardware: sim3 (agente único) requirió ~500,000 segundos de CPU para 550 episodios en un i3-11va con 20GB RAM. Un esquema multi-agente multiplicaría ese costo por el número de agentes activos — inviable sin infraestructura de cómputo distribuido (GPU cluster o cloud). Queda documentado como trabajo futuro para entornos con recursos adecuados.</p></div></div>
     <div class="kan-item"><div class="kan-dot pending">—</div><div class="kan-body"><h4>Calibración de pesos RL</h4><p>Usar PPO para aprender los exponentes óptimos de la media geométrica de node_weight por hora del día.</p></div></div>
   </div>
 </div>
@@ -1204,7 +1232,24 @@ function showPage(id){
 const hash = window.location.hash.replace('#','');
 if(hash) showPage(hash);
 
-// ── Búsqueda ──────────────────────────────────────────────────────────────
+// ── Fallback iframes ──────────────────────────────────────────────────────────
+function showFallback(fallbackId){
+  const el=document.getElementById(fallbackId);
+  if(el) el.style.display='block';
+}
+function checkIframeSim(iframeId, fallbackId){
+  const f=document.getElementById(iframeId);
+  if(!f) return;
+  try{
+    const doc=f.contentDocument||f.contentWindow.document;
+    if(!doc||doc.title==='404'||doc.body.innerHTML.trim()===''){
+      f.style.display='none';
+      showFallback(fallbackId);
+    }
+  }catch(e){
+    // cross-origin — si cargó sin error el iframe está bien
+  }
+}
 function searchDocs(q){
   const items = document.querySelectorAll('.nav-item');
   items.forEach(item => {
