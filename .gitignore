@@ -1,7 +1,10 @@
 # Perso
 steps.md
+procedures.md
 tests/sim1/*.html
 graph/city_graph.json
+
+tango_src.tar.gz
 
 # Python
 __pycache__/
@@ -68,5 +71,3 @@ tests/sim3/results/
 ray_results/
 graph/tango_context.json
 graph/tango_state.json
-commies.md
-tango_src.tar.gz
