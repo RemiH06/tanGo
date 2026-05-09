@@ -878,7 +878,7 @@ node_weight = (degree_w * betweenness_w * pagerank_w
         <p style="font-family:var(--mono);font-size:12px;margin-bottom:8px">Visualización no disponible en esta versión</p>
         <p style="font-size:12px">Para verlo, clona el repo y corre <code>python tests/sim0/tango_sim0.py</code> localmente.</p>
       </div>
-      <div class="sim-card-desc">Baseline: semáforos en verde fijo. 367 vehículos detenidos/tick promedio.</div>
+      <div class="sim-card-desc">Baseline: semáforos en verde fijo. 367 vehículos detenidos/tick promedio. &nbsp;·&nbsp; <a href="https://remih06.github.io/tanGo/sim0.html" target="_blank" style="color:var(--accent);font-family:var(--mono);font-size:10px">↗ ver en línea</a></div>
     </div>
   </div>
 </div>
@@ -991,7 +991,7 @@ node_weight = (degree_w * betweenness_w * pagerank_w
         <p style="font-family:var(--mono);font-size:12px;margin-bottom:8px">Visualización no disponible en esta versión</p>
         <p style="font-size:12px">Para verlo, clona el repo y corre <code>python tests/sim3/tango_sim3.py</code> localmente.</p>
       </div>
-      <div class="sim-card-desc">El agente PPO controla los semáforos en tiempo real. Los pulsos cyan indican semáforos que el agente cambió ese tick. La curva de reward se actualiza tick a tick.</div>
+      <div class="sim-card-desc">El agente PPO controla los semáforos en tiempo real. Los pulsos cyan indican semáforos que el agente cambió ese tick. La curva de reward se actualiza tick a tick. &nbsp;·&nbsp; <a href="https://remih06.github.io/tanGo/sim3.html" target="_blank" style="color:var(--accent);font-family:var(--mono);font-size:10px">↗ ver en línea</a></div>
     </div>
   </div>
 </div>
@@ -1233,29 +1233,30 @@ docker compose exec tango-airflow airflow dags trigger tango_traffic_pipeline</p
     </div>
   </div>
 
-  <p class="muted">Proyecto académico desarrollado durante la primera mitad del 2026. Gracias a todxs.</p>
+  <p class="muted">Proyecto académico desarrollado en mayo 2026. Hecho con mucho café y algo de paciencia.</p>
 
   <div style="display:flex;gap:32px;align-items:flex-start;margin-top:48px">
     <!-- ASCII semáforo jgs -->
     <pre style="font-family:'Space Mono',monospace;font-size:12px;line-height:1.45;background:var(--bg2);border:1px solid var(--border);border-radius:4px;padding:24px 28px;flex-shrink:0;color:var(--text2)">
-             ##
-            _[]_
-           [____]
-       .----'  '----.
-   .===|    .==.    |===.
-   \   |   <span style="color:var(--danger)">/####\</span>   |   /
-   /   |   <span style="color:var(--danger)">\####/</span>   |   \
-   '===|    `""`    |==='
-   .===|    .==.    |===.
-   \   |   <span style="color:var(--warn)">/::::\</span>   |   /
-   /   |   <span style="color:var(--warn)">\::::/</span>   |   \
-   '===|    `""`    |==='
-   .===|    .==.    |===.
-   \   |   <span style="color:var(--ok)">/&&&&\</span>   |   /
-   /   |   <span style="color:var(--ok)">\&&&&/</span>   |   \
-   '===|    `""`    |==='
-jgs    '--.______.--'</pre>
+                   ##
+                  _[]_
+                 [____]
+             .----'  '----.
+         .===|    .==.    |===.
+         \   |   <span style="color:var(--danger)">/####\</span>   |   /
+         /   |   <span style="color:var(--danger)">\####/</span>   |   \
+         '===|    `""`    |==='
+         .===|    .==.    |===.
+         \   |   <span style="color:var(--warn)">/::::\</span>   |   /
+         /   |   <span style="color:var(--warn)">\::::/</span>   |   \
+         '===|    `""`    |==='
+         .===|    .==.    |===.
+         \   |   <span style="color:var(--ok)">/&&&&\</span>   |   /
+         /   |   <span style="color:var(--ok)">\&&&&/</span>   |   \
+         '===|    `""`    |==='
+      jgs    '--.______.--'</pre>
 
+    <!-- Corazón braille -->
     <pre style="font-family:'Space Mono',monospace;font-size:12px;line-height:1.45;background:none;border:none;padding:24px 0;flex-shrink:0;color:var(--danger)">⠀⠀⠀⠀⠀⠀⠀⠀⣄⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢀⡾⡄⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
 ⠀⠀⠀⠀⠀⠀⠀⡼⠙⣧⡀⠀⠀⠀⠀⠀⠀⠀⠀⢠⣿⠃⢹⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
 ⠀⠀⠀⠀⠀⠀⢰⠃⠀⠘⣿⡄⠀⠀⠀⠀⠀⠀⢀⣿⡇⠀⠘⡇⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
