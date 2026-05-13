@@ -1,6 +1,6 @@
 import streamlit as st
 import folium
-from streamlit_folium import st_folium
+import streamlit.components.v1 as components
 
 from utils import (
     get_intersections,
@@ -26,11 +26,12 @@ if df.empty:
     st.stop()
 
 # ── Métricas principales ───────────────────────
-col1, col2, col3 = st.columns(3)
+col1, col2, col3, col4 = st.columns(4)
 
-col1.metric("Intersecciones", metrics["total_intersections"])
-col2.metric("Registros", metrics["total_records"])
-col3.metric("Ticks", metrics["total_ticks"])
+col1.metric("Intersecciones", metrics.get("total_intersections", 0))
+col2.metric("Registros", metrics.get("total_records", 0))
+col3.metric("Ticks", metrics.get("n_ticks_run", metrics.get("total_ticks", 0)))
+col4.metric("Factor tráfico", metrics.get("traffic_factor", 1.0))
 
 st.divider()
 
@@ -81,11 +82,7 @@ for _, row in df_filtered.iterrows():
         tooltip=f"{row['name']} | Presión: {row['pressure']:.2f}"
     ).add_to(m)
 
-st_folium(
-    m,
-    width=1100,
-    height=550
-)
+components.html(m._repr_html_(), height=550)
 
 # ── Interpretación simple ──────────────────────
 st.subheader("🧠 Lectura rápida")
