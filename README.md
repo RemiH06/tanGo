@@ -15,11 +15,6 @@
         by Hex (@RemiH06), @cesarsantos23, @edumar67, @DonCo93
 ```
 
-![Maintained](https://img.shields.io/badge/Maintained%3F-yes-green.svg?style=for-the-badge)
-![License](https://img.shields.io/badge/License-AGPL%20v3-blue.svg?style=for-the-badge)
-![Python](https://img.shields.io/badge/Python-3.11+-yellow.svg?style=for-the-badge)
-![Ray](https://img.shields.io/badge/Ray%20RLlib-2.55-informational?style=for-the-badge)
-
 ---
 
 ## 🚦 Descripción general
@@ -73,6 +68,10 @@ El sistema opera sobre un grafo real de **354 intersecciones y 672 segmentos via
 │       ├── train.py
 │       ├── evaluate.py
 │       └── tango_sim3.py   # Visualización del agente PPO
+├── YOLO_PID/
+│   ├── semaforo_detector.py   # Detección YOLO + eventos Kafka
+│   ├── requirements.txt       # ultralytics, opencv, kafka-python
+│   └── setup.bat              # Setup automático Windows
 ├── docker/
 │   ├── Dockerfile.api
 │   ├── Dockerfile.airflow
@@ -127,6 +126,8 @@ El agente PPO observa **10 features por semáforo** (presión, fase, entidades, 
 | API | FastAPI + Uvicorn | 0.111 / 0.30 |
 | Dashboard | Streamlit | 1.35 |
 | Visualización | Leaflet.js | 1.9.4 |
+| Object detection | YOLOv8 (ultralytics) | 8.3.0 |
+| Streaming | Kafka + kafka-python | 2.0.2 |
 | Datos externos | Overpass, Open-Meteo, TomTom | — |
 | Contenedores | Docker + Compose | 29.2 |
 
@@ -213,6 +214,68 @@ pytest tests/ -v
 ```
 
 Los tests del `WeightEngine` son completamente deterministas — no requieren red ni base de datos porque todas las funciones son puras.
+
+---
+
+## 📊 KANs completados
+
+- ✅ sim0 — Baseline timers fijos
+- ✅ sim1 — TrafficAlgorithm + SCOOT greedy + casos experimentales
+- ✅ sim2 — Pesos estáticos + MovementEngine + Dijkstra
+- ✅ sim3 — TanGoEnv + PPO (Ray 2.55) + evaluación comparativa
+- ✅ KAN-10 — DAG Airflow (@hourly + @daily)
+- ✅ KAN-11 — FastAPI + Dashboard HTML técnico
+- ✅ KAN-12 — Docker (3 servicios)
+- ✅ KAN-15 — Documentación interactiva GitHub Pages
+- ✅ KAN-16 — VisionIngester / YOLO (semaforo_detector.py)
+- ✅ KAN-17 — Kafka (integrado en semaforo_detector.py, pendiente de producción)
+
+---
+
+## 📷 VisionIngester — YOLO + Kafka
+
+`YOLO_PID/semaforo_detector.py` detecta vehículos detenidos en video usando YOLOv8 y publica eventos a Kafka cuando un vehículo lleva más de 2 segundos quieto.
+
+**Setup (Windows):**
+
+```bat
+cd YOLO_PID
+setup.bat
+```
+
+**Correr manualmente:**
+
+```bash
+cd YOLO_PID
+python semaforo_detector.py
+```
+
+**Configuración en `semaforo_detector.py`:**
+
+```python
+VIDEO_PATH     = r"ruta\al\video.mp4"   # fuente de video
+OUTPUT_PATH    = r"ruta\output.mp4"     # video anotado
+KAFKA_BROKER   = "localhost:9092"        # broker Kafka
+KAFKA_TOPIC    = "semaforo-eventos"      # topic de eventos
+```
+
+**Eventos Kafka emitidos:**
+
+```json
+{
+  "evento":     "objeto_quieto",
+  "objeto_id":  42,
+  "clase":      "car",
+  "posicion":   {"x": 320, "y": 240},
+  "seg_quieto": 3.5,
+  "timestamp":  1715000000.123,
+  "accion":     "cambiar_verde"
+}
+```
+
+Kafka es opcional — si no hay broker disponible, el detector corre con `kafka_ok=False` y solo genera el video anotado sin enviar eventos.
+
+> **Nota:** En el estado actual del proyecto, el DAG de Airflow y el detector YOLO corren de forma independiente. La integración completa (Kafka → DAG → algoritmo) está diseñada para producción.
 
 ---
 

@@ -323,6 +323,7 @@ body.dark .hl{background:rgba(0,229,160,.2)}
 
     <div class="nav-section">Infraestructura</div>
     <div class="nav-item" onclick="showPage('dag')">DAG de Airflow</div>
+    <div class="nav-item" onclick="showPage('yolo')">VisionIngester (YOLO)</div>
     <div class="nav-item" onclick="showPage('api')">FastAPI</div>
     <div class="nav-item" onclick="showPage('docker')">Docker</div>
 
@@ -1095,6 +1096,57 @@ airflow tasks logs tango_traffic_pipeline correr_simulacion &lt;run_id&gt;</pre>
   </div>
 </div>
 
+<!-- ══════ YOLO ══════ -->
+<div class="page" id="page-yolo">
+  <h1>VisionIngester <span>YOLO</span></h1>
+  <p class="subtitle">KAN-16 + KAN-17 · YOLOv8n · Kafka · César Adrián Santos Santacruz</p>
+
+  <p><code>YOLO_PID/semaforo_detector.py</code> es la capa de visión por computadora del sistema. Detecta vehículos detenidos en video usando YOLOv8n y publica eventos a Kafka cuando un vehículo lleva más de 2 segundos quieto, sugiriendo un cambio a verde en el semáforo correspondiente.</p>
+
+  <h2>Clases detectadas</h2>
+  <table>
+    <tr><th>ID YOLO</th><th>Clase</th><th>Peso en presión</th></tr>
+    <tr><td><code>2</code></td><td>car</td><td>1.0</td></tr>
+    <tr><td><code>3</code></td><td>motorcycle</td><td>0.6</td></tr>
+    <tr><td><code>5</code></td><td>bus</td><td>2.5</td></tr>
+    <tr><td><code>7</code></td><td>truck</td><td>2.0</td></tr>
+  </table>
+
+  <h2>Parámetros clave</h2>
+  <table>
+    <tr><th>Parámetro</th><th>Valor</th><th>Descripción</th></tr>
+    <tr><td><code>UMBRAL_QUIETO_PX</code></td><td>15 px</td><td>Desplazamiento máximo para considerar un vehículo detenido</td></tr>
+    <tr><td><code>UMBRAL_QUIETO_SEG</code></td><td>2.0 s</td><td>Segundos quieto antes de emitir evento</td></tr>
+    <tr><td><code>COOLDOWN_EVENTO</code></td><td>5.0 s</td><td>Tiempo mínimo entre eventos del mismo vehículo</td></tr>
+    <tr><td><code>FRAME_SKIP</code></td><td>3</td><td>Inferencia cada 3 frames para reducir costo computacional</td></tr>
+    <tr><td><code>KAFKA_TOPIC</code></td><td>semaforo-eventos</td><td>Topic donde se publican los eventos</td></tr>
+  </table>
+
+  <h2>Evento Kafka emitido</h2>
+  <pre><span class="kw">{</span>
+  <span class="str">"evento"</span>:     <span class="str">"objeto_quieto"</span>,
+  <span class="str">"objeto_id"</span>:  <span class="num">42</span>,
+  <span class="str">"clase"</span>:      <span class="str">"car"</span>,
+  <span class="str">"posicion"</span>:   <span class="kw">{</span><span class="str">"x"</span>: <span class="num">320</span>, <span class="str">"y"</span>: <span class="num">240</span><span class="kw">}</span>,
+  <span class="str">"seg_quieto"</span>: <span class="num">3.5</span>,
+  <span class="str">"timestamp"</span>:  <span class="num">1715000000.123</span>,
+  <span class="str">"accion"</span>:     <span class="str">"cambiar_verde"</span>
+<span class="kw">}</span></pre>
+
+  <h2>Setup y ejecución</h2>
+  <pre><span class="cm"># Windows — setup automático</span>
+cd YOLO_PID
+setup.bat
+
+<span class="cm"># Correr el detector</span>
+python semaforo_detector.py</pre>
+
+  <div class="callout warn">
+    <div class="callout-title">Estado de integración</div>
+    <p>En el estado actual del proyecto, el detector YOLO y el DAG de Airflow corren de forma independiente. Kafka es opcional: si no hay broker disponible, el detector genera el video anotado sin enviar eventos (<code>kafka_ok=False</code>). La integración completa está diseñada para producción con cámaras físicas en intersecciones.</p>
+  </div>
+</div>
+
 <!-- ══════ API ══════ -->
 <div class="page" id="page-api">
   <h1>FastAPI <span>:8000</span></h1>
@@ -1169,9 +1221,9 @@ docker compose exec tango-airflow airflow dags trigger tango_traffic_pipeline</p
   <p class="subtitle">En orden de prioridad</p>
 
   <div class="kan-list">
-    <div class="kan-item"><div class="kan-dot pending">16</div><div class="kan-body"><h4>KAN-16 — VisionIngester / YOLO</h4><p>Reemplaza el spawn sintético del DAG con conteos reales desde cámaras. Compañero responsable.</p></div></div>
-    <div class="kan-item"><div class="kan-dot pending">17</div><div class="kan-body"><h4>KAN-17 — Kafka</h4><p>Stream de eventos entre YOLO y el DAG. Depende de KAN-16.</p></div></div>
-    <div class="kan-item"><div class="kan-dot pending">—</div><div class="kan-body"><h4>Actualizar Docker con YOLO/Kafka</h4><p>Agregar cuarto contenedor al docker-compose.yml cuando KAN-16 y 17 estén listos.</p></div></div>
+    <div class="kan-item"><div class="kan-dot done">✓</div><div class="kan-body"><h4>KAN-16 — VisionIngester / YOLO</h4><p>semaforo_detector.py (César Adrián Santos Santacruz): YOLOv8n detecta vehículos detenidos en video y publica eventos a Kafka cuando un vehículo lleva más de 2 segundos quieto. Kafka es opcional con fallback automático.</p></div></div>
+    <div class="kan-item"><div class="kan-dot done">✓</div><div class="kan-body"><h4>KAN-17 — Kafka</h4><p>Integrado en semaforo_detector.py. Publica eventos al topic semaforo-eventos con id, clase, posición, segundos detenido y acción sugerida. La integración completa con el DAG está diseñada para producción.</p></div></div>
+    <div class="kan-item"><div class="kan-dot pending">—</div><div class="kan-body"><h4>Integración DAG-Kafka en producción</h4><p>El detector YOLO y el DAG corren de forma independiente. La integración completa (Kafka → DAG → algoritmo) y el cuarto contenedor Docker están diseñados para cuando el sistema se despliegue con cámaras físicas.</p></div></div>
     <div class="kan-item"><div class="kan-dot pending">—</div><div class="kan-body"><h4>sim3b — Multi-agente (descartado)</h4><p>Extensión de sim3 con múltiples agentes independientes por intersección. Descartado por restricciones de hardware: sim3 (agente único) requirió ~500,000 segundos de CPU para 550 episodios en un i3-11va con 20GB RAM. Un esquema multi-agente multiplicaría ese costo por el número de agentes activos — inviable sin infraestructura de cómputo distribuido (GPU cluster o cloud). Queda documentado como trabajo futuro para entornos con recursos adecuados.</p></div></div>
     <div class="kan-item"><div class="kan-dot pending">—</div><div class="kan-body"><h4>Calibración de pesos RL</h4><p>Usar PPO para aprender los exponentes óptimos de la media geométrica de node_weight por hora del día.</p></div></div>
   </div>
