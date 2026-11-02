@@ -12,7 +12,7 @@
    ╚═╝   ╚═╝  ╚═╝╚═╝  ╚═══╝ ╚═════╝  ╚═════╝ 
         
         Semáforo Inteligente de Tráfico         version 1.0.0
-        by Hex (@RemiH06), @cesarsantos23, @edumar67, @DonCo93
+        by RemLam (@RemiH06), @cesarsantos23, @edumar67, @DonCo93
 ```
 
 ---
