@@ -17,6 +17,16 @@
 
 ---
 
+> [!WARNING]
+> **Proyecto archivado (noviembre 2026).** Esta versión fue un proyecto escolar y ya no se mantiene. El desarrollo sigue en una versión nueva, escrita desde cero.
+>
+> **Los resultados del agente PPO de este repo no son válidos.** Al revisar el código encontré tres problemas:
+> - En `tests/sim3/tango_env.py`, después de aplicar la acción del agente se llama `algo.run_tick()`, que vuelve a ajustar las fases con la heurística. En la práctica el agente casi no controla los semáforos.
+> - `evaluate.py` compara contra un "baseline" que pone todos los semáforos en verde fijo, con otro modelo de demanda y sin semillas, así que la comparación no es justa.
+> - El simulador no tiene física de tráfico: los vehículos saltan de nodo en nodo cada 30 s, sin carriles, colas ni capacidad, y una sola fase aplica a todas las direcciones del cruce.
+>
+> Las cifras de abajo ("15× menos vehículos detenidos", "1,036 vehículos") se conservan solo como registro histórico.
+
 ## 🚦 Descripción general
 
 **tanGo** es un sistema de coordinación inteligente de semáforos que combina un algoritmo inspirado en **SCOOT** (Split Cycle Offset Optimisation Technique) con **Reinforcement Learning** (PPO) para minimizar el tiempo de detención en intersecciones del centro de Guadalajara.
